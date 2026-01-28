@@ -134,14 +134,15 @@ provided by Nix, if you have both installed.
 
 #### Website
 
-If you have [Deno](https://deno.land/) installed, you can start a local
-web server like this:
+The static assets for the Topiary website and playground (once built)
+can be found in the `website` directory. To preview the site, you can
+start a local web server. For example:
 
 ```sh
-deno run -A local-web-server.ts
+python -m http.server --directory website
 ```
 
-The website should then be running on `http://localhost:8080`.
+The website should then be running on `http://localhost:8000`.
 
 #### Web playground WASM assets
 
