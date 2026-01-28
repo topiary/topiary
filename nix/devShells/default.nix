@@ -28,9 +28,4 @@
     inherit craneLib binPkgs topiaryPkgs;
     includeExtraPackages = false;
   };
-
-  wasm = callPackage ./devShell.nix {
-    inherit binPkgs checks topiaryPkgs;
-    craneLib = topiaryPkgs.clippy-wasm.passthru.craneLibWasm;
-  };
 }
