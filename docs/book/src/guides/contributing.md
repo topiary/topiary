@@ -132,7 +132,14 @@ provided by Nix, if you have both installed.
 
 ### Website and web playground
 
-#### Website
+<div class="warning">
+
+The WASM-based web playground is currently _not_ under active
+development and has diverged from newer releases of Topiary. It has been
+removed from the main Topiary repository and now exists under
+[`topiary/playground`](https://github.com/topiary/playground).
+
+</div>
 
 The static assets for the Topiary website and playground (once built)
 can be found in the `website` directory. To preview the site, you can
@@ -143,81 +150,6 @@ python -m http.server --directory website
 ```
 
 The website should then be running on `http://localhost:8000`.
-
-#### Web playground WASM assets
-
-<div class="warning">
-
-The WASM-based web playground is currently _not_ under active
-development and has diverged from newer releases of Topiary. Building or
-updating the web playground and its associated WASM grammars is **not
-likely to function correctly** at this time.
-
-</div>
-
-In order to build or update the web playground, you can run the
-following within the Nix devshell:
-
-```sh
-update-wasm-app
-```
-
-Similarly, to update the Tree-sitter grammar WASM binaries, again within
-the Nix devshell, you can run:
-
-```sh
-update-wasm-grammars
-```
-
-Alternatively, if you have `git`, `tree-sitter` and `emcc` (Emscripten)
-in your `PATH`, you can run the `bin/update-wasm-grammars.sh` script
-directly.
-
-To use Docker instead, the legacy approach can still be used (using JSON
-as an example):
-
-1. Make sure you have Docker running and that you are member of the
-   `docker` group, so you can run it without being root.
-
-2. `npm install tree-sitter-cli`, or via some other method.
-
-3. `npm install tree-sitter-json` or Git clone the grammar repository.
-
-   - If you used NPM, `tree-sitter-json` will be fetched under
-     `node_modules/tree-sitter-json`.
-
-   - If you used Git, it will be wherever you cloned the repository
-     (most likely `tree-sitter-json`).
-
-   Whichever of these options you pick, we will use `GRAMMAR_PATH` as a
-   stand-in for the directory where `grammar.js` can be found.
-
-4. Run `npx tree-sitter build-wasm GRAMMAR_PATH`. If you get a Docker
-   permission error, you may need to add yourself to the `docker` group.
-
-5. `mv tree-sitter-json.wasm web-playground/public/scripts`
-
-> **Note**\
-> Some grammar repositories are slightly different because they can
-> contain multiple grammars or grammars under an unconventional path;
-> OCaml, for example. In such cases, step 4 (above) should be changed
-> such that `GRAMMAR_PATH` points to the directory containing the
-> appropriate `grammar.js` file.
-
-#### Web playground frontend
-
-The playground frontend is a small React app. You can run a development
-server with the following:
-
-```sh
-cd web-playground
-npm install
-npm run dev
-```
-
-If you want to build the playground so it works with the full website
-running with Deno, as [above](#website), you can now just do `npm run
-build`.
 
 <!-- Links -->
 [discord]: https://discord.gg/FSnkvNyyzC
