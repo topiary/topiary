@@ -5,7 +5,7 @@
 use std::{collections::HashSet, fmt::Display};
 
 use miette::{LabeledSpan, NamedSource, Severity, SourceSpan};
-use rootcause::{IntoReport, prelude::ResultExt, report};
+use rootcause::{IntoReport, Report, handlers::Any, prelude::ResultExt, report};
 use serde::Serialize;
 
 use topiary_tree_sitter_facade::{
@@ -17,7 +17,7 @@ use streaming_iterator::StreamingIterator;
 use crate::{
     FormatterResult,
     atom_collection::{AtomCollection, QueryPredicates},
-    error::FormatterError,
+    error::{self, ErrorSpan, FormatterError},
 };
 
 /// Supported visualisation formats
@@ -56,15 +56,19 @@ impl TopiaryQuery {
     /// contents of the query file.
     ///
     /// # Errors
-    ///
+    ///https://docs.rs/miette/latest/miette/struct.Report.html
     /// This function will return an error if tree-sitter failed to parse the
     /// query file.
     pub fn new(
         grammar: &topiary_tree_sitter_facade::Language,
         query_content: &str,
     ) -> FormatterResult<TopiaryQuery> {
-        let query = Query::new(grammar, query_content)
-            .map_err(|e| FormatterError::Query("Error parsing query file".into(), Some(e)))?;
+        let query = Query::new(grammar, query_content).map_err(|e| {
+            FormatterError::Query("Error parsing query file".into())
+                .into_report()
+                .attach_custom::<Any, _>(e.span(query_content))
+                .attach_custom::<Any, _>(error::Language("tree_sitter_query"))
+        })?;
 
         Ok(TopiaryQuery {
             query,
@@ -404,11 +408,7 @@ pub fn apply_query_tree(
 #[derive(Debug)]
 pub struct NodeSpan {
     pub(crate) range: Range,
-    // source code contents
-    pub content: Option<String>,
-    // source code location
-    pub location: Option<String>,
-    pub language: &'static str,
+    pub language: Option<&'static str>,
 }
 
 impl From<&Node<'_>> for NodeSpan {
@@ -422,9 +422,7 @@ impl NodeSpan {
     pub fn new(node: &Node) -> Self {
         Self {
             range: node.range(),
-            content: None,
-            location: None,
-            language: node.language_name().unwrap_or_default(),
+            language: node.language_name(),
         }
     }
     /// Creates a [`SourceSpan`] from the node's byte range
@@ -432,32 +430,15 @@ impl NodeSpan {
         (self.range.start_byte() as usize..=self.range.end_byte() as usize).into()
     }
 
-    pub(crate) fn set_content(&mut self, content: String) {
-        self.content = Some(content);
-    }
-
-    /// Adds source text to [`Self`] for adding context to display
-    pub fn with_content(mut self, content: String) -> Self {
-        self.set_content(content);
-        self
-    }
-
-    pub(crate) fn set_location(&mut self, location: String) {
-        self.location = Some(location);
-    }
-
-    /// Adds span origin name to [`Self`] for adding context to display
-    pub fn with_location(mut self, location: String) -> Self {
-        self.set_location(location);
-        self
-    }
-}
-
-impl std::ops::Deref for NodeSpan {
-    type Target = Range;
-
-    fn deref(&self) -> &Self::Target {
-        &self.range
+    fn report(self) -> Report<FormatterError> {
+        let report = report!(FormatterError::Parsing)
+            .attach_custom::<Any, _>(self.source_span())
+            .attach_custom::<Any, _>(self.range);
+        if let Some(language) = self.language {
+            report.attach_custom::<Any, _>(error::Language(language))
+        } else {
+            report
+        }
     }
 }
 
@@ -481,8 +462,7 @@ pub fn parse(
 
     // Fail parsing if we don't get a complete syntax tree.
     if !tolerate_parsing_errors {
-        check_for_error_nodes(&tree.root_node())
-            .map_err(|e| e.with_content(content.to_string()))?;
+        check_for_error_nodes(&tree.root_node()).map_err(NodeSpan::report)?;
     }
 
     Ok(tree)
@@ -640,7 +620,8 @@ fn check_predicates(predicates: &QueryPredicates) -> FormatterResult<()> {
     if incompatible_predicates > 1 {
         Err(FormatterError::Query(
             "A query can contain at most one #single/multi_line[_scope]_only! predicate".into(),
-        ))
+        )
+        .into())
     } else {
         Ok(())
     }
@@ -691,7 +672,7 @@ pub fn check_query_coverage(
         if ref_match_count == 0 {
             missing_patterns.push(LabeledSpan::new_with_span(
                 Some("empty query".into()),
-                SourceSpan::from(0..query_content.inner().len()),
+                SourceSpan::from(0..query_content.len()),
             ));
             cover_percentage = 0.0
         }
@@ -711,8 +692,7 @@ pub fn check_query_coverage(
             let start_idx = query.start_byte_for_pattern(i);
             let end_idx = query.end_byte_for_pattern(i);
             // SAFETY: the index range provided is returned directly from the inner `Query` object
-            let pattern_content =
-                unsafe { query_content.inner().get_unchecked(start_idx..end_idx) };
+            let pattern_content = unsafe { query_content.get_unchecked(start_idx..end_idx) };
             // All child patterns of a non-empty `Query` object created through `Query::new` are guaranteed
             // to create their own valid `Query` by referencing their pattern byte range.
             let pattern_query = Query::new(grammar, pattern_content)

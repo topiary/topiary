@@ -70,10 +70,6 @@ mod native {
             let offset = SourceOffset::from_location(content, row, col);
             SourceSpan::new(offset, row_len)
         }
-
-        pub fn end_point(&self) -> Point {
-            Point::new(self.inner.row, self.inner.column)
-        }
     }
 
     unsafe impl Send for QueryError {}

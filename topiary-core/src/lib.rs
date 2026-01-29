@@ -236,12 +236,9 @@ pub fn formatter(
     language: &Language,
     operation: Operation,
 ) -> FormatterResult<()> {
-    let content = read_input(input).map_err(|e| {
-        FormatterError::Io(IoError::Filesystem(
-            "Failed to read input contents".into(),
-            e,
-        ))
-    })?;
+    let content = read_input(input)
+        .context_to()
+        .attach("Failed to read input contents")?;
 
     formatter_str(&content, output, language, operation)
 }
