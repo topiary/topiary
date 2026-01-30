@@ -61,6 +61,9 @@ arguably the wrong approach; a better solution would have been to fork
 `mdbook-man` and make the necessary changes there. This may happen in
 the future, but this solution will do for now.
 
+Please see the [`mdbook-manmunge` repository][mdbook-manmunge-repo] for
+more details.
+
 ### Installation
 
 ```console
@@ -75,3 +78,4 @@ $ cargo install mdbook-manmunge
 [mdbook]: https://rust-lang.github.io/mdBook
 [mdbook-man]: https://github.com/vv9k/mdbook-man
 [mdbook-manmunge]: #mdbook-manmunge
+[mdbook-manmunge:repo]: https://github.com/topiary/mdbook-manmunge
