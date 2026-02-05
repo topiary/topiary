@@ -79,7 +79,7 @@ jobs:
   test-windows:
     # Note: GitHub's Windows runners have a Rust toolchain installed
     # https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md
-    runs-on: windows-2022
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
