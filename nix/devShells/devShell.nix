@@ -36,8 +36,6 @@ craneLib.devShell (
             # FIXME: Broken
             # generate-coverage
             generate-nix-documentation
-            update-wasm-app
-            update-wasm-grammars
             verify-documented-usage
           ]
           ++ pkgs.lib.optionals (!stdenv.isDarwin) [

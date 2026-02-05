@@ -3,15 +3,6 @@
 
 # Ensure binary files aren't considered as text
 *.png binary
-*.wasm binary
-
-# Prevent text normalisation for package-lock.json to avoid hashFiles
-# issues on macOS runners. This is a defensive change following GitHub
-# Actions runner bugs in November 2025
-#
-# See: https://github.com/actions/runner/issues/4134
-#      https://github.com/orgs/community/discussions/180160
-package-lock.json -text
 
 # Hide our tests from language detection so GitHub correctly detects
 # Topiary as a Rust project

@@ -13,7 +13,6 @@ members = [
   "topiary-core",
   "topiary-cli",
   "topiary-queries",
-  "topiary-playground",
   "topiary-config",
   "topiary-web-tree-sitter-sys",
   "topiary-tree-sitter-facade",

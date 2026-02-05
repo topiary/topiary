@@ -4305,18 +4305,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "topiary-playground"
-version = "0.7.3"
-dependencies = [
- "itertools 0.11.0",
- "topiary-config",
- "topiary-core",
- "topiary-tree-sitter-facade",
- "wasm-bindgen",
- "wasm-bindgen-futures",
-]
-
-[[package]]
 name = "topiary-queries"
 version = "0.7.3"
 

@@ -46,6 +46,7 @@ This name should be decided amongst the team before the release.
 
 ### Changed
 - [#1172](https://github.com/topiary/topiary/pull/1172) Split out `mdbook-manmunge` into its own repository.
+- [#1174](https://github.com/topiary/topiary/pull/1174) Split out the Topiary Playground into its own repository.
 
 <!--
 ### Added
