@@ -1,4 +1,4 @@
-# https://github.com/tweag/topiary/issues/1124
+# https://github.com/topiary/topiary/issues/1124
 {
   languages.ocaml = {
     extensions = ["ml"],

@@ -3,7 +3,7 @@ version = "0.7.3"
 edition = "2024"
 authors = ["Tweag"]
 homepage = "https://topiary.tweag.io"
-repository = "https://github.com/tweag/topiary"
+repository = "https://github.com/topiary/topiary"
 documentation = "https://topiary.tweag.io/book"
 readme = "README.md"
 license = "MIT"
@@ -17,7 +17,6 @@ members = [
   "topiary-config",
   "topiary-web-tree-sitter-sys",
   "topiary-tree-sitter-facade",
-  "docs/manpages/mdbook-manmunge",
   "examples/*",
 ]
 default-members = ["topiary-core", "topiary-cli"]
@@ -48,17 +47,13 @@ itertools = "0.11"
 js-sys = "0.3"
 libloading = "0.9.0"
 log = "0.4"
-mdbook = { version = "0.4.47", default-features = false }
 miette = { version = "7.6.0", features = ["fancy"] }
 nickel-lang-core = { version = "0.15.1", default-features = false }
 pastey = "0.2.0"
 predicates = "3.0"
 pretty_assertions = "1.3"
 prettydiff = { version = "0.8.0", default-features = false }
-pulldown-cmark = "0.13.0"
-pulldown-cmark-to-cmark = "21.0.0"
 rayon = "1.11.0"
-semver = "1.0.26"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 streaming-iterator = "0.1.9"
@@ -73,7 +68,6 @@ tree-sitter-json = "0.24"
 tree-sitter-language = "0.1"
 tree-sitter-nickel = "0.5"
 unescape = "0.1"
-url = "2.5.4"
 wasm-bindgen = "=0.2.100"
 wasm-bindgen-futures = "=0.4"
 wasm-bindgen-test = "=0.3"

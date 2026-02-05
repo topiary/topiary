@@ -1,4 +1,4 @@
-# https://github.com/tweag/topiary/issues/1134
+# https://github.com/topiary/topiary/issues/1134
 {
   languages = {
     bash.indent | priority 1 = "	",

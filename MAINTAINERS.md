@@ -183,7 +183,7 @@ dissimilar from a usual release:
 If the unreleased changes in the [`CHANGELOG`] have become stale, the
 list of merged PRs can be fetched from:
 
-    https://github.com/tweag/topiary/pulls?q=is:pr+base:main+merged:>YYYY-MM-DD
+    https://github.com/topiary/topiary/pulls?q=is:pr+base:main+merged:>YYYY-MM-DD
 
 Replacing `YYYY-MM-DD` by the date of the last release.
 
@@ -217,4 +217,4 @@ gh pr list \
 [`CHANGELOG`]: /CHANGELOG.md
 [`dist`]: https://opensource.axo.dev/cargo-dist/
 [changelog-refresh]: #generating-the-pr-list-for-the-changelog
-[release]: https://github.com/tweag/topiary/releases
+[release]: https://github.com/topiary/topiary/releases

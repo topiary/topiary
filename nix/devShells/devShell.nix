@@ -3,6 +3,7 @@
   checks ? { },
   craneLib,
   binPkgs,
+  topiaryPkgs ? { },
   includeExtraPackages ? true,
 }:
 
@@ -23,8 +24,10 @@ craneLib.devShell (
 
             jq
             nixdoc
-            mdbook
+
+            topiaryPkgs.mdbook
             mdbook-man
+            topiaryPkgs.mdbook-manmunge
 
             pkg-config
             openssl.dev

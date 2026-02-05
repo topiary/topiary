@@ -1,9 +1,9 @@
 # Contributing to Topiary
 
 The Topiary team is greatly appreciative of all contributions and will
-endeavour to give each the attention it deserves. [Issues](https://github.com/tweag/topiary/issues),
-[pull requests](https://github.com/tweag/topiary/pulls) and
-[discussions](https://github.com/tweag/topiary/discussions) are all
+endeavour to give each the attention it deserves. [Issues](https://github.com/topiary/topiary/issues),
+[pull requests](https://github.com/topiary/topiary/pulls) and
+[discussions](https://github.com/topiary/topiary/discussions) are all
 welcome. If you have any immediate questions, or just want to hang out,
 feel free to say "Hi!" on our [Discord channel][discord].
 
@@ -89,8 +89,8 @@ This will produce a `flamegraph.svg` plot.
 This section has not been updated since December 2022. It may be
 out-dated or invalid.
 
-(See issues [#80](https://github.com/tweag/topiary/issues/80) and
-[#894](https://github.com/tweag/topiary/issues/894))
+(See issues [#80](https://github.com/topiary/topiary/issues/80) and
+[#894](https://github.com/topiary/topiary/issues/894))
 </div>
 
 Code coverage metrics can be generated via LLVM profiling data generated

@@ -8,7 +8,7 @@ such a file.
 ## Configuration sources
 
 At build time the
-[`languages.ncl`](https://github.com/tweag/topiary/blob/main/topiary-config/languages.ncl)
+[`languages.ncl`](https://github.com/topiary/topiary/blob/main/topiary-config/languages.ncl)
 in the root of the Topiary repository is embedded into Topiary. This
 file is parsed at runtime. The purpose of this `languages.ncl` file is
 to provide sane defaults for users of Topiary (both the library and the
@@ -120,7 +120,7 @@ To override only the indentation, use the following Nickel file:
 
 The merging semantics for Topiary's grammar configuration (see
 [below](#specifying-the-grammar)) is not yet fully defined; see issue
-[#861](https://github.com/tweag/topiary/issues/861).
+[#861](https://github.com/topiary/topiary/issues/861).
 
 </div>
 

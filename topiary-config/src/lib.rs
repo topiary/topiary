@@ -176,7 +176,7 @@ impl Configuration {
         // When the `parallel` feature is enabled (which it is by default), we use Rayon to fetch
         // and compile all found grammars concurrently.
         // NOTE The MSVC linker does not seem to like concurrent builds, so concurrency is disabled
-        // on Windows (see https://github.com/tweag/topiary/issues/868)
+        // on Windows (see https://github.com/topiary/topiary/issues/868)
         #[cfg(all(feature = "parallel", not(windows)))]
         {
             use rayon::prelude::*;

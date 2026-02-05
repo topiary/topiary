@@ -1,12 +1,13 @@
 //! This module defines all errors that might be propagated out of the library,
 //! including all of the trait implementations one might expect for Errors.
 
+mod error_span;
+
 use std::{error::Error, fmt, io, ops::Deref, str, string};
 
-use miette::{Diagnostic, NamedSource, SourceSpan};
-use topiary_tree_sitter_facade::Range;
-
 use crate::tree_sitter::NodeSpan;
+
+use error_span::ErrorSpan;
 
 /// The various errors the formatter may return.
 #[derive(Debug)]
@@ -77,7 +78,7 @@ impl FormatterError {
 
 impl fmt::Display for FormatterError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let please_log_message = "If this happened with the built-in query files, it is a bug. It would be\nhelpful if you logged this error at\nhttps://github.com/tweag/topiary/issues/new?assignees=&labels=type%3A+bug&template=bug_report.md";
+        let please_log_message = "If this happened with the built-in query files, it is a bug. It would be\nhelpful if you logged this error at\nhttps://github.com/topiary/topiary/issues/new?assignees=&labels=type%3A+bug&template=bug_report.md";
         match self {
             Self::Idempotence => {
                 write!(
@@ -217,45 +218,5 @@ impl From<topiary_tree_sitter_facade::ParserError> for FormatterError {
 impl From<NodeSpan> for FormatterError {
     fn from(span: NodeSpan) -> Self {
         Self::Parsing(Box::new(span))
-    }
-}
-
-#[derive(Diagnostic, Debug)]
-struct ErrorSpan {
-    #[source_code]
-    src: NamedSource<String>,
-    #[label("(ERROR) node")]
-    span: SourceSpan,
-    range: Range,
-}
-
-impl std::fmt::Display for ErrorSpan {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let start = self.range.start_point();
-        let end = self.range.end_point();
-        write!(
-            f,
-            "Parsing error between line {}, column {} and line {}, column {}",
-            start.row(),
-            start.column(),
-            end.row(),
-            end.column()
-        )
-    }
-}
-
-impl std::error::Error for ErrorSpan {}
-
-impl From<&Box<NodeSpan>> for ErrorSpan {
-    fn from(span: &Box<NodeSpan>) -> Self {
-        Self {
-            src: NamedSource::new(
-                span.location.clone().unwrap_or_default(),
-                span.content.clone().unwrap_or_default(),
-            )
-            .with_language(span.language),
-            span: span.source_span(),
-            range: span.range,
-        }
     }
 }
