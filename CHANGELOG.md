@@ -48,6 +48,9 @@ This name should be decided amongst the team before the release.
 - [#1172](https://github.com/topiary/topiary/pull/1172) Split out `mdbook-manmunge` into its own repository.
 - [#1174](https://github.com/topiary/topiary/pull/1174) Split out the Topiary Playground into its own repository.
 
+### Fixed
+- [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
+
 <!--
 ### Added
 - <New feature>
