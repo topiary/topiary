@@ -84,14 +84,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      # Pin Rust to v1.92; see https://github.com/actions/runner-images/issues/13629#issuecomment-3854023805
-      # TODO Unpin once https://github.com/rust-lang/rust/issues/152172 is resolved
-      - name: Pin to Rust 1.92
-        run: |
-          rustup install 1.92.0
-          rustup default 1.92.0
-          rustc --version
-
       - name: Init rust-cache
         uses: Swatinem/rust-cache@v2
 
