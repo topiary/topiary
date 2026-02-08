@@ -34,8 +34,8 @@ In that case, you don't have to worry about making
 `TOPIARY_LANGUAGE_DIR` has been set at build time and is set at runtime
 as well, the runtime value takes precedence.
 
-See [the contributor's guide](../guides/contributing.html) for details
-on setting up a development environment.
+See [the contributor's guide](../guides/contributing.md) for details on
+setting up a development environment.
 
 ## Logging
 

@@ -4,13 +4,19 @@ on:
   pull_request:
     branches: main
 
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#concurrency
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+
 jobs:
 
   nix-flake-check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up build dependencies
         uses: ./.github/actions/nix-build
@@ -28,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up build dependencies
         uses: ./.github/actions/nix-build
@@ -45,6 +51,11 @@ jobs:
       - name: Verify that usage in README.md matches CLI output
         run: nix run .#verify-documented-usage
 
+      - name: Test against config regressions
+        run: |
+            nix run . -- config --merge --cfg ./topiary-config/tests/issue-1124.ncl
+            nix run . -- config --merge --cfg ./topiary-config/tests/issue-1131.ncl
+
   topiary-cli:
     strategy:
       matrix:
@@ -54,7 +65,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up build dependencies
         uses: ./.github/actions/nix-build
@@ -67,12 +78,11 @@ jobs:
 
   test-windows:
     # Note: GitHub's Windows runners have a Rust toolchain installed
-    # https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md
     runs-on: windows-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Init rust-cache
         uses: Swatinem/rust-cache@v2

@@ -1,3 +1,19 @@
-# https://github.com/bevyengine/bevy/blob/653c10371e546176059bb779844c0569c0190b6b/.cargo/config_fast_builds#L16
 [target.x86_64-pc-windows-msvc]
+# Nickel can use more than the default 1MiB stack space on Windows; up
+# it to 4MiB
+#
+# - https://github.com/topiary/topiary/issues/1175
+# - https://github.com/tweag/nickel/issues/2237
+rustflags = [
+  "-C", "link-arg=/STACK:4194304"
+]
+
+# https://github.com/bevyengine/bevy/blob/653c10371e546176059bb779844c0569c0190b6b/.cargo/config_fast_builds#L16
 linker = "rust-lld.exe"
+
+
+[target.x86_64-pc-windows-gnu]
+# Up stack space to 4MiB (see above)
+rustflags = [
+    "-C", "link-arg=-Wl,--stack,4194304"
+]

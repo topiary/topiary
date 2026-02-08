@@ -49,25 +49,6 @@ let
     text = readFile ../../bin/playground.sh;
   };
 
-  update-wasm-app = writeShellApplication {
-    name = "update-wasm-app";
-
-    text = readFile ../../bin/update-wasm-app.sh;
-  };
-
-  update-wasm-grammars = writeShellApplication {
-    name = "update-wasm-grammars";
-
-    runtimeInputs = [
-      emscripten
-      git
-      nickel
-      tree-sitter
-    ];
-
-    text = readFile ../../bin/update-wasm-grammars.sh;
-  };
-
   verify-documented-usage = writeShellApplication {
     name = "verify-documented-usage";
 
@@ -84,8 +65,6 @@ in
   inherit
     generate-nix-documentation
     playground
-    update-wasm-app
-    update-wasm-grammars
     verify-documented-usage
     ;
 }

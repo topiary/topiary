@@ -3,7 +3,7 @@ name = "topiary-config"
 # The version should always be "X.Y.Z" where the workspace version is `X.Y.Z'`
 # with `Z' <= Z`. Whenever there's a need to release an update to the config
 # without changing the core of Topiary, just bump `Z`.
-version = "0.6.3"
+version = "0.7.3"
 description = "Configuration parser and defaults for Topiary"
 categories = ["development-tools", "text-processing"]
 keywords = ["code-formatter", "formatter", "text", "tree-sitter"]

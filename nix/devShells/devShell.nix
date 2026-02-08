@@ -3,6 +3,7 @@
   checks ? { },
   craneLib,
   binPkgs,
+  topiaryPkgs ? { },
   includeExtraPackages ? true,
 }:
 
@@ -20,9 +21,13 @@ craneLib.devShell (
             cargo-dist
             cargo-flamegraph
             rust-analyzer
+
             jq
             nixdoc
-            mdbook
+
+            topiaryPkgs.mdbook
+            mdbook-man
+            topiaryPkgs.mdbook-manmunge
 
             pkg-config
             openssl.dev
@@ -31,8 +36,6 @@ craneLib.devShell (
             # FIXME: Broken
             # generate-coverage
             generate-nix-documentation
-            update-wasm-app
-            update-wasm-grammars
             verify-documented-usage
           ]
           ++ pkgs.lib.optionals (!stdenv.isDarwin) [

@@ -1,6 +1,7 @@
 // ==================
 // Packages and Comments
 // ==================
+
 // WIT grammar for tree-sitter
 //// WIT grammar for tree-sitter
 /** nested comments
@@ -11,9 +12,11 @@
 */
 /// WIT [grammar](https://component-model.bytecodealliance.org/design/wit.html) for tree-sitter
 package tree-sitter:wit@1.0.0;
+
 package topiary:wit@1.0.0;
 package wasmi:io:hello;
 package wasmi:io:hello/epic@1.0.0;
+
 /// `stream` (no _s_) is a *type* that
 /// - can include a `<T>`
 /// - be a type in ofitself
@@ -36,148 +39,158 @@ package wasmi:io:hello/epic@1.0.0;
 package fs:filesystem@1.0.0;
 use wasi:io:print/stdout;
 use wasi:io:hello/epic as cool;
+
 // ==================
 // Worlds
 // ==================
 world imports {
-  import streams;
-  export streams;
-  // The component implements the `scan` function
-  export scan: func () -> list<u8>;
-  import iface-name: interface {
-    type some-name = u32;
-    foo: func (p: string) -> result<u32, aaa>;
-  }
-  export iface-name: interface {
-    type some-name = u32;
-    foo: func (p: string) -> result<u32, aaa>;
-  }
-  import foo: func (p: string) -> result<u32, aaa>;
+    import streams;
+    export streams;
+    // The component implements the `scan` function
+    export scan: func() -> list<u8>; // inline-comment
+    import iface-name: interface {
+        type some-name = u32;
+        foo: func(p: string) -> result<u32, aaa>;
+    }
+    export iface-name: interface {
+        type some-name = u32;
+        foo: func(p: string) -> result<u32, aaa>;
+    }
+    import foo: func(p: string) -> result<u32, aaa>;
 }
+
 world world-one {
-  import a: func ();
+    import a: func();
 }
 world world-two {
-  import a: func ();
+    import a: func();
 }
+
 world union-my-world-a {
-  include world-one;
-  include world-two with {a as b}
+    include world-one;
+    include world-two with {
+        a as b,
+        c as d, // inline-comment-trailing-comma
+    }
 }
+
 world union-my-world-b {
-  import a: func ();
-  import b: func ();
+    import a: func();
+    import b: func();
 }
+
 // ==================
 // Resources and Use Items
 // ==================
 interface %resource {
-  resource blob {
-    constructor(init: list<u8>);
-    write: func (bytes: list<u8>);
-    read: func (n: u32) -> list<u8>;
-    merge: static func (
-      lhs: blob,
-      // add trailing comma
-      rhs: blob,
-    ) -> blob;
-  }
+    resource blob {
+        constructor(init: list<u8>);
+        write: func(bytes: list<u8>);
+        read: func(n: u32) -> list<u8>;
+        merge: static func(
+            lhs: blob,
+            rhs: blob, // inline-comment-trailing-comma
+        ) -> blob;
+    }
 
-  resource res {
-    constructor();
-    fn1: func (p: string) -> result<u32, aaa>;
-    fn2: func (%p: borrow<string>) -> result<u32, aaa>;
-  }
+    resource res {
+        constructor();
+        fn1: func(p: string) -> result<u32, aaa>;
+        fn2: func(%p: borrow<string>) -> result<u32, aaa>;
+    }
 
-  type canvas-id = u64;
-  %foo: func (%bar: u32);
-  %red-green-blue: func (%r: u32, %g: u32, %b: u32);
-  draw-line: func (
-    canvas: canvas-id,
-    from: point,
-    to: point,
-    thickness: dimension,
-  );
+    type canvas-id = u64;
+    %foo: func(%bar: u32);
+    %red-green-blue: func(%r: u32, %g: u32, %b: u32);
+    draw-line: func(
+        canvas: canvas-id,
+        from: point,
+        to: point,
+        thickness: dimension,
+    );
 }
 
 interface my-use-items {
-  use foo.{t1, t2};
-  use wasi:http/types.{body};
-  // add trailing comma
-  use newline-interface.{
-    a,
-    list as collection,
-    of,
-    names,
-  };
-  use my:dependency/the-interface.{more, names as foo};
-  use wasi:http/types@1.0.0.{request, response};
-  use types.{errno as my-errno};
+    use foo.{t1, t2};
+    use wasi:http/types.{body};
+    use newline-interface.{
+        a,
+        list as collection,
+        of,
+        names, // inline-comment-trailing-comma
+    };
+    use my:dependency/the-interface.{more, names as foo};
+    use wasi:http/types@1.0.0.{request, response};
+    use types.{errno as my-errno};
 }
+
 // ==================
 // Types
 // ==================
 
 interface types {
-  // "package of named fields"
-  record r {
-    a: u32,
-    b: result<_, errno>,
-  }
-  // values of this type will be one of the specified cases
-  variant human {
-    baby,
-    child(u32),
-    // add trailing comma
-    fixed-size(list<bool, 1>),
-  }
-  // similar to `variant`, but no type payloads
-  enum errno {
-    too-big,
-    // add trailing comma
-    too-small,
-    too-fast,
-    too-slow,
-  }
-  // a bitflags type
-  flags permissions {
-    read,
-    write,
-    // add trailing comma
-    exec,
-  }
-  // type aliases are allowed to primitive types and additionally here are some
-  // examples of other types
-  type t1 = u32;
-  type t2 = tuple<u32, u64>;
-  type t3 = string;
-  type t4 = option<u32>;
-  type t5 = result<char, errno>;
-  type t6 = result<string>;
-  type t7 = option<result<_, list<string, 2>>>;
-  type t8 = t7;
+    // "package of named fields"
+    record r {
+        a: u32, // inline-comment-trailing-comma
+        b: result<_, errno>,
+    }
+
+    // values of this type will be one of the specified cases
+    variant human {
+        baby, // inline-comment-trailing-comma
+        child(u32),
+        fixed-size(list<bool, 1>), // inline-comment-trailing-comma
+    }
+
+    // similar to `variant`, but no type payloads
+    enum errno {
+        too-big,
+        too-small,
+        too-fast, /* block-comment-trailing-comma */ too-slow, // inline-comment-trailing-comma
+    }
+
+    // a bitflags type
+    flags permissions {
+        read,
+        write,
+        exec, // inline-comment-trailing-comma
+    }
+
+    // type aliases are allowed to primitive types and additionally here are some
+    // examples of other types
+    type t1 = u32;
+    type t2 = tuple<u32, u64>;
+    type t3 = string;
+    type t4 = option<u32>;
+    type t5 = result<char, errno>;
+    type t6 = result<string>;
+    type t7 = option<result<_, list<string, 2>>>;
+    type t8 = t7; // inline-comment-trailing-comma
 }
+
 // ==================
 // Streams and Async
 // ==================
 
 interface stream-async {
-  resource file {
-    constructor();
-    is-closed: func () -> bool;
-    read: async func (num-bytes: u32) -> result<list<u8>>;
-    from-bytes: static func (bytes: list<u8>) -> file;
-    from-stream: static async func (bytes: stream<u8>) -> file;
-  }
+    resource file {
+        constructor();
+        is-closed: func() -> bool;
+        read: async func(num-bytes: u32) -> result<list<u8>>;
+        from-bytes: static func(bytes: list<u8>) -> file;
+        from-stream: static async func(bytes: stream<u8>) -> file; // inline-comment-trailing-comma
+    }
 }
+
 // ==================
 // Gates
 // ==================
+
 @since(version = 0.1.0)
 world imports {
-  @since(version = 0.1.0)
-  @unstable(feature = fancier-foo)
-  import streams;
-  @deprecated(version = 0.1.0)
-  export streams;
+    @since(version = 0.1.0)
+    @unstable(feature = fancier-foo)
+    import streams;
+    @deprecated(version = 0.1.0)
+    export streams;
 }

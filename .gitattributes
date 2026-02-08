@@ -3,7 +3,7 @@
 
 # Ensure binary files aren't considered as text
 *.png binary
-*.wasm binary
 
-# Hide our tests from language detection so GitHub correctly detects Topiary as a Rust project
+# Hide our tests from language detection so GitHub correctly detects
+# Topiary as a Rust project
 topiary-cli/tests/samples/** linguist-vendored

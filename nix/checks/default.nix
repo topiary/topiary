@@ -9,10 +9,6 @@ let
 
 in
 {
-  # NOTE: The following checks have been removed as WASM
-  # and playground development has moved to the playground branch:
-  # - clippy-wasm
-  # - topiary-playground
   inherit (topiaryPkgs)
     clippy
     fmt

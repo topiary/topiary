@@ -1,7 +1,7 @@
 {
   lib,
   nickel,
-  runCommandNoCC,
+  runCommand,
   writeText,
 }:
 
@@ -40,7 +40,7 @@ let
   fromNickelFile =
     path:
     let
-      jsonDrv = runCommandNoCC "${removeSuffix ".ncl" (baseNameOf path)}.json" { } ''
+      jsonDrv = runCommand "${removeSuffix ".ncl" (baseNameOf path)}.json" { } ''
         ${nickel}/bin/nickel export ${path} > $out
       '';
     in

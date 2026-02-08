@@ -8,7 +8,7 @@
   lib,
   fetchgit,
   nickel,
-  runCommandNoCC,
+  runCommand,
   writeText,
   tree-sitter,
   toJSONFile,

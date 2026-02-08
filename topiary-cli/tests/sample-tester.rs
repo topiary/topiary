@@ -1,4 +1,4 @@
-use assert_cmd::Command;
+use assert_cmd::cargo_bin_cmd;
 use std::fs;
 use std::path::PathBuf;
 use topiary_core::test_utils::pretty_assert_eq;
@@ -60,7 +60,7 @@ mod test_fmt {
         fs::copy(input, &staged).unwrap();
 
         // Run Topiary against the staged input file
-        let mut topiary = Command::cargo_bin("topiary").unwrap();
+        let mut topiary = cargo_bin_cmd!("topiary");
         let output = topiary
             .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
             .arg("fmt")
@@ -116,7 +116,7 @@ mod test_fmt {
             fs::copy(file.path(), &input_file).unwrap();
 
             // Run topiary on the input file in the temp dir
-            let mut topiary = Command::cargo_bin("topiary").unwrap();
+            let mut topiary = cargo_bin_cmd!("topiary");
             topiary
                 .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
                 .arg("fmt")
@@ -145,7 +145,7 @@ mod test_coverage {
         assert!(input.exists());
 
         // Run `topiary coverage` against the input file
-        let mut topiary = Command::cargo_bin("topiary").unwrap();
+        let mut topiary = cargo_bin_cmd!("topiary");
         let output = topiary
             .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
             .arg("coverage")
@@ -198,7 +198,7 @@ fn formatted_query_tester() {
         fs::copy(file.path(), &input_file).unwrap();
 
         // Run topiary on the input file in the temp dir
-        let mut topiary = Command::cargo_bin("topiary").unwrap();
+        let mut topiary = cargo_bin_cmd!("topiary");
         topiary
             .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
             .arg("fmt")

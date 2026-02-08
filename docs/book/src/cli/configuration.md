@@ -8,10 +8,11 @@ such a file.
 ## Configuration sources
 
 At build time the
-[`languages.ncl`](https://github.com/tweag/topiary/blob/main/topiary-config/languages.ncl)
-in the root of the Topiary repository is embedded into Topiary. This file is
-parsed at runtime. The purpose of this `languages.ncl` file is to provide sane
-defaults for users of Topiary (both the library and the CLI binary).
+[`languages.ncl`](https://github.com/topiary/topiary/blob/main/topiary-config/languages.ncl)
+in the root of the Topiary repository is embedded into Topiary. This
+file is parsed at runtime. The purpose of this `languages.ncl` file is
+to provide sane defaults for users of Topiary (both the library and the
+CLI binary).
 
 The next two are read by the Topiary binary at runtime and allow the
 user to configure Topiary to their needs. The first is intended to be
@@ -23,6 +24,10 @@ the OS:
 | Unix    | `/home/alice/.config/topiary/languages.ncl`                      |
 | macOS   | `/Users/Alice/Library/Application Support/Topiary/languages.ncl` |
 | Windows | `C:\Users\Alice\AppData\Roaming\Topiary\config\languages.ncl`    |
+
+> **Note**\
+> On macOS, Topiary also looks in `~/.config/topiary`, as well as the
+> standard macOS configuration directory.
 
 This file is not automatically created by Topiary.
 
@@ -44,8 +49,9 @@ following order (highest to lowest):
 3. The user configuration file in the OS's configuration directory.
 4. The built-in configuration file.
 
-One can call `topiary config show-sources` to display configuration sources
-along with any detected `language.ncl` files or `queries` directories therein:
+One can call `topiary config show-sources` to display configuration
+sources along with any detected `language.ncl` files or `queries`
+directories therein:
 
 ```
 $ topiary config show-sources
@@ -68,10 +74,10 @@ $ topiary config show-sources
 
 ### Configuration merging
 
-By default, Topiary only considers the configuration file with the highest
-priority and merges it with the built-in configuration. However, if the
-`-M`/`--merge-configuration` option is provided to the CLI, then all available
-configurations are merged together, as per the [Nickel
+By default, Topiary only considers the configuration file with the
+highest priority and merges it with the built-in configuration. However,
+if the `-M`/`--merge-configuration` option is provided to the CLI, then
+all available configurations are merged together, as per the [Nickel
 specification](https://nickel-lang.org/user-manual/merging).
 
 In which case, if one of the sources listed above attempts to define a
@@ -114,7 +120,7 @@ To override only the indentation, use the following Nickel file:
 
 The merging semantics for Topiary's grammar configuration (see
 [below](#specifying-the-grammar)) is not yet fully defined; see issue
-[#861](https://github.com/tweag/topiary/issues/861).
+[#861](https://github.com/topiary/topiary/issues/861).
 
 </div>
 
@@ -181,10 +187,11 @@ nickel = {
 > by Topiary itself, those look like `~/.cache/topiary/<LANGUAGE>/<GIT_HASH>.so`
 > (or the equivalent for your platform).
 
-For usage in Nix, a `prefetchLanguages.nix` file provides utilities allowing to
-transform a Topiary configuration into one where languages have been pre-fetched
-and pre-compiled in Nix derivations. The only caveat is that, for each Git
-source, the configuration must contain a `nixHash` for that source. For instance:
+For usage in Nix, a `prefetchLanguages.nix` file provides utilities
+allowing to transform a Topiary configuration into one where languages
+have been pre-fetched and pre-compiled in Nix derivations. The only
+caveat is that, for each Git source, the configuration must contain a
+`nixHash` for that source. For instance:
 
 ```nickel
 nickel = {
@@ -197,9 +204,14 @@ nickel = {
 },
 ```
 
-The simplest way to obtain the hash is to use `nix-prefetch-git` (and look for
-the `hash` field in its output). The second simplest way is to compile, which
-will show something like:
+The simplest way to obtain the hash is to use `nix-prefetch-git` (and
+look for the `hash` field in its output):
+
+```sh
+nix run nixpkgs#nix-prefetch-git -- https://github.com/bytecodealliance/tree-sitter-wit 230984dfaf803a0ff8f77da5034361a62c326577
+```
+
+The second simplest way is to compile, which will show something like:
 
 ```
 evaluation warning: Language `nickel`: no nixHash provided - using dummy value

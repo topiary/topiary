@@ -6,7 +6,6 @@
   (line_comment)
 ] @leaf
 
-(line_comment) @append_hardline
 (block_comment) @multi_line_indent_all
 ; Allow line break after block comments
 (
@@ -25,14 +24,17 @@
 
 ; Allow blank line before
 [
-  (interface_item)
-  (type_item)
   (enum_items)
-  (variant_items)
-  (resource_item)
-  (record_item)
   (flags_items)
+  (interface_item)
+  (line_comment)
+  (block_comment)
+  (package_decl)
+  (record_item)
+  (resource_item)
   (type_item)
+  (variant_items)
+  (world_item)
 ] @allow_blank_line_before
 
 [
@@ -63,6 +65,7 @@
 ; formatting.
 (
   [
+    (deprecated_gate)
     (export_item)
     (func_item)
     (import_item)
@@ -70,32 +73,39 @@
     (interface_item)
     (package_decl)
     (resource_item)
-    (type_item)
-    (use_item)
     (resource_method)
     (since_gate)
-    (deprecated_gate)
+    (toplevel_use_item)
+    (type_item)
     (unstable_gate)
-  ] @append_spaced_softline @prepend_hardline
+    (use_item)
+    (world_item)
+  ] @append_hardline
   .
   [
     (block_comment)
     (line_comment)
   ]* @do_nothing
 )
+
+(world_item) @append_hardline
+
+(line_comment) @append_hardline
+
 [
   (since_gate)
   (deprecated_gate)
   (unstable_gate)
-] @append_hardline
+] @append_spaced_softline
 
 (body
   .
   "{" @append_hardline @append_indent_start @prepend_space
   _
-  "}" @append_hardline @prepend_hardline @prepend_indent_end
+  "}" @prepend_hardline @prepend_indent_end
   .
 )
+
 (definitions
   .
   "{" @append_empty_softline @append_indent_start
@@ -104,22 +114,24 @@
   .
 )
 
-(enum_cases "," @append_hardline)
-(flags_items (body "," @append_hardline))
-(record_item (body "," @append_hardline))
-(variant_cases "," @append_hardline)
-; ==================
-; Delimiters
-; ==================
-; Never put a space before a comma or semicolon
 (
-  ";" @append_hardline
+  [
+    (enum_case)
+    (record_field)
+    (variant_case)
+    (flags_field)
+  ]
+  .
+  "," @append_hardline
   .
   [
     (block_comment)
     (line_comment)
   ]* @do_nothing
 )
+; ==================
+; Delimiters
+; ==================
 
 (param_list
   "," @append_spaced_softline
@@ -134,15 +146,18 @@
   [
     (block_comment)
     (line_comment)
-  ]* @do_nothing @prepend_empty_softline
+  ]* @do_nothing
 )
 [
   ">"
   ")"
   ","
   ";"
+  (param_list)
 ] @prepend_antispace
+
 "," @append_space
+
 [
   "<"
   "("
@@ -168,24 +183,17 @@
 (named_type
   ":" @prepend_antispace @append_space
 )
+; Function signatures need proper spacing
 [
   "@"
   "/"
-  "."
 ] @prepend_antispace @append_antispace
+
+; Dot should have no space for use paths
 
 ; ==================
 ; Trailing Commas
 ; ==================
-(definitions
-  (#delimiter! ",")
-  (_) @append_delimiter
-  .
-  ","? @do_nothing
-  .
-  "}"
-  (#multi_line_only!)
-)
 (definitions (_) "," @delete . "}" (#single_line_only!))
 (definitions "," @append_spaced_softline (#single_line_only!))
 (param_list
@@ -194,43 +202,27 @@
   .
   ","? @do_nothing
   .
-  (line_comment)*
+  [(block_comment) (line_comment)]*
   .
   ")"
   .
   (#multi_line_only!)
 )
-(variant_cases
+
+(
   (#delimiter! ",")
-  (variant_case) @append_delimiter
+  [
+    (variant_case)
+    (enum_case)
+    (flags_field)
+    (record_field)
+    (use_names_item)
+    (include_names_item)
+  ] @append_delimiter
   .
   ","? @do_nothing
-  .
-  (line_comment)*
-  .
   (#multi_line_only!)
 )
-(enum_cases
-  (#delimiter! ",")
-  (enum_case) @append_delimiter
-  .
-  ","? @do_nothing
-  .
-  (line_comment)*
-  .
-  (#multi_line_only!)
-)
-(flags_items
-  (body
-    (#delimiter! ",")
-    (id) @append_delimiter
-    .
-    ","? @do_nothing
-    .
-    (line_comment)*
-    .
-    "}"
-    .
-    (#multi_line_only!)
-  )
-)
+
+; Keep inline comments on same line as export/import statements
+([(import_item) (export_item)] . (line_comment) @prepend_space)

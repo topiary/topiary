@@ -309,7 +309,7 @@ to remove all those extraneous spaces.
 </div>
 
 <!-- Links -->
-[topiary:#824]: https://github.com/tweag/topiary/issues/824
+[topiary:#824]: https://github.com/topiary/topiary/issues/824
 [tree-sitter:anchors]: https://tree-sitter.github.io/tree-sitter/using-parsers/queries/2-operators.html#anchors
 [tree-sitter:predicates]: https://tree-sitter.github.io/tree-sitter/using-parsers/queries/3-predicates-and-directives.html
 [tree-sitter:quantifiers]: https://tree-sitter.github.io/tree-sitter/using-parsers/queries/2-operators.html#quantification-operators

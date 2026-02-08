@@ -5,7 +5,7 @@ use {
     tempfile::TempDir,
 };
 
-use assert_cmd::Command;
+use assert_cmd::cargo_bin_cmd;
 
 // Simple exemplar JSON and TOML state, to verify the formatter
 // is doing something... and hopefully the right thing
@@ -25,13 +25,12 @@ const TOML_EXPECTED: &str = r#"test = 123
 // If multiple calls to Topiary are made in parallel and the grammar is missing, they will all try
 // to fetch and build it, thus creating an empty .so file while g++ is running. If another instance
 // of topiary starts at this moment, it will mistake the empty .so file for an already built grammar,
-// and try to run with it, resulting in an error. See https://github.com/tweag/topiary/issues/767
+// and try to run with it, resulting in an error. See https://github.com/topiary/topiary/issues/767
 static INIT: Once = Once::new();
 pub fn initialize() {
     INIT.call_once(|| {
         #[cfg(feature = "json")]
-        Command::cargo_bin("topiary")
-            .expect("Unable to build Topiary")
+        cargo_bin_cmd!("topiary")
             .arg("fmt")
             .arg("--language")
             .arg("json")
@@ -39,8 +38,7 @@ pub fn initialize() {
             .assert()
             .success();
         #[cfg(feature = "toml")]
-        Command::cargo_bin("topiary")
-            .expect("Unable to build Topiary")
+        cargo_bin_cmd!("topiary")
             .arg("fmt")
             .arg("--language")
             .arg("toml")
@@ -83,7 +81,7 @@ impl State {
 #[cfg(feature = "json")]
 fn test_fmt_stdin() {
     initialize();
-    let mut topiary = Command::cargo_bin("topiary").unwrap();
+    let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
         .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
@@ -100,7 +98,7 @@ fn test_fmt_stdin() {
 #[cfg(feature = "json")]
 fn test_fmt_stdin_query() {
     initialize();
-    let mut topiary = Command::cargo_bin("topiary").unwrap();
+    let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
         .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
@@ -119,7 +117,7 @@ fn test_fmt_stdin_query() {
 #[cfg(feature = "json")]
 fn test_fmt_stdin_query_fallback() {
     initialize();
-    let mut topiary = Command::cargo_bin("topiary").unwrap();
+    let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
         // run in topiary-cli/tests directory so that it couldn't find the
@@ -141,7 +139,7 @@ fn test_fmt_files() {
     let json = State::new(JSON_INPUT, "json");
     let toml = State::new(TOML_INPUT, "toml");
 
-    let mut topiary = Command::cargo_bin("topiary").unwrap();
+    let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
         .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
@@ -162,7 +160,7 @@ fn test_fmt_files_query_fallback() {
     let json = State::new(JSON_INPUT, "json");
     let toml = State::new(TOML_INPUT, "toml");
 
-    let mut topiary = Command::cargo_bin("topiary").unwrap();
+    let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
         // run in topiary-cli/tests directory so that it couldn't find the
@@ -184,7 +182,7 @@ fn test_fmt_dir() {
     initialize();
     let json = State::new(JSON_INPUT, "json");
 
-    let mut topiary = Command::cargo_bin("topiary").unwrap();
+    let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
         .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
@@ -200,7 +198,7 @@ fn test_fmt_dir() {
 #[cfg(feature = "json")]
 fn test_fmt_invalid() {
     initialize();
-    let mut topiary = Command::cargo_bin("topiary").unwrap();
+    let mut topiary = cargo_bin_cmd!("topiary");
 
     // Can't specify --language with input files
     topiary
@@ -231,7 +229,7 @@ fn test_vis() {
     };
 
     initialize();
-    let mut topiary = Command::cargo_bin("topiary").unwrap();
+    let mut topiary = cargo_bin_cmd!("topiary");
 
     // Sanity check output is a valid DOT graph
     let is_graph = starts_with("graph {").and(ends_with("}\n"));
@@ -251,7 +249,7 @@ fn test_vis() {
 #[cfg(feature = "json")]
 fn test_vis_invalid() {
     initialize();
-    let mut topiary = Command::cargo_bin("topiary").unwrap();
+    let mut topiary = cargo_bin_cmd!("topiary");
 
     // Can't specify --language with input file
     topiary
@@ -284,7 +282,7 @@ fn test_vis_invalid() {
 
 #[test]
 fn test_cfg() {
-    let mut topiary = Command::cargo_bin("topiary").unwrap();
+    let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
         .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
