@@ -439,7 +439,10 @@ where
 }
 
 // convenience function to bundle nickel config formatting errors in one return value
-pub(crate) async fn format_config(config: &Configuration, nickel_term: &NickelValue) -> CLIResult<()> {
+pub(crate) async fn format_config(
+    config: &Configuration,
+    nickel_term: &NickelValue,
+) -> CLIResult<()> {
     let nickel_config = format!("{nickel_term}");
     let mut formatted_config = BufWriter::new(OutputFile::Stdout);
     // if errors are encountered in formatting, return
