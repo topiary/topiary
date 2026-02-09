@@ -13,7 +13,7 @@ use std::{
 
 use language::{Language, LanguageConfiguration};
 use nickel_lang_core::{
-    error::NullReporter, eval::cache::CacheImpl, program::Program, term::RichTerm,
+    error::NullReporter, eval::cache::CacheImpl, eval::value::NickelValue, program::Program,
 };
 use serde::Deserialize;
 
@@ -53,7 +53,7 @@ impl Configuration {
     /// If the configuration file exists, but cannot be parsed, this function will return a
     /// `TopiaryConfigError` with the error that occurred.
     #[allow(clippy::result_large_err)]
-    pub fn fetch(merge: bool, file: &Option<PathBuf>) -> TopiaryConfigResult<(Self, RichTerm)> {
+    pub fn fetch(merge: bool, file: &Option<PathBuf>) -> TopiaryConfigResult<(Self, NickelValue)> {
         // If we have an explicit file, fail if it doesn't exist
         if let Some(path) = file
             && !path.exists()
@@ -218,7 +218,7 @@ impl Configuration {
     }
 
     #[allow(clippy::result_large_err)]
-    fn parse_and_merge(sources: &[Source]) -> TopiaryConfigResult<(Self, RichTerm)> {
+    fn parse_and_merge(sources: &[Source]) -> TopiaryConfigResult<(Self, NickelValue)> {
         let inputs = sources.iter().map(|s| s.clone().into());
 
         let mut program =
@@ -232,7 +232,7 @@ impl Configuration {
     }
 
     #[allow(clippy::result_large_err)]
-    fn parse(source: Source) -> TopiaryConfigResult<(Self, RichTerm)> {
+    fn parse(source: Source) -> TopiaryConfigResult<(Self, NickelValue)> {
         let mut program = Program::<CacheImpl>::new_from_input(
             source.into(),
             std::io::stderr(),
