@@ -41,7 +41,7 @@ criterion = "0.8"
 directories = "6.0"
 env_logger = "0.11"
 futures = "0.3.28"
-gix = { version = "0.77.0", features = ["blocking-http-transport-reqwest-rust-tls"] }
+gix = { version = "0.79.0", features = ["blocking-http-transport-reqwest-rust-tls"] }
 itertools = "0.11"
 js-sys = "0.3"
 libloading = "0.9.0"
