@@ -401,6 +401,9 @@ where
         #[cfg(feature = "json")]
         "json" => Ok(topiary_queries::json().into()),
 
+        #[cfg(feature = "json5")]
+        "json5" => Ok(topiary_queries::json5().into()),
+
         #[cfg(feature = "nickel")]
         "nickel" => Ok(topiary_queries::nickel().into()),
 

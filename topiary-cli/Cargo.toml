@@ -54,6 +54,7 @@ default = [
   "contributed",
   "bash",
   "json",
+  "json5",
   "nickel",
   "ocaml",
   "ocaml_interface",
@@ -78,6 +79,7 @@ experimental = [
 bash = ["topiary-config/bash", "topiary-queries/bash"]
 css = ["topiary-config/css", "topiary-queries/css"]
 json = ["topiary-config/json", "topiary-queries/json"]
+json5 = ["topiary-config/json5", "topiary-queries/json5"]
 nickel = ["topiary-config/nickel", "topiary-queries/nickel"]
 ocaml = ["topiary-config/ocaml", "topiary-queries/ocaml"]
 ocaml_interface = ["topiary-config/ocaml_interface", "topiary-queries/ocaml_interface"]
