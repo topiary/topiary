@@ -1,0 +1,21 @@
+name: Trigger website update
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/book/**"
+
+jobs:
+  trigger-www:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger website build
+        env:
+          GH_TOKEN: ${{ secrets.WWW_DISPATCH_PAT }}
+        run: |
+          gh api \
+            repos/topiary/www/dispatches \
+            -f event_type='dependency-update' \
