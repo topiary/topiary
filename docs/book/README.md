@@ -3,8 +3,8 @@
 ## Getting started
 
 The Topiary Book is an [mdBook](https://rust-lang.github.io/mdBook)
-book. It is rendered to HTML as part of a CI process and published to
-the Topiary website when changes are merged to `main`.
+book. It is rendered to HTML as part of the [Topiary website](https://github.com/topiary/www)'s
+CI process and published when changes are merged to `main`.
 
 For local development, mdBook is included in the Nix devshell and can be
 run in `serve` mode, from this directory, which spins up a local server
@@ -18,15 +18,6 @@ $ mdbook serve
 
 Please keep the style guide (below) in mind when making changes, to help
 ensure consistency.
-
-## Continuous integration
-
-The CI job defined in `.github/workflows/website.yaml` creates the
-static assets for the Topiary website, which includes the rendered
-Topiary Book.
-
-On success, the website is published to https://topiary.tweag.io, with
-the Topiary Book at https://topiary.tweag.io/book.
 
 ## Style guide
 

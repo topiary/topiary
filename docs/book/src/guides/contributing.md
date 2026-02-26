@@ -130,26 +130,5 @@ provided by Nix, if you have both installed.
 
 </div>
 
-### Website and web playground
-
-<div class="warning">
-
-The WASM-based web playground is currently _not_ under active
-development and has diverged from newer releases of Topiary. It has been
-removed from the main Topiary repository and now exists under
-[`topiary/playground`](https://github.com/topiary/playground).
-
-</div>
-
-The static assets for the Topiary website and playground (once built)
-can be found in the `website` directory. To preview the site, you can
-start a local web server. For example:
-
-```sh
-python -m http.server --directory website
-```
-
-The website should then be running on `http://localhost:8000`.
-
 <!-- Links -->
 [discord]: https://discord.gg/FSnkvNyyzC
