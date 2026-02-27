@@ -61,6 +61,9 @@ pub struct AtomCollection {
     line_break_after: HashSet<usize>,
     /// Used to generate unique IDs
     counter: usize,
+    /// (`@injection.content`, `@injection.language`) values
+    injection_content: HashSet<(usize, String)>,
+    injection_language: Option<String>,
 }
 
 impl AtomCollection {
@@ -80,6 +83,8 @@ impl AtomCollection {
             line_break_before: HashSet::new(),
             line_break_after: HashSet::new(),
             counter: 0,
+            injection_content: HashSet::new(),
+            injection_language: None,
         }
     }
 
@@ -108,6 +113,8 @@ impl AtomCollection {
             line_break_before: line_break_nodes.before,
             line_break_after: line_break_nodes.after,
             counter: 0,
+            injection_content: HashSet::new(),
+            injection_language: None,
         };
 
         atoms.collect_leaves_inner(root, source, &Vec::new(), 0)?;
@@ -165,6 +172,12 @@ impl AtomCollection {
     ) -> FormatterResult<()> {
         log::debug!("Resolving {name}");
 
+        let mut requires_injection_language = || {
+            self.injection_language.take().ok_or_else(|| {
+                FormatterError::Query(format!("@{name} requires an @injection.language tag"), None)
+            })
+        };
+
         let requires_delimiter = || {
             predicates.delimiter.as_deref().ok_or_else(|| {
                 FormatterError::Query(format!("@{name} requires a #delimiter! predicate"), None)
@@ -217,6 +230,11 @@ impl AtomCollection {
         }
 
         match name {
+            "injection.language" => {
+                let language = requires_injection_language()?;
+                self.injection_content.insert((node.id(), language));
+            }
+            "injection.content" => {}
             "allow_blank_line_before" => {
                 if self.blank_lines_before.contains(&node.id()) {
                     self.prepend(Atom::Blankline, node, predicates);
