@@ -27,6 +27,7 @@ extension).
 
 - [Bash]
 - [JSON]
+- [JSON5]
 - [Nickel]
 - [OCaml] (both implementations and interfaces)
 - [OCamllex]

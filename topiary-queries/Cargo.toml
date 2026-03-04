@@ -21,6 +21,7 @@ description = """
 bash = []
 css = []
 json = []
+json5 = []
 nickel = []
 ocaml = []
 ocaml_interface = []
