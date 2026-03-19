@@ -49,7 +49,7 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                 ..
             } => {
                 if *single_line_no_indent {
-                    // The line break after the content has been previously added
+                    // The line break before the content has been previously added
                     // as a `Hardline` in the atom stream.
                     writeln!(buffer)?;
                 }

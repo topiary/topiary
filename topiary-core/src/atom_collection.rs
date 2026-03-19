@@ -996,11 +996,11 @@ impl AtomCollection {
                 ) => {
                     if head.dominates(moved_prev) {
                         *moved_prev = Atom::Empty;
+                        prev = head;
                     } else {
                         *head = Atom::Empty;
+                        prev = moved_prev;
                     }
-
-                    prev = moved_prev;
                     remaining = tail;
                 }
                 // If a whitespace or antispace atom is followed by an indent atom, swap their positions.
