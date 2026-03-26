@@ -276,6 +276,10 @@ let
 
       config = {
         Entrypoint = [ "${cli}/bin/topiary" ];
+        Labels = {
+          "org.opencontainers.image.source" = "https://github.com/topiary/topiary";
+          "org.opencontainers.image.description" = "A general code formatter based on Tree-sitter";
+        };
       };
     };
 
