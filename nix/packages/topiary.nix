@@ -3,6 +3,7 @@
   advisory-db,
   craneLib,
   prefetchLanguagesFile,
+  prefetchLanguagesNickelFile,
 }:
 
 let
@@ -106,10 +107,16 @@ let
         cargoExtraArgs = "-p topiary-cli";
         cargoTestExtraArgs = "--no-default-features";
 
+        # The prefetched configuration is a JSON file that replaces the
+        # Nickel source, which breaks tests that parse the original config.
+        # The unmodified topiary-cli already runs these tests, so we skip
+        # them here.
+        doCheck = !prefetchGrammars;
+
         preConfigurePhases = optional prefetchGrammars "prepareTopiaryDefaultConfiguration";
 
         prepareTopiaryDefaultConfiguration = optional prefetchGrammars (
-          "cp ${prefetchLanguagesFile ../../topiary-config/languages.ncl} topiary-config/languages.ncl"
+          "cp ${prefetchLanguagesNickelFile ../../topiary-config/languages.ncl} topiary-config/languages.ncl"
         );
 
         postInstall = ''
