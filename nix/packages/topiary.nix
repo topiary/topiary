@@ -261,6 +261,24 @@ let
     };
   };
 
+  topiary-docker =
+    let
+      cli = topiary-cli.override { prefetchGrammars = true; };
+    in
+    pkgs.dockerTools.buildLayeredImage {
+      name = "topiary";
+      tag = "latest";
+
+      contents = [
+        cli
+        pkgs.dockerTools.caCertificates
+      ];
+
+      config = {
+        Entrypoint = [ "${cli}/bin/topiary" ];
+      };
+    };
+
   # This runs the Topiary CLI in a controlled PTY for stable output
   # while testing in CI (90 columns and no ANSI extensions)
   topiary-wrapped = pkgs.writeShellApplication {
@@ -290,6 +308,7 @@ in
     client-app
     topiary-core
     topiary-cli
+    topiary-docker
     topiary-queries
     mdbook
     mdbook-manmunge
