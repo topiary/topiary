@@ -47,6 +47,14 @@
         },
       },
     },
+    markdown = {
+      extensions = ["md"],
+      grammar.source.git = {
+        git = "https://github.com/tree-sitter-grammars/tree-sitter-markdown.git",
+        rev = "413285231ce8fa8b11e7074bbe265b48aa7277f9",
+        nixHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      },
+    },
 
     nickel = {
       extensions | default = ["ncl"],
