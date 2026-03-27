@@ -53,7 +53,7 @@ This name should be decided amongst the team before the release.
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
 
 ### Added
-- [#1200](https://github.com/topiary/topiary/pull/1200) Build and deploy Topiary Docker images to the ghcr.io.
+- [#1200](https://github.com/topiary/topiary/pull/1200) Build and deploy Topiary Docker images to ghcr.io.
 
 <!--
 ### Changed

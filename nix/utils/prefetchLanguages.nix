@@ -26,9 +26,6 @@ let
     toJSON
     fromJSON
     baseNameOf
-    isList
-    isString
-    isAttrs
     ;
   inherit (lib) warn;
   inherit (lib.strings) removeSuffix;
