@@ -39,10 +39,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Load and tag image
+      - name: Load, test and tag image
         run: |
           # Load the Nix-built image
           docker load < result
+
+          # Minimal test of the image
+          JSON="$(docker run --rm -i topiary:latest fmt -ljson <<< '{"foo":123}')"
+          [[ "${JSON}" = '{ "foo": 123 }' ]]
 
           # Extract the release version (e.g., "v0.7.3" from the tag)
           VERSION="${{ github.event.release.tag_name }}"
