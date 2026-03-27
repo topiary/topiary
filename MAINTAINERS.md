@@ -123,18 +123,10 @@
 > git push --delete origin vX.Y.Z
 > ```
 
-- Update `crates.io`. As of writing, the workspace cannot be published
-  automatically, so each package in the workspace needs to be
-  individually published in topological order. That is, currently,
-  something like:
+- Update `crates.io`:
 
   ```bash
-  cargo publish --package topiary-web-tree-sitter-sys
-  cargo publish --package topiary-tree-sitter-facade
-  cargo publish --package topiary-core
-  cargo publish --package topiary-queries
-  cargo publish --package topiary-config
-  cargo publish --package topiary-cli
+  cargo publish --workspace
   ```
 
 > [!IMPORTANT]
@@ -191,7 +183,7 @@ dissimilar from a usual release:
 If the unreleased changes in the [`CHANGELOG`] have become stale, the
 list of merged PRs can be fetched from:
 
-    https://github.com/tweag/topiary/pulls?q=is:pr+base:main+merged:>YYYY-MM-DD
+    https://github.com/topiary/topiary/pulls?q=is:pr+base:main+merged:>YYYY-MM-DD
 
 Replacing `YYYY-MM-DD` by the date of the last release.
 
@@ -225,4 +217,4 @@ gh pr list \
 [`CHANGELOG`]: /CHANGELOG.md
 [`dist`]: https://opensource.axo.dev/cargo-dist/
 [changelog-refresh]: #generating-the-pr-list-for-the-changelog
-[release]: https://github.com/tweag/topiary/releases
+[release]: https://github.com/topiary/topiary/releases

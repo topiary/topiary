@@ -27,7 +27,7 @@ pub enum TopiaryConfigError {
 #[cfg(not(target_arch = "wasm32"))]
 pub enum TopiaryConfigFetchingError {
     Git(anyhow::Error),
-    Build(anyhow::Error),
+    Build(tree_sitter_loader::LoaderError),
     Io(io::Error),
     LibLoading(libloading::Error),
     GrammarFileNotFound(path::PathBuf),

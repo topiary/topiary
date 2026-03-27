@@ -25,7 +25,7 @@ const TOML_EXPECTED: &str = r#"test = 123
 // If multiple calls to Topiary are made in parallel and the grammar is missing, they will all try
 // to fetch and build it, thus creating an empty .so file while g++ is running. If another instance
 // of topiary starts at this moment, it will mistake the empty .so file for an already built grammar,
-// and try to run with it, resulting in an error. See https://github.com/tweag/topiary/issues/767
+// and try to run with it, resulting in an error. See https://github.com/topiary/topiary/issues/767
 static INIT: Once = Once::new();
 pub fn initialize() {
     INIT.call_once(|| {

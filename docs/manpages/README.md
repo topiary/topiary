@@ -1,32 +1,37 @@
 # `man topiary`
 
-man pages for Topiary are generated from a subset of the [Topiary
+manpages for Topiary are generated from a subset of the [Topiary
 Book](../book); specifically the Topiary CLI chapters. The same
-mechanism is used to create man pages as the Topiary Book: [mdBook],
+mechanism is used to create manpages as the Topiary Book: [mdBook],
 using the [`mdbook-man`][mdbook-man] renderer and a pre- and
 post-processor written by the Topiary team.
 
 ## Getting started
 
 > [!IMPORTANT]
-> [mdBook (`mdbook`)][mdbook], `mdbook-man` and
-> [`mdbook-manmunge`][mdbook-manmunge] must be in your `$PATH`. See the
-> respective links for installation instructions, _except_ for
-> `mdbook-man`. This must be installed from GitHub as the latest release
-> (0.1) is not sufficient:
+> - You must use the v0.4 series of [mdBook (`mdbook`)[mdbook]. Newer
+>   versions have introduced breaking changes.
 >
-> ```console
-> $ cargo install --git https://github.com/vv9k/mdbook-man.git
-> ```
+> - You must use the latest `HEAD` of [`mdbook-man`][mdbook-man]; the
+>   v0.1 release is insufficient:
+>
+>   ```console
+>   $ cargo install --git https://github.com/vv9k/mdbook-man.git
+>   ```
+>
+> - [`mdbook-manmunge`][mdbook-manmunge] is designed to work with the
+>   above dependencies.
+>
+> These three binaries must be in your `$PATH` to build.
 
-To build the man pages and install, run:
+To build the manpages and install, run:
 
 ```console
 $ make
 $ make install
 ```
 
-By default the man pages will be installed to
+By default the manpages will be installed to
 `~/.local/share/man/man1/topiary.1.gz`. The `~/.local/share/man` prefix
 can be overridden by setting the `MAN_DIR` variable. For example:
 
@@ -37,10 +42,11 @@ $ sudo make install MAN_DIR=/usr/share/man
 
 ### Using Nix
 
-The Topiary Nix devshell provides mdBook and `mdbook-manmunge`, leaving
-you to build and install `mdbook-manmunge` (see [below][mdbook-manmunge]).
+The Topiary Nix devshell provides correct versions of  mdBook,
+`mdbook-man` and `mdbook-manmunge`, comprising the whole toolchain for
+building the manpages.
 
-Alternatively, a package exists that will build the man pages as its
+Alternatively, a package exists that will build the manpages as its
 derivation output, handling all the dependencies for you. For example:
 
 ```console
@@ -55,26 +61,21 @@ arguably the wrong approach; a better solution would have been to fork
 `mdbook-man` and make the necessary changes there. This may happen in
 the future, but this solution will do for now.
 
+Please see the [`mdbook-manmunge` repository][mdbook-manmunge-repo] for
+more details.
+
 ### Installation
 
-`mdbook-manmunge` is not available on [crates.io](https://crates.io).
-However, it can be built and installed locally from this repository:
-
 ```console
-$ cargo install --path mdbook-manmunge
+$ cargo install mdbook-manmunge
 ```
 
 > [!TIP]
 > You will need to include Cargo's binary directory (e.g.,
 > `~/.cargo/bin`) in your `$PATH`.
 
-> [!NOTE]
-> `mdbook-manmunge` _may_ complain about different versions of mdBook
-> (i.e., the caller vs. its internal dependency) when it is run.
-> Anecdotally, this can be ignored for now, however breaking changes may
-> be introduced in the future.
-
 <!-- Links -->
 [mdbook]: https://rust-lang.github.io/mdBook
 [mdbook-man]: https://github.com/vv9k/mdbook-man
 [mdbook-manmunge]: #mdbook-manmunge
+[mdbook-manmunge:repo]: https://github.com/topiary/mdbook-manmunge

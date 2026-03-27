@@ -10,7 +10,6 @@ mod native {
         range::Range,
         tree::Tree,
     };
-    use core::sync::atomic::AtomicUsize;
     use std::convert::TryFrom;
 
     pub struct Parser {
@@ -22,16 +21,6 @@ mod native {
         pub fn new() -> Result<Self, ParserError> {
             let inner = tree_sitter::Parser::new();
             Ok(Self { inner })
-        }
-
-        #[allow(clippy::missing_safety_doc)]
-        #[inline]
-        #[warn(deprecated)]
-        pub unsafe fn cancellation_flag(&self) -> Option<&AtomicUsize> {
-            unsafe {
-                #[allow(deprecated)]
-                self.inner.cancellation_flag()
-            }
         }
 
         #[inline]
@@ -111,16 +100,6 @@ mod native {
             self.inner.reset()
         }
 
-        #[allow(clippy::missing_safety_doc)]
-        #[inline]
-        #[warn(deprecated)]
-        pub unsafe fn set_cancellation_flag(&mut self, flag: Option<&AtomicUsize>) {
-            unsafe {
-                #[allow(deprecated)]
-                self.inner.set_cancellation_flag(flag);
-            }
-        }
-
         #[inline]
         pub fn set_included_ranges(&mut self, ranges: &[Range]) -> Result<(), IncludedRangesError> {
             let ranges = ranges.iter().map(|range| range.inner).collect::<Vec<_>>();
@@ -138,23 +117,8 @@ mod native {
         }
 
         #[inline]
-        #[warn(deprecated)]
-        pub fn set_timeout_micros(&mut self, timeout_micros: f64) {
-            #[allow(deprecated)]
-            self.inner.set_timeout_micros(timeout_micros as u64)
-        }
-
-        #[inline]
         pub fn stop_printing_dot_graphs(&mut self) {
             self.inner.stop_printing_dot_graphs()
-        }
-
-        #[inline]
-        #[warn(deprecated)]
-        pub fn timeout_micros(&self) -> f64 {
-            #[allow(deprecated)]
-            let timeout = self.inner.timeout_micros();
-            timeout as f64
         }
     }
 
@@ -204,11 +168,6 @@ mod wasm {
             let options = Default::default();
             Ok(Self { inner, options })
         }
-
-        // #[inline]
-        // pub unsafe fn cancellation_flag(&self) -> Option<&AtomicUsize> {
-        //     unimplemented!()
-        // }
 
         #[inline]
         pub fn language(&self) -> Option<Language> {
@@ -311,11 +270,6 @@ mod wasm {
         pub fn reset(&mut self) {
             self.inner.reset()
         }
-
-        // #[inline]
-        // pub unsafe fn set_cancellation_flag(&mut self, flag: Option<&AtomicUsize>) {
-        //     unimplemented!()
-        // }
 
         #[inline]
         pub fn set_included_ranges(&mut self, ranges: &[Range]) -> Result<(), IncludedRangesError> {

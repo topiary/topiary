@@ -140,7 +140,7 @@ bar == 'Goodbye
 else
     3),
 
-    # regression tests for https://github.com/tweag/topiary/issues/743
+    # regression tests for https://github.com/topiary/topiary/issues/743
     let foo
     | Number
     =

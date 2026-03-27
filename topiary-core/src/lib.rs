@@ -8,7 +8,7 @@
 //! to be formatted. We include query files for some languages.
 //!
 //! More details can be found on
-//! [GitHub](https://github.com/tweag/topiary).
+//! [GitHub](https://github.com/topiary/topiary).
 
 use std::io;
 

@@ -20,10 +20,13 @@ pub enum Source {
 
 impl From<Source> for nickel_lang_core::program::Input<Cursor<String>, OsString> {
     fn from(source: Source) -> Self {
+        use nickel_lang_core::cache::InputFormat;
         match source {
-            Source::Builtin => {
-                Self::Source(Cursor::new(source.builtin_nickel()), "built-in".into())
-            }
+            Source::Builtin => Self::Source(
+                Cursor::new(source.builtin_nickel()),
+                "built-in".into(),
+                InputFormat::Nickel,
+            ),
             Source::Directory(path) => Self::Path(path.into()),
             Source::File(path) => Self::Path(path.into()),
         }

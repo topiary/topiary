@@ -7,4 +7,4 @@ title = "Topiary"
 
 [output.html]
 site-url = "/book/"
-git-repository-url = "https://github.com/tweag/topiary"
+git-repository-url = "https://github.com/topiary/topiary"

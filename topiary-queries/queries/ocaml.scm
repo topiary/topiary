@@ -1568,7 +1568,7 @@
 ;   ]
 ;
 ; This case has been introduced because of a double indentation in
-; https://github.com/tweag/topiary/pull/724
+; https://github.com/topiary/topiary/pull/724
 (extension
   .
   "[%" @append_indent_start
@@ -1754,7 +1754,7 @@
 ;   ()
 ;
 ; The particular interaction with "concat_operator" comes from
-; https://github.com/tweag/topiary/pull/723
+; https://github.com/topiary/topiary/pull/723
 (
   [
     (concat_operator)
@@ -1996,7 +1996,7 @@
 ;   something horrible onto x
 ;
 ; The particular interaction with "fun_expression" comes from
-; https://github.com/tweag/topiary/pull/723
+; https://github.com/topiary/topiary/pull/723
 (_
   ; If the parent expression also was a concat_operator, do not indent (see above).
   (concat_operator)? @do_nothing
@@ -2039,7 +2039,7 @@
 ; foo bar baz @@ fun x ->
 ; x
 ;
-; The related issue is https://github.com/tweag/topiary/issues/731
+; The related issue is https://github.com/topiary/topiary/issues/731
 (infix_expression
   (application_expression) @prepend_begin_scope @prepend_begin_measuring_scope
   .

@@ -22,7 +22,7 @@ mod native {
 
         #[inline]
         pub fn child(&self, i: u32) -> Option<Self> {
-            self.inner.child(i as usize).map(Into::into)
+            self.inner.child(i).map(Into::into)
         }
 
         #[inline]
@@ -156,7 +156,7 @@ mod native {
 
         #[inline]
         pub fn named_child(&self, i: u32) -> Option<Self> {
-            self.inner.named_child(i as usize).map(Into::into)
+            self.inner.named_child(i).map(Into::into)
         }
 
         #[inline]

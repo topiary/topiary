@@ -21,11 +21,11 @@ comparable styles applied.
 
 <!-- Links -->
 [ci:badge]: https://img.shields.io/github/actions/workflow/status/tweag/topiary/ci.yml?style=for-the-badge&logo=github
-[ci]: https://github.com/tweag/topiary/actions/workflows/ci.yml
+[ci]: https://github.com/topiary/topiary/actions/workflows/ci.yml
 [discord:badge]: https://img.shields.io/discord/1174731094726295632?style=for-the-badge&logo=discord&logoColor=white&color=5865F2
 [discord]: https://discord.gg/FSnkvNyyzC
 [release:badge]: https://img.shields.io/github/v/release/tweag/topiary?display_name=release&style=for-the-badge&logo=github
-[release]: https://github.com/tweag/topiary/releases/latest
+[release]: https://github.com/topiary/topiary/releases/latest
 [topiary:book]: https://topiary.tweag.io/book/index.html
 [topiary:playground]: https://topiary.tweag.io/playground
 [topiary:website]: https://topiary.tweag.io

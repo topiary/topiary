@@ -8,6 +8,6 @@ example in the documentation of that function is kept up to date.
 For a more complete example, see the [client-app example in the Topiary
 repository][client-app].
 
-[client-app]: https://github.com/tweag/topiary/tree/main/examples/client-app
+[client-app]: https://github.com/topiary/topiary/tree/main/examples/client-app
 [topiary-crate]: https://crates.io/crates/topiary-core
 [topiary-docs]: https://docs.rs/topiary-core/latest/topiary_core/
