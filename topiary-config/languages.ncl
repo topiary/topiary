@@ -1,3 +1,7 @@
+# MAINTAINERS: If the structure of this configuration changes, it may
+# break `prefetchLanguagesNickelFile` in nix/utils/prefetchLanguages.nix
+# Please keep these synchronised.
+
 {
   languages = {
     bash = {
