@@ -13,6 +13,7 @@
 use std::io;
 
 use pretty_assertions::StrComparison;
+use rootcause::{prelude::ResultExt, report};
 use tree_sitter::Position;
 
 pub use crate::{
@@ -164,7 +165,7 @@ pub enum ScopeCondition {
 }
 
 /// A convenience wrapper around `std::result::Result<T, FormatterError>`.
-pub type FormatterResult<T> = std::result::Result<T, FormatterError>;
+pub type FormatterResult<T> = std::result::Result<T, rootcause::Report<FormatterError>>;
 
 /// Operations that can be performed by the formatter.
 #[derive(Clone, Copy, Debug)]
@@ -235,12 +236,9 @@ pub fn formatter(
     language: &Language,
     operation: Operation,
 ) -> FormatterResult<()> {
-    let content = read_input(input).map_err(|e| {
-        FormatterError::Io(IoError::Filesystem(
-            "Failed to read input contents".into(),
-            e,
-        ))
-    })?;
+    let content = read_input(input)
+        .context_to()
+        .attach("Failed to read input contents")?;
 
     formatter_str(&content, output, language, operation)
 }
@@ -311,15 +309,15 @@ pub fn formatter_tree(
                 idempotence_check(&rendered, language, tolerate_parsing_errors)?;
             }
 
-            write!(output, "{rendered}")?;
+            write!(output, "{rendered}").context_to()?;
         }
 
         Operation::Visualise { output_format } => {
             let root: SyntaxNode = tree.root_node().into();
 
             match output_format {
-                Visualisation::GraphViz => graphviz::write(output, &root)?,
-                Visualisation::Json => serde_json::to_writer(output, &root)?,
+                Visualisation::GraphViz => graphviz::write(output, &root).context_to()?,
+                Visualisation::Json => serde_json::to_writer(output, &root).context_to()?,
             };
         }
     };
@@ -362,18 +360,22 @@ fn idempotence_check(
         },
     ) {
         Ok(()) => {
-            let reformatted = String::from_utf8(output.into_inner()?)?;
+            let reformatted = output
+                .into_inner()
+                .context_to()
+                .map(String::from_utf8)?
+                .context_to()?;
 
             if content == reformatted {
                 Ok(())
             } else {
                 log::error!("Failed idempotence check");
                 log::error!("{}", StrComparison::new(content, &reformatted));
-                Err(FormatterError::Idempotence)
+                Err(report!(FormatterError::Idempotence))
             }
         }
-        Err(error @ FormatterError::Parsing { .. }) => {
-            Err(FormatterError::IdempotenceParsing(Box::new(error)))
+        Err(report) if matches!(report.current_context(), FormatterError::Parsing { .. }) => {
+            Err(report.context(FormatterError::IdempotenceParsing))
         }
         Err(error) => Err(error),
     }

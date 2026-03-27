@@ -167,12 +167,12 @@ impl AtomCollection {
 
         let requires_delimiter = || {
             predicates.delimiter.as_deref().ok_or_else(|| {
-                FormatterError::Query(format!("@{name} requires a #delimiter! predicate"), None)
+                FormatterError::Query(format!("@{name} requires a #delimiter! predicate"))
             })
         };
         let requires_scope_id = || {
             predicates.scope_id.as_deref().ok_or_else(|| {
-                FormatterError::Query(format!("@{name} requires a #scope_id! predicate"), None)
+                FormatterError::Query(format!("@{name} requires a #scope_id! predicate"))
             })
         };
 
@@ -442,10 +442,7 @@ impl AtomCollection {
             }
             // Return a query parsing error on unknown capture names
             unknown => {
-                return Err(FormatterError::Query(
-                    format!("@{unknown} is not a valid capture name"),
-                    None,
-                ));
+                return Err(FormatterError::Query(format!("@{unknown} is not a valid capture name")));
             }
         }
 

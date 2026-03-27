@@ -12,6 +12,9 @@ description = """
   Topiary's uniform interface for `tree-sitter` (rust) and `web-tree-sitter` (wasm-bindgen)
 """
 
+[dependencies]
+miette.workspace = true
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tree-sitter.workspace = true
 tree-sitter-language.workspace = true

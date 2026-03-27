@@ -3488,6 +3488,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "rootcause"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fc4bd36159c7ce180fe2de1e5371ef107a2885f0048430f631e78202e2255d4"
+dependencies = [
+ "hashbrown 0.16.1",
+ "indexmap",
+ "rootcause-internals",
+ "rustc-hash",
+ "triomphe",
+]
+
+[[package]]
+name = "rootcause-internals"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d0df4f84d119d09b5c9c9e8db0fe9bfb5b47b04d0bb95b0763cf81bd9baa559"
+dependencies = [
+ "triomphe",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4376,6 +4398,7 @@ dependencies = [
  "pretty_assertions",
  "prettydiff",
  "rayon",
+ "rootcause",
  "serde",
  "serde_json",
  "streaming-iterator",
@@ -4399,6 +4422,7 @@ name = "topiary-tree-sitter-facade"
 version = "0.7.3"
 dependencies = [
  "js-sys",
+ "miette",
  "streaming-iterator",
  "topiary-web-tree-sitter-sys",
  "tree-sitter",
@@ -4601,6 +4625,12 @@ dependencies = [
  "thiserror 2.0.18",
  "tree-sitter",
 ]
+
+[[package]]
+name = "triomphe"
+version = "0.1.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd69c5aa8f924c7519d6372789a74eac5b94fb0f8fcf0d4a97eb0bfc3e785f39"
 
 [[package]]
 name = "try-lock"

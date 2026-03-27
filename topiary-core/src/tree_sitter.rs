@@ -4,7 +4,8 @@
 
 use std::{collections::HashSet, fmt::Display};
 
-use miette::{LabeledSpan, Severity, SourceSpan};
+use miette::{LabeledSpan, NamedSource, Severity, SourceSpan};
+use rootcause::{IntoReport, Report, handlers::Any, prelude::ResultExt, report};
 use serde::Serialize;
 
 use topiary_tree_sitter_facade::{
@@ -16,7 +17,7 @@ use streaming_iterator::StreamingIterator;
 use crate::{
     FormatterResult,
     atom_collection::{AtomCollection, QueryPredicates},
-    error::FormatterError,
+    error::{self, ErrorSpan, FormatterError},
 };
 
 /// Supported visualisation formats
@@ -55,15 +56,19 @@ impl TopiaryQuery {
     /// contents of the query file.
     ///
     /// # Errors
-    ///
+    ///https://docs.rs/miette/latest/miette/struct.Report.html
     /// This function will return an error if tree-sitter failed to parse the
     /// query file.
     pub fn new(
         grammar: &topiary_tree_sitter_facade::Language,
         query_content: &str,
     ) -> FormatterResult<TopiaryQuery> {
-        let query = Query::new(grammar, query_content)
-            .map_err(|e| FormatterError::Query("Error parsing query file".into(), Some(e)))?;
+        let query = Query::new(grammar, query_content).map_err(|e| {
+            FormatterError::Query("Error parsing query file".into())
+                .into_report()
+                .attach_custom::<Any, _>(e.span(query_content))
+                .attach_custom::<Any, _>(error::Language("tree_sitter_query"))
+        })?;
 
         Ok(TopiaryQuery {
             query,
@@ -403,11 +408,13 @@ pub fn apply_query_tree(
 #[derive(Debug)]
 pub struct NodeSpan {
     pub(crate) range: Range,
-    // source code contents
-    pub content: Option<String>,
-    // source code location
-    pub location: Option<String>,
-    pub language: &'static str,
+    pub language: Option<&'static str>,
+}
+
+impl From<&Node<'_>> for NodeSpan {
+    fn from(value: &Node) -> Self {
+        Self::new(value)
+    }
 }
 
 impl NodeSpan {
@@ -415,9 +422,7 @@ impl NodeSpan {
     pub fn new(node: &Node) -> Self {
         Self {
             range: node.range(),
-            content: None,
-            location: None,
-            language: node.language_name().unwrap_or_default(),
+            language: node.language_name(),
         }
     }
     /// Creates a [`SourceSpan`] from the node's byte range
@@ -425,32 +430,15 @@ impl NodeSpan {
         (self.range.start_byte() as usize..=self.range.end_byte() as usize).into()
     }
 
-    pub(crate) fn set_content(&mut self, content: String) {
-        self.content = Some(content);
-    }
-
-    /// Adds source text to [`Self`] for adding context to display
-    pub fn with_content(mut self, content: String) -> Self {
-        self.set_content(content);
-        self
-    }
-
-    pub(crate) fn set_location(&mut self, location: String) {
-        self.location = Some(location);
-    }
-
-    /// Adds span origin name to [`Self`] for adding context to display
-    pub fn with_location(mut self, location: String) -> Self {
-        self.set_location(location);
-        self
-    }
-}
-
-impl std::ops::Deref for NodeSpan {
-    type Target = Range;
-
-    fn deref(&self) -> &Self::Target {
-        &self.range
+    fn report(self) -> Report<FormatterError> {
+        let report = report!(FormatterError::Parsing)
+            .attach_custom::<Any, _>(self.source_span())
+            .attach_custom::<Any, _>(self.range);
+        if let Some(language) = self.language {
+            report.attach_custom::<Any, _>(error::Language(language))
+        } else {
+            report
+        }
     }
 }
 
@@ -460,19 +448,21 @@ pub fn parse(
     grammar: &topiary_tree_sitter_facade::Language,
     tolerate_parsing_errors: bool,
 ) -> FormatterResult<Tree> {
-    let mut parser = Parser::new()?;
-    parser.set_language(grammar).map_err(|_| {
-        FormatterError::Internal("Could not apply Tree-sitter grammar".into(), None)
-    })?;
+    let mut parser = Parser::new().context_to()?;
+    parser
+        .set_language(grammar)
+        .context_to()
+        .attach("Could not apply Tree-sitter grammar")?;
 
-    let tree = parser
-        .parse(content, None)?
-        .ok_or_else(|| FormatterError::Internal("Could not parse input".into(), None))?;
+    let tree = parser.parse(content, None).context_to()?.ok_or_else(|| {
+        report!(FormatterError::Internal(
+            "Could not parse input".to_string()
+        ))
+    })?;
 
     // Fail parsing if we don't get a complete syntax tree.
     if !tolerate_parsing_errors {
-        check_for_error_nodes(&tree.root_node())
-            .map_err(|e| e.with_content(content.to_string()))?;
+        check_for_error_nodes(&tree.root_node()).map_err(NodeSpan::report)?;
     }
 
     Ok(tree)
@@ -531,19 +521,21 @@ fn handle_predicate(
 ) -> FormatterResult<QueryPredicates> {
     let operator = &*predicate.operator();
     if "delimiter!" == operator {
-        let arg =
-            predicate.args().into_iter().next().ok_or_else(|| {
-                FormatterError::Query(format!("{operator} needs an argument"), None)
-            })?;
+        let arg = predicate
+            .args()
+            .into_iter()
+            .next()
+            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
         Ok(QueryPredicates {
             delimiter: Some(arg),
             ..predicates.clone()
         })
     } else if "scope_id!" == operator {
-        let arg =
-            predicate.args().into_iter().next().ok_or_else(|| {
-                FormatterError::Query(format!("{operator} needs an argument"), None)
-            })?;
+        let arg = predicate
+            .args()
+            .into_iter()
+            .next()
+            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
         Ok(QueryPredicates {
             scope_id: Some(arg),
             ..predicates.clone()
@@ -559,37 +551,40 @@ fn handle_predicate(
             ..predicates.clone()
         })
     } else if "single_line_scope_only!" == operator {
-        let arg =
-            predicate.args().into_iter().next().ok_or_else(|| {
-                FormatterError::Query(format!("{operator} needs an argument"), None)
-            })?;
+        let arg = predicate
+            .args()
+            .into_iter()
+            .next()
+            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
         Ok(QueryPredicates {
             single_line_scope_only: Some(arg),
             ..predicates.clone()
         })
     } else if "multi_line_scope_only!" == operator {
-        let arg =
-            predicate.args().into_iter().next().ok_or_else(|| {
-                FormatterError::Query(format!("{operator} needs an argument"), None)
-            })?;
+        let arg = predicate
+            .args()
+            .into_iter()
+            .next()
+            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
         Ok(QueryPredicates {
             multi_line_scope_only: Some(arg),
             ..predicates.clone()
         })
     } else if "query_name!" == operator {
-        let arg =
-            predicate.args().into_iter().next().ok_or_else(|| {
-                FormatterError::Query(format!("{operator} needs an argument"), None)
-            })?;
+        let arg = predicate
+            .args()
+            .into_iter()
+            .next()
+            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
         Ok(QueryPredicates {
             query_name: Some(arg),
             ..predicates.clone()
         })
     } else {
-        Err(FormatterError::Query(
-            format!("{operator} is an unknown predicate. Maybe you forgot a \"!\"?"),
-            None,
-        ))
+        Err(FormatterError::Query(format!(
+            "{operator} is an unknown predicate. Maybe you forgot a \"!\"?"
+        )))
+        .into_report()
     }
 }
 
@@ -625,8 +620,8 @@ fn check_predicates(predicates: &QueryPredicates) -> FormatterResult<()> {
     if incompatible_predicates > 1 {
         Err(FormatterError::Query(
             "A query can contain at most one #single/multi_line[_scope]_only! predicate".into(),
-            None,
-        ))
+        )
+        .into())
     } else {
         Ok(())
     }
