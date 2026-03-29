@@ -48,6 +48,17 @@
       },
     },
 
+    json5 = {
+      extensions = [
+        "json5"
+      ],
+      grammar.source.git = {
+        git = "https://github.com/Joakker/tree-sitter-json5.git",
+        rev = "ab0ba8229d639ec4f3fa5f674c9133477f4b77bd",
+        nixHash = "sha256-LaCCjvYnmofOVQ2Nqlzfh3KP3fNG0HBxkOng0gjYY1g=",
+      },
+    },
+
     nickel = {
       extensions | default = ["ncl"],
       grammar.source | default = {

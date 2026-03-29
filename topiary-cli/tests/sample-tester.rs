@@ -10,6 +10,7 @@ fn get_file_extension(language: &str) -> &str {
         "bash" => "sh",
         "css" => "css",
         "json" => "json",
+        "json5" => "json5",
         "nickel" => "ncl",
         "ocaml" => "ml",
         "ocaml_interface" => "mli",
@@ -83,6 +84,7 @@ mod test_fmt {
         "bash",
         "css",
         "json",
+        "json5",
         "nickel",
         "ocaml",
         "ocaml_interface",
@@ -162,6 +164,7 @@ mod test_coverage {
         "bash",
         "css",
         "json",
+        "json5",
         "nickel",
         "ocaml",
         // "ocaml_interface.mli" is voluntarily omitted:
