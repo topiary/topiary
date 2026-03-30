@@ -42,7 +42,7 @@ let
         craneLib
         callPackageNoOverrides
         ;
-      inherit (topiaryUtils) prefetchLanguagesFile;
+      inherit (topiaryUtils) prefetchLanguagesFile prefetchLanguagesNickelFile;
     })
     topiaryPkgs
     binPkgs

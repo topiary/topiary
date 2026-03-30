@@ -3,6 +3,7 @@
   advisory-db,
   craneLib,
   prefetchLanguagesFile,
+  prefetchLanguagesNickelFile,
 }:
 
 let
@@ -109,7 +110,7 @@ let
         preConfigurePhases = optional prefetchGrammars "prepareTopiaryDefaultConfiguration";
 
         prepareTopiaryDefaultConfiguration = optional prefetchGrammars (
-          "cp ${prefetchLanguagesFile ../../topiary-config/languages.ncl} topiary-config/languages.ncl"
+          "cp ${prefetchLanguagesNickelFile ../../topiary-config/languages.ncl} topiary-config/languages.ncl"
         );
 
         postInstall = ''
@@ -254,6 +255,28 @@ let
     };
   };
 
+  topiary-docker =
+    let
+      cli = topiary-cli.override { prefetchGrammars = true; };
+    in
+    pkgs.dockerTools.buildLayeredImage {
+      name = "topiary";
+      tag = "latest";
+
+      contents = [
+        cli
+        pkgs.dockerTools.caCertificates
+      ];
+
+      config = {
+        Entrypoint = [ "${cli}/bin/topiary" ];
+        Labels = {
+          "org.opencontainers.image.source" = "https://github.com/topiary/topiary";
+          "org.opencontainers.image.description" = "A general code formatter based on Tree-sitter";
+        };
+      };
+    };
+
   # This runs the Topiary CLI in a controlled PTY for stable output
   # while testing in CI (90 columns and no ANSI extensions)
   topiary-wrapped = pkgs.writeShellApplication {
@@ -283,6 +306,7 @@ in
     client-app
     topiary-core
     topiary-cli
+    topiary-docker
     topiary-queries
     mdbook
     mdbook-manmunge

@@ -1,0 +1,62 @@
+name: Build and deploy Docker image
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Set up Nix cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: tweag-topiary
+          authToken: ${{ secrets.CACHIX_TWEAG_TOPIARY_AUTH_TOKEN }}
+
+      - name: Build Docker image
+        run: nix build .#topiary-docker
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Load, test and tag image
+        run: |
+          # Load the Nix-built image
+          docker load < result
+
+          # Minimal test of the image
+          JSON="$(docker run --rm -i topiary:latest fmt -ljson <<< '{"foo":123}')"
+          [[ "${JSON}" = '{ "foo": 123 }' ]]
+
+          # Extract the release version (e.g., "v0.7.3" from the tag)
+          VERSION="${{ github.event.release.tag_name }}"
+
+          # Tag for ghcr.io
+          docker tag topiary:latest "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          docker tag topiary:latest "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
+
+      - name: Push to ghcr.io
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          docker push "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          docker push "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
