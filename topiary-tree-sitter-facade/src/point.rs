@@ -9,8 +9,8 @@ mod native {
 
     impl Point {
         #[inline]
-        pub fn new(row: usize, column: usize) -> Self {
-            tree_sitter::Point::new(row, column).into()
+        pub fn new(row: u32, column: u32) -> Self {
+            tree_sitter::Point::new(row as usize, column as usize).into()
         }
 
         #[inline]

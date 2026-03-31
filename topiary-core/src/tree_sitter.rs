@@ -17,7 +17,7 @@ use streaming_iterator::StreamingIterator;
 use crate::{
     FormatterResult,
     atom_collection::{AtomCollection, QueryPredicates},
-    error::{self, ErrorSpan, FormatterError},
+    error::{self, FormatterError, SpanAttachment},
 };
 
 /// Supported visualisation formats
@@ -63,12 +63,12 @@ impl TopiaryQuery {
         grammar: &topiary_tree_sitter_facade::Language,
         query_content: &str,
     ) -> FormatterResult<TopiaryQuery> {
-        let query = Query::new(grammar, query_content).map_err(|e| {
-            FormatterError::Query("Error parsing query file".into())
-                .into_report()
-                .attach_custom::<Any, _>(e.span(query_content))
-                .attach_custom::<Any, _>(error::Language("tree_sitter_query"))
-        })?;
+        let query = Query::new(grammar, query_content)
+            .context_to()
+            .map_err(|e| {
+                e.attach_language("tree_sitter_query")
+                    .attach_source(query_content)
+            })?;
 
         Ok(TopiaryQuery {
             query,

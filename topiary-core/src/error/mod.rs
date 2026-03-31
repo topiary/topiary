@@ -14,9 +14,9 @@ use rootcause::{
 };
 use topiary_tree_sitter_facade::{Point, QueryError, Range};
 
-use crate::tree_sitter::NodeSpan;
+use crate::{error::error_span::ErrorSpan, tree_sitter::NodeSpan};
 
-use error_span::ErrorSpan;
+pub use error_span::SpanAttachment;
 
 mod error_span;
 
@@ -50,33 +50,6 @@ pub enum FormatterError {
     Io(String),
 }
 
-// impl FormatterError {
-//     fn get_span(&mut self) -> Option<&mut NodeSpan> {
-//         match self {
-//             Self::Parsing(span) => Some(span),
-//             Self::IdempotenceParsing(err) => err.get_span(),
-//             _ => None,
-//         }
-//     }
-//     pub fn with_content(mut self, content: String) -> Self {
-//         if let Some(span) = self.get_span() {
-//             span.set_content(content);
-//         }
-//         self
-//     }
-//
-//     pub fn with_location(mut self, location: String) -> Self {
-//         if let Some(span) = self.get_span() {
-//             span.set_location(location);
-//         }
-//         self
-//     }
-// }
-
-// pub trait GetSpan {
-//     fn get_or_init(&mut self) -> ErrorSpan;
-// }
-//
 // impl GetSpan for Report<FormatterError> {
 //     fn get_or_init(&mut self) -> ErrorSpan {
 //         let attachments = self.attachments_mut();
@@ -113,9 +86,6 @@ impl fmt::Display for FormatterError {
 
             Self::Parsing => {
                 write!(f, "Tree-sitter could not parse the input without errors.")
-
-                // let report = miette::Report::new(ErrorSpan::from(span));
-                // write!(f, "{report:?}")
             }
 
             Self::PatternDoesNotMatch => {
@@ -179,10 +149,23 @@ report_conversion!(
     FormatterError::Io("Error while parsing".to_string())
 );
 
-report_conversion!(
-    topiary_tree_sitter_facade::QueryError,
-    FormatterError::Query("Error parsing query file".to_string())
-);
+impl<T> ReportConversion<topiary_tree_sitter_facade::QueryError, markers::Mutable, T>
+    for FormatterError
+where
+    ErrorSpan: markers::ObjectMarkerFor<T>,
+    Self: markers::ObjectMarkerFor<T>,
+{
+    fn convert_report(
+        report: Report<topiary_tree_sitter_facade::QueryError, markers::Mutable, T>,
+    ) -> Report<Self, markers::Mutable, T> {
+        let range = report.current_context().range;
+        report
+            .context(FormatterError::Query(
+                "Error parsing query file".to_string(),
+            ))
+            .attach_range(range)
+    }
+}
 
 // We only have to deal with io::BufWriter<Vec<u8>>, but the genericised code is
 // clearer
@@ -217,18 +200,3 @@ where
 pub struct Filename(pub PathBuf);
 pub struct Source(pub String);
 pub struct Language(pub &'static str);
-
-impl From<topiary_tree_sitter_facade::LanguageError> for FormatterError {
-    fn from(e: topiary_tree_sitter_facade::LanguageError) -> Self {
-        Self::Internal(
-            "Error while loading language grammar".into(),
-            Some(Box::new(e)),
-        )
-    }
-}
-
-impl From<topiary_tree_sitter_facade::ParserError> for FormatterError {
-    fn from(e: topiary_tree_sitter_facade::ParserError) -> Self {
-        Self::Internal("Error while parsing".into(), Some(Box::new(e)))
-    }
-}

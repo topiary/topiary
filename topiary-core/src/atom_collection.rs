@@ -5,6 +5,7 @@ use std::{
     ops::Deref,
 };
 
+use rootcause::prelude::ResultExt;
 use topiary_tree_sitter_facade::Node;
 
 use crate::{
@@ -442,7 +443,9 @@ impl AtomCollection {
             }
             // Return a query parsing error on unknown capture names
             unknown => {
-                return Err(FormatterError::Query(format!("@{unknown} is not a valid capture name")));
+                rootcause::bail!(FormatterError::Query(format!(
+                    "@{unknown} is not a valid capture name"
+                )));
             }
         }
 
@@ -554,7 +557,7 @@ impl AtomCollection {
             || node.kind() == "ERROR"
         {
             self.atoms.push(Atom::Leaf {
-                content: String::from(node.utf8_text(source)?),
+                content: String::from(node.utf8_text(source).context_to()?),
                 id,
                 original_position: node.start_position().into(),
                 single_line_no_indent: false,
