@@ -13,7 +13,8 @@ mod native {
     impl Query {
         #[inline]
         pub fn new(language: &Language, source: &str) -> Result<Self, QueryError> {
-            let inner = tree_sitter::Query::new(&language.inner, source)?;
+            let inner = tree_sitter::Query::new(&language.inner, source)
+                .map_err(|e| QueryError::new(source, e))?;
             Ok(Self { inner })
         }
 

@@ -83,7 +83,7 @@ impl fmt::Display for SyntaxNode {
 }
 
 /// Writes the Graphviz Graph in the dot format to the specified output buffer.
-pub fn write(output: &mut dyn io::Write, root: &SyntaxNode) -> FormatterResult<()> {
+pub fn write(output: &mut dyn io::Write, root: &SyntaxNode) -> std::io::Result<()> {
     writeln!(output, "graph {{")?;
     write!(output, "{root}")?;
     writeln!(output, "}}")?;

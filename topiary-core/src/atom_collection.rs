@@ -5,6 +5,7 @@ use std::{
     ops::Deref,
 };
 
+use rootcause::prelude::ResultExt;
 use topiary_tree_sitter_facade::Node;
 
 use crate::{
@@ -167,12 +168,12 @@ impl AtomCollection {
 
         let requires_delimiter = || {
             predicates.delimiter.as_deref().ok_or_else(|| {
-                FormatterError::Query(format!("@{name} requires a #delimiter! predicate"), None)
+                FormatterError::Query(format!("@{name} requires a #delimiter! predicate"))
             })
         };
         let requires_scope_id = || {
             predicates.scope_id.as_deref().ok_or_else(|| {
-                FormatterError::Query(format!("@{name} requires a #scope_id! predicate"), None)
+                FormatterError::Query(format!("@{name} requires a #scope_id! predicate"))
             })
         };
 
@@ -442,10 +443,9 @@ impl AtomCollection {
             }
             // Return a query parsing error on unknown capture names
             unknown => {
-                return Err(FormatterError::Query(
-                    format!("@{unknown} is not a valid capture name"),
-                    None,
-                ));
+                rootcause::bail!(FormatterError::Query(format!(
+                    "@{unknown} is not a valid capture name"
+                )));
             }
         }
 
@@ -557,7 +557,7 @@ impl AtomCollection {
             || node.kind() == "ERROR"
         {
             self.atoms.push(Atom::Leaf {
-                content: String::from(node.utf8_text(source)?),
+                content: String::from(node.utf8_text(source).context_to()?),
                 id,
                 original_position: node.start_position().into(),
                 single_line_no_indent: false,

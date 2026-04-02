@@ -4,6 +4,8 @@
 
 use std::fmt::Write;
 
+use rootcause::prelude::ResultExt;
+
 use crate::{Atom, Capitalisation, FormatterError, FormatterResult};
 
 /// Renders a slice of Atoms into an owned string.
@@ -20,17 +22,18 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
 
     for atom in atoms {
         match atom {
-            Atom::Blankline => write!(buffer, "\n\n{}", indent.repeat(indent_level))?,
+            Atom::Blankline => {
+                write!(buffer, "\n\n{}", indent.repeat(indent_level)).context_to()?
+            }
 
             Atom::Empty => (),
 
-            Atom::Hardline => write!(buffer, "\n{}", indent.repeat(indent_level))?,
+            Atom::Hardline => write!(buffer, "\n{}", indent.repeat(indent_level)).context_to()?,
 
             Atom::IndentEnd => {
                 if indent_level == 0 {
-                    return Err(FormatterError::Query(
-                        "Trying to close an unopened indentation block".into(),
-                        None,
+                    rootcause::bail!(FormatterError::Query(
+                        "Trying to close an unopened indentation block".to_owned(),
                     ));
                 }
 
@@ -51,7 +54,7 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                 if *single_line_no_indent {
                     // The line break after the content has been previously added
                     // as a `Hardline` in the atom stream.
-                    writeln!(buffer)?;
+                    writeln!(buffer).context_to()?;
                 }
                 let content = if *keep_whitespace {
                     content
@@ -85,19 +88,18 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                     }
                     _ => {}
                 }
-                write!(buffer, "{content}")?;
+                write!(buffer, "{content}").context_to()?;
             }
 
-            Atom::Literal(s) => write!(buffer, "{s}")?,
+            Atom::Literal(s) => write!(buffer, "{s}").context_to()?,
 
-            Atom::Space => write!(buffer, " ")?,
+            Atom::Space => write!(buffer, " ").context_to()?,
 
             // All other atom kinds should have been post-processed at that point
             other => {
-                return Err(FormatterError::Internal(
-                    format!("Found atom that should have been removed before rendering: {other:?}",),
-                    None,
-                ));
+                rootcause::bail!(FormatterError::Internal(format!(
+                    "Found atom that should have been removed before rendering: {other:?}",
+                )));
             }
         };
     }

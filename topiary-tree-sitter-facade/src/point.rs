@@ -10,19 +10,17 @@ mod native {
     impl Point {
         #[inline]
         pub fn new(row: u32, column: u32) -> Self {
-            let row = row as usize;
-            let column = column as usize;
-            tree_sitter::Point { row, column }.into()
+            tree_sitter::Point::new(row as usize, column as usize).into()
         }
 
         #[inline]
         pub fn column(&self) -> u32 {
-            u32::try_from(self.inner.column).unwrap()
+            self.inner.column as u32
         }
 
         #[inline]
         pub fn row(&self) -> u32 {
-            u32::try_from(self.inner.row).unwrap()
+            self.inner.row as u32
         }
     }
 

@@ -71,17 +71,18 @@ wasm-bindgen = "=0.2.100"
 wasm-bindgen-futures = "=0.4"
 wasm-bindgen-test = "=0.3"
 web-sys = "0.3"
+rootcause = "0.12.1"
 
 # NOTE Keep these versions aligned
 tree-sitter = "0.26"         # NOTE Update tree-sitter-loader to match
 tree-sitter-loader = "0.26"  # NOTE Align with tree-sitter
 
 # NOTE Update these appropriately
-topiary-web-tree-sitter-sys = { version = "0.7.3", path = "./topiary-web-tree-sitter-sys" }
-topiary-tree-sitter-facade = { version = "0.7.3", path = "./topiary-tree-sitter-facade" }
-topiary-core = { version = "0.7.3", path = "./topiary-core" }
 topiary-config = { version = "0.7.3", path = "./topiary-config" }
+topiary-core = { version = "0.7.3", path = "./topiary-core" }
 topiary-queries = { version = "0.7.3", path = "./topiary-queries" }
+topiary-tree-sitter-facade = { version = "0.7.3", path = "./topiary-tree-sitter-facade" }
+topiary-web-tree-sitter-sys = { version = "0.7.3", path = "./topiary-web-tree-sitter-sys" }
 
 [profile.dev.package.lalrpop]
 opt-level = 3
