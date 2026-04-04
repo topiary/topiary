@@ -20,6 +20,8 @@ impl LanguageDefinitionCache {
         LanguageDefinitionCache(Mutex::new(HashMap::new()))
     }
 
+    // pub fn fetch_bl
+
     /// Fetch the language definition from the cache, populating if necessary, with thread-safety
     pub async fn fetch<'i>(&self, input: &'i InputFile<'i>) -> CLIResult<Arc<Language>> {
         // There's no need to store the input's identifying information (language name and query)
