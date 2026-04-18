@@ -1,6 +1,6 @@
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
-    use std::convert::TryFrom;
+    
 
     #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct Point {

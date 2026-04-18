@@ -388,7 +388,7 @@ mod tests {
     use test_log::test;
 
     use crate::{
-        Language, Operation, TopiaryQuery, error::FormatterError, formatter,
+        Language, Operation, SpanAttachment, TopiaryQuery, error::FormatterError, formatter,
         test_utils::pretty_assert_eq,
     };
 
@@ -406,7 +406,7 @@ mod tests {
             indent: None,
         };
 
-        match formatter(
+        let mut result = formatter(
             &mut input,
             &mut output,
             &language,
@@ -414,14 +414,14 @@ mod tests {
                 skip_idempotence: true,
                 tolerate_parsing_errors: false,
             },
-        ) {
-            // start end == 1
-            Err(FormatterError::Parsing(node))
-                if node.start_point().row() == 0 && node.end_point().row() == 0 => {}
-            result => {
-                panic!("Expected a parsing error on line 1, but got {result:?}");
-            }
+        );
+        if let Some(range) = result.get_span().and_then(|s| s.range)
+            && range.start_point().row() == 0
+            && range.end_point().row() == 0
+        {
+            return;
         }
+        panic!("Expected a parsing error on line 1, but got {result:?}");
     }
 
     #[test(tokio::test)]

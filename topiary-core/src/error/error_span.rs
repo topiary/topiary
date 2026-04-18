@@ -6,29 +6,20 @@
 #![allow(unused_assignments)]
 
 use std::{
-    any::TypeId,
     fmt,
     path::{Path, PathBuf},
 };
 
-use miette::{
-    Diagnostic, MietteError, MietteSpanContents, NamedSource, SourceCode, SourceSpan, SpanContents,
-};
-use rootcause::{
-    markers::{self, ObjectMarkerFor},
-    prelude::ResultExt,
-    report_attachment::{ReportAttachment, ReportAttachmentMut},
-};
+use miette::{Diagnostic, MietteError, MietteSpanContents, SourceCode, SourceSpan, SpanContents};
+use rootcause::{markers::ObjectMarkerFor, prelude::ResultExt};
 use topiary_tree_sitter_facade::Range;
-
-use crate::tree_sitter::NodeSpan;
 
 #[derive(Diagnostic, Debug, Default)]
 pub struct ErrorSpan {
     source: Option<String>,
     filepath: Option<PathBuf>,
     language: Option<&'static str>,
-    range: Option<Range>,
+    pub(crate) range: Option<Range>,
 
     #[label("(ERROR) node")]
     span: Option<SourceSpan>,

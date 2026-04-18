@@ -4,7 +4,7 @@
 
 use std::{collections::HashSet, fmt::Display};
 
-use miette::{LabeledSpan, NamedSource, Severity, SourceSpan};
+use miette::{LabeledSpan, Severity, SourceSpan};
 use rootcause::{IntoReport, Report, handlers::Any, prelude::ResultExt, report};
 use serde::Serialize;
 

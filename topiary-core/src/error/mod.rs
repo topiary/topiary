@@ -1,20 +1,14 @@
 //! This module defines all errors that might be propagated out of the library,
 //! including all of the trait implementations one might expect for Errors.
 
-use std::{any::TypeId, error::Error, fmt, io, ops::Deref, path::PathBuf, str, string};
+use std::{error::Error, fmt, io, path::PathBuf, str};
 
-use itertools::Itertools;
-use miette::{Diagnostic, NamedSource, SourceSpan};
 use rootcause::{
     Report, ReportConversion,
-    handlers::Any,
-    markers::{self, Local, SendSync},
+    markers::{self},
     prelude::*,
-    report_attachments::ReportAttachments,
 };
-use topiary_tree_sitter_facade::{Point, QueryError, Range};
 
-use crate::tree_sitter::NodeSpan;
 
 pub use error_span::{ErrorSpan, SpanAttachment};
 
