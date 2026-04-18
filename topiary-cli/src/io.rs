@@ -8,12 +8,7 @@ use std::{
 };
 
 use nickel_lang_core::eval::value::NickelValue;
-use rootcause::{
-    Report,
-    prelude::ResultExt,
-    report,
-    report_collection::ReportCollection,
-};
+use rootcause::{Report, prelude::ResultExt, report, report_collection::ReportCollection};
 use tempfile::tempfile;
 use topiary_config::Configuration;
 use topiary_core::{Language, Operation, SpanAttachment, TopiaryQuery, formatter};

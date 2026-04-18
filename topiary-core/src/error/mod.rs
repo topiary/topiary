@@ -9,7 +9,6 @@ use rootcause::{
     prelude::*,
 };
 
-
 pub use error_span::{ErrorSpan, SpanAttachment};
 
 mod error_span;
