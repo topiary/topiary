@@ -509,7 +509,7 @@ where
         .filter_map(|r| r.map_err(|e| report!(e).context_to()).flatten().err())
         .collect();
 
-    if errs.len() > 0 {
+    if !errs.is_empty() {
         // For multiple inputs, bail out if any failed with a "multiple errors" failure
         return Err(errs.context(TopiaryError::Multiple));
     }

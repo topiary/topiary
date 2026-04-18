@@ -258,9 +258,9 @@ pub fn get_args() -> CLIResult<Cli> {
                 file: Some(file), ..
             },
             ..
-        } => {
+        }
             // Make sure our FILE is not a directory
-            if file.is_dir() {
+            if file.is_dir() => {
                 return Err(
                     report!(TopiaryError::Other)
                     .attach(
@@ -271,7 +271,6 @@ pub fn get_args() -> CLIResult<Cli> {
                     )
                 );
             }
-        }
 
         // Attempt to detect shell from environment, when omitted
         Commands::Completion { shell: None } => {

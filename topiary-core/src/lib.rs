@@ -374,7 +374,7 @@ fn idempotence_check(
                 Err(report!(FormatterError::Idempotence))
             }
         }
-        Err(report) if matches!(report.current_context(), FormatterError::Parsing { .. }) => {
+        Err(report) if matches!(report.current_context(), FormatterError::Parsing) => {
             Err(report.context(FormatterError::IdempotenceParsing))
         }
         Err(error) => Err(error),
@@ -388,8 +388,7 @@ mod tests {
     use test_log::test;
 
     use crate::{
-        Language, Operation, SpanAttachment, TopiaryQuery, formatter,
-        test_utils::pretty_assert_eq,
+        Language, Operation, SpanAttachment, TopiaryQuery, formatter, test_utils::pretty_assert_eq,
     };
 
     /// Attempt to parse invalid json, expecting a failure
@@ -415,7 +414,10 @@ mod tests {
                 tolerate_parsing_errors: false,
             },
         );
-        if let Some(range) = result.get_span().and_then(|s| s.range)
+        if let Some(range) = result
+            .get_span()
+            .and_then(|s| s.range)
+            .inspect(|r| println!("{r:?}"))
             && range.start_point().row() == 0
             && range.end_point().row() == 0
         {

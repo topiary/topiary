@@ -287,7 +287,6 @@ fn iter_downcast_reports<T: 'static>(
     report
         .iter_reports()
         .filter_map(|r| r.downcast_current_context::<T>())
-        .into_iter()
 }
 
 // fn iter_downcast_reports<T>(report: Report) -> Iterator<Item = &T> {
