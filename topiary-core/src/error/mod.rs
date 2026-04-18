@@ -14,9 +14,9 @@ use rootcause::{
 };
 use topiary_tree_sitter_facade::{Point, QueryError, Range};
 
-use crate::{error::error_span::ErrorSpan, tree_sitter::NodeSpan};
+use crate::tree_sitter::NodeSpan;
 
-pub use error_span::SpanAttachment;
+pub use error_span::{ErrorSpan, SpanAttachment};
 
 mod error_span;
 
@@ -47,7 +47,7 @@ pub enum FormatterError {
     Query(String),
 
     /// I/O-related errors
-    Io(String),
+    Io,
 }
 
 // impl GetSpan for Report<FormatterError> {
@@ -94,8 +94,10 @@ impl fmt::Display for FormatterError {
                     "The query contains a pattern that does not match the input"
                 )
             }
-
-            Self::Internal(message) | Self::Query(message) | Self::Io(message) => {
+            Self::Io => {
+                write!(f, "I/O Error")
+            }
+            Self::Internal(message) | Self::Query(message) => {
                 write!(f, "{message}")
             }
         }
@@ -104,49 +106,57 @@ impl fmt::Display for FormatterError {
 
 impl Error for FormatterError {}
 
+// private convenience macro to do [`rootcause::ReportConversion`]
+// https://docs.rs/rootcause/latest/rootcause/trait.ReportConversion.html
 macro_rules! report_conversion {
-    ($from:path, $context:expr) => {
-        impl<T> ReportConversion<$from, markers::Mutable, T> for FormatterError
-        where
-            Self: markers::ObjectMarkerFor<T>,
-        {
-            fn convert_report(
-                report: Report<$from, markers::Mutable, T>,
-            ) -> Report<Self, markers::Mutable, T> {
-                report.context($context)
+    ($($from:ty)|+, $err:ident::$variant:ident, $msg:literal) => {
+        $(
+            impl<T> ReportConversion<$from, markers::Mutable, T> for $err
+            where
+                Self: markers::ObjectMarkerFor<T>,
+                &'static str: markers::ObjectMarkerFor<T>,
+            {
+                fn convert_report(
+                    report: Report<$from, markers::Mutable, T>,
+                ) -> Report<Self, markers::Mutable, T> {
+                    let report = report.context($err::$variant);
+                    let report = report.attach($msg);
+                    report
+
+                }
             }
-        }
+        )+
     };
 }
 
 report_conversion!(
-    std::str::Utf8Error,
-    FormatterError::Io("Input is not valid UTF-8".to_string())
-);
-
-report_conversion!(
-    std::string::FromUtf8Error,
-    FormatterError::Io("Input is not valid UTF-8".to_string())
+    std::str::Utf8Error | std::string::FromUtf8Error,
+    FormatterError::Io,
+    "Input is not valid UTF-8"
 );
 
 report_conversion!(
     std::fmt::Error,
-    FormatterError::Io("Failed to format output".to_string())
+    FormatterError::Io,
+    "Failed to format output"
 );
 
 report_conversion!(
     serde_json::Error,
-    FormatterError::Io("Could not serialise JSON output".to_string())
+    FormatterError::Io,
+    "Could not serialise JSON output"
 );
 
 report_conversion!(
     topiary_tree_sitter_facade::LanguageError,
-    FormatterError::Io("Error while loading language grammar".to_string())
+    FormatterError::Parsing,
+    "Error while loading language grammar"
 );
 
 report_conversion!(
     topiary_tree_sitter_facade::ParserError,
-    FormatterError::Io("Error while parsing".to_string())
+    FormatterError::Parsing,
+    "Error while parsing"
 );
 
 impl<T> ReportConversion<topiary_tree_sitter_facade::QueryError, markers::Mutable, T>
@@ -160,9 +170,7 @@ where
     ) -> Report<Self, markers::Mutable, T> {
         let range = report.current_context().range;
         report
-            .context(FormatterError::Query(
-                "Error parsing query file".to_string(),
-            ))
+            .context(Self::Query("Error parsing query file".to_string()))
             .attach_range(range)
     }
 }
@@ -173,27 +181,33 @@ impl<W, T> ReportConversion<io::IntoInnerError<W>, markers::Mutable, T> for Form
 where
     Self: markers::ObjectMarkerFor<T>,
     W: io::Write + fmt::Debug + Send + 'static,
+    &'static str: markers::ObjectMarkerFor<T>,
 {
     fn convert_report(
         report: Report<io::IntoInnerError<W>, markers::Mutable, T>,
     ) -> Report<Self, markers::Mutable, T> {
-        report.context(Self::Io("Cannot flush internal buffer".to_string()))
+        report
+            .context(Self::Io)
+            .attach("Cannot flush internal buffer")
     }
 }
 
 impl<T> ReportConversion<io::Error, markers::Mutable, T> for FormatterError
 where
     Self: markers::ObjectMarkerFor<T>,
+    io::ErrorKind: markers::ObjectMarkerFor<T>,
+    &'static str: markers::ObjectMarkerFor<T>,
 {
     fn convert_report(
         report: Report<io::Error, markers::Mutable, T>,
     ) -> Report<Self, markers::Mutable, T> {
-        let msg = match report.current_context().kind() {
+        let kind = report.current_context().kind();
+        let msg = match kind {
             io::ErrorKind::NotFound => "File not found",
             _ => "Could not read or write to file",
         };
 
-        report.context(Self::Io(msg.to_string()))
+        report.context(Self::Io).attach(msg).attach(kind)
     }
 }
 

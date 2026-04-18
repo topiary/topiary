@@ -16,6 +16,7 @@ use miette::{
 };
 use rootcause::{
     markers::{self, ObjectMarkerFor},
+    prelude::ResultExt,
     report_attachment::{ReportAttachment, ReportAttachmentMut},
 };
 use topiary_tree_sitter_facade::Range;
@@ -23,7 +24,7 @@ use topiary_tree_sitter_facade::Range;
 use crate::tree_sitter::NodeSpan;
 
 #[derive(Diagnostic, Debug, Default)]
-pub(super) struct ErrorSpan {
+pub struct ErrorSpan {
     source: Option<String>,
     filepath: Option<PathBuf>,
     language: Option<&'static str>,
@@ -169,7 +170,7 @@ pub trait SpanAttachment {
     fn attach_filepath(self, filepath: &Path) -> Self;
     fn attach_source(self, source: &str) -> Self;
     fn attach_language(self, language: &'static str) -> Self;
-    fn attach_range(self, span: Range) -> Self;
+    fn attach_range(self, range: Range) -> Self;
     fn get_span(&mut self) -> Option<&mut ErrorSpan>;
 }
 
@@ -215,5 +216,45 @@ where
             .iter_mut()
             .find_map(|a| a.downcast_attachment::<ErrorSpan>().ok())
             .map(|a| a.into_inner_mut())
+    }
+}
+
+impl<V, E> SpanAttachment for Result<V, E>
+where
+    E: SpanAttachment,
+{
+    fn attach_filepath(self, filepath: &Path) -> Self {
+        match self {
+            Ok(v) => Ok(v),
+            Err(e) => Err(e.attach_filepath(filepath)),
+        }
+    }
+
+    fn attach_source(self, source: &str) -> Self {
+        match self {
+            Ok(v) => Ok(v),
+            Err(e) => Err(e.attach_source(source)),
+        }
+    }
+
+    fn attach_language(self, language: &'static str) -> Self {
+        match self {
+            Ok(v) => Ok(v),
+            Err(e) => Err(e.attach_language(language)),
+        }
+    }
+
+    fn attach_range(self, range: Range) -> Self {
+        match self {
+            Ok(v) => Ok(v),
+            Err(e) => Err(e.attach_range(range)),
+        }
+    }
+
+    fn get_span(&mut self) -> Option<&mut ErrorSpan> {
+        match self {
+            Ok(_) => None,
+            Err(e) => e.get_span(),
+        }
     }
 }

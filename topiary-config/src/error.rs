@@ -33,6 +33,8 @@ pub enum TopiaryConfigFetchingError {
     GrammarFileNotFound(path::PathBuf),
 }
 
+impl std::error::Error for TopiaryConfigFetchingError {}
+
 impl fmt::Display for TopiaryConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

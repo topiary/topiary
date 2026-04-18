@@ -1,9 +1,15 @@
+use rootcause::{
+    Report, ReportConversion,
+    markers::{self, Local, Mutable, SendSync},
+    report,
+    report_collection::ReportCollection,
+};
 use std::{error, fmt, io, path::PathBuf, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError};
 use topiary_core::FormatterError;
 
 /// A convenience wrapper around `std::result::Result<T, TopiaryError>`.
-pub type CLIResult<T> = result::Result<T, TopiaryError>;
+pub type CLIResult<C, T = SendSync> = result::Result<C, Report<TopiaryError, Mutable, T>>;
 
 /// The errors that can be raised by either the Topiary CLI, or passed through by the formatter
 /// library code. This acts as a supertype of `FormatterError`, with additional members to denote
@@ -11,21 +17,13 @@ pub type CLIResult<T> = result::Result<T, TopiaryError>;
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum TopiaryError {
-    Lib(FormatterError),
-    Bin(String, Option<CLIError>),
-    Config(topiary_config::error::TopiaryConfigError),
-}
-
-/// A subtype of `TopiaryError::Bin`
-#[derive(Debug)]
-pub enum CLIError {
-    IOError(io::Error),
-    Generic(Box<dyn error::Error>),
+    Lib,
+    Config,
+    /// I/O-related errors
+    Io,
     Multiple,
     UnsupportedLanguage(String),
-
-    /// Could not detect the input language from the `(filename, Option<extension>)`
-    LanguageDetection(PathBuf, Option<String>),
+    Other,
 }
 
 /// # Safety
@@ -33,139 +31,127 @@ pub enum CLIError {
 /// Something can safely be Send unless it shares mutable state with something
 /// else without enforcing exclusive access to it. TopiaryError does not have a
 /// mutable state.
-unsafe impl Send for TopiaryError {}
-
+// unsafe impl Send for TopiaryError {
 /// # Safety
 ///
 /// Something can safely be Sync if and only if no other &TopiaryError can write
 /// to it. Since our TopiaryError contains no mutable data, TopiaryError is Sync.
-unsafe impl Sync for TopiaryError {}
+// unsafe impl Sync for TopiaryError {}
 
 impl fmt::Display for TopiaryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TopiaryError::Lib(error) => write!(f, "{error}"),
-            TopiaryError::Bin(message, _) => write!(f, "{message}"),
-            TopiaryError::Config(e) => write!(f, "{e}"),
+            TopiaryError::Lib => write!(f, "formatter error"),
+            TopiaryError::Io => write!(f, "I/O Error"),
+            TopiaryError::Config => write!(f, "configuration error"),
+            TopiaryError::Multiple => write!(
+                f,
+                "Processing of one or more inputs failed; see below for details"
+            ),
+            TopiaryError::UnsupportedLanguage(name) => {
+                write!(f, " The specified language is unsupported: {name}")
+            }
+            TopiaryError::Other => todo!(),
         }
     }
 }
 
-impl error::Error for TopiaryError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self {
-            TopiaryError::Lib(error) => error.source(),
-            TopiaryError::Bin(_, Some(CLIError::IOError(error))) => Some(error),
-            TopiaryError::Bin(_, Some(CLIError::Generic(error))) => error.source(),
-            TopiaryError::Bin(_, Some(CLIError::Multiple)) => None,
-            TopiaryError::Bin(_, Some(CLIError::UnsupportedLanguage(_))) => None,
-            TopiaryError::Bin(_, Some(CLIError::LanguageDetection(_, _))) => None,
-            TopiaryError::Bin(_, None) => None,
-            TopiaryError::Config(error) => error.source(),
+// source is handled by `rootcause::Report::current_context_error_source`
+impl error::Error for TopiaryError {}
+
+pub(crate) fn exit_code<C>(r: Report<C, Mutable, Local>) -> ExitCode
+where
+    C: ?Sized,
+{
+    // Things went well but Topiary needs to answer 'false' in a clean way: Exit 1
+    if r.benign() {
+        return ExitCode::FAILURE;
+    }
+
+    // Anything not explicitly covered returns an ExitCode of 10
+    // Bad arguments: Exit 2
+    // (Handled by clap: https://github.com/clap-rs/clap/issues/3426)
+    let mut code = 10;
+    for rep in r.iter_reports() {
+        if let Some(e) = rep.downcast_current_context::<FormatterError>() {
+            code = match e {
+                // I/O errors: Exit 3
+                FormatterError::Io => 3,
+                // Query errors: Exit 4
+                FormatterError::Query(_) => 4,
+                // Parsing errors: Exit 5
+                FormatterError::Parsing => 5,
+                // Idempotency errors: Exit 7
+                FormatterError::Idempotence => 7,
+                // Idempotency parsing errors: Exit 8
+                FormatterError::IdempotenceParsing => 8,
+                _ => 10,
+            };
+            break;
         }
+
+        if let Some(e) = rep.downcast_current_context::<TopiaryError>() {
+            code = match e {
+                // I/O errors: Exit 3
+                TopiaryError::Io => 3,
+                // Multiple errors: Exit 9
+                TopiaryError::Multiple => 9,
+                // Anything else: Exit 10
+                _ => 10,
+            };
+            break;
+        }
+    }
+
+    ExitCode::from(code)
+}
+
+impl<T> ReportConversion<tempfile::PersistError, markers::Mutable, T> for TopiaryError
+where
+    Self: markers::ObjectMarkerFor<T>,
+    String: markers::ObjectMarkerFor<T>,
+{
+    fn convert_report(
+        report: Report<tempfile::PersistError, markers::Mutable, T>,
+    ) -> Report<Self, markers::Mutable, T> {
+        let filepath = format!("{}", report.current_context().file.path().display());
+        report.context(TopiaryError::Io).attach(filepath)
     }
 }
 
-impl From<TopiaryError> for ExitCode {
-    fn from(e: TopiaryError) -> Self {
-        let exit_code = match e {
-            // Things went well but Topiary needs to answer 'false' in a clean way: Exit 1
-            _ if e.benign() => 1,
-
-            // Multiple errors: Exit 9
-            TopiaryError::Bin(_, Some(CLIError::Multiple)) => 9,
-
-            // Idempotency parsing errors: Exit 8
-            TopiaryError::Lib(FormatterError::IdempotenceParsing(_)) => 8,
-
-            // Idempotency errors: Exit 7
-            TopiaryError::Lib(FormatterError::Idempotence) => 7,
-
-            // Exit 6 no longer exists and is now reserved for compatibility reasons
-
-            // Parsing errors: Exit 5
-            TopiaryError::Lib(FormatterError::Parsing { .. }) => 5,
-
-            // Query errors: Exit 4
-            TopiaryError::Lib(FormatterError::Query(_, _)) => 4,
-
-            // I/O errors: Exit 3
-            TopiaryError::Lib(FormatterError::Io(_))
-            | TopiaryError::Bin(_, Some(CLIError::IOError(_))) => 3,
-
-            // Bad arguments: Exit 2
-            // (Handled by clap: https://github.com/clap-rs/clap/issues/3426)
-
-            // Anything else: Exit 10
-            _ => 10,
+impl<T> ReportConversion<io::Error, markers::Mutable, T> for TopiaryError
+where
+    Self: markers::ObjectMarkerFor<T>,
+    io::ErrorKind: markers::ObjectMarkerFor<T>,
+    &'static str: markers::ObjectMarkerFor<T>,
+{
+    fn convert_report(
+        report: Report<io::Error, markers::Mutable, T>,
+    ) -> Report<Self, markers::Mutable, T> {
+        let kind = report.current_context().kind();
+        let msg = match kind {
+            io::ErrorKind::NotFound => "File not found",
+            _ => "Could not read or write to file",
         };
 
-        ExitCode::from(exit_code)
-    }
-}
-
-impl From<FormatterError> for TopiaryError {
-    fn from(e: FormatterError) -> Self {
-        Self::Lib(e)
-    }
-}
-
-impl From<TopiaryConfigError> for TopiaryError {
-    fn from(e: TopiaryConfigError) -> Self {
-        Self::Config(e)
-    }
-}
-
-impl From<TopiaryConfigFetchingError> for TopiaryError {
-    fn from(e: TopiaryConfigFetchingError) -> Self {
-        Self::Config(TopiaryConfigError::Fetching(e))
-    }
-}
-
-impl From<io::Error> for TopiaryError {
-    fn from(e: io::Error) -> Self {
-        match e.kind() {
-            io::ErrorKind::NotFound => {
-                Self::Bin("File not found".into(), Some(CLIError::IOError(e)))
-            }
-
-            _ => Self::Bin(
-                "Could not read or write to file".into(),
-                Some(CLIError::IOError(e)),
-            ),
-        }
-    }
-}
-
-impl From<tempfile::PersistError> for TopiaryError {
-    fn from(e: tempfile::PersistError) -> Self {
-        Self::Bin(
-            "Could not persist output to disk".into(),
-            Some(CLIError::IOError(e.error)),
-        )
+        report.context(Self::Io).attach(msg).attach(kind)
     }
 }
 
 // We only have to deal with io::BufWriter<crate::output::OutputFile>,
 // but the genericised code is clearer
-impl<W> From<io::IntoInnerError<W>> for TopiaryError
+impl<W, T> ReportConversion<io::IntoInnerError<W>, markers::Mutable, T> for TopiaryError
 where
+    Self: markers::ObjectMarkerFor<T>,
     W: io::Write + fmt::Debug + Send + 'static,
+    &'static str: markers::ObjectMarkerFor<T>,
 {
-    fn from(e: io::IntoInnerError<W>) -> Self {
-        Self::Bin(
-            "Could not flush internal buffer".into(),
-            Some(CLIError::Generic(Box::new(e))),
-        )
-    }
-}
-
-impl From<tokio::task::JoinError> for TopiaryError {
-    fn from(e: tokio::task::JoinError) -> Self {
-        TopiaryError::Bin(
-            "Could not join parallel formatting tasks".into(),
-            Some(CLIError::Generic(Box::new(e))),
-        )
+    fn convert_report(
+        report: Report<io::IntoInnerError<W>, markers::Mutable, T>,
+    ) -> Report<Self, markers::Mutable, T> {
+        report
+            .context(Self::Io)
+            .attach("Cannot flush internal buffer")
     }
 }
 
@@ -175,13 +161,17 @@ pub trait Benign {
     fn benign(&self) -> bool;
 }
 
-impl Benign for TopiaryError {
-    #[allow(clippy::match_like_matches_macro)]
+impl<C> Benign for Report<C, Mutable, Local>
+where
+    C: ?Sized,
+{
     fn benign(&self) -> bool {
-        match self {
-            TopiaryError::Lib(FormatterError::PatternDoesNotMatch) => true,
-            _ => false,
+        if let Some(FormatterError::PatternDoesNotMatch) =
+            iter_downcast_reports::<FormatterError>(self).next()
+        {
+            return true;
         }
+        false
     }
 }
 
@@ -191,3 +181,119 @@ pub(crate) fn print_error(e: &dyn error::Error) {
         log::error!("Cause: {source}");
     }
 }
+
+// private convenience macro to do [`rootcause::ReportConversion`]
+// https://docs.rs/rootcause/latest/rootcause/trait.ReportConversion.html
+macro_rules! report_conversion {
+    ($($from:ty)|+, $err:ident::$variant:ident, $msg:literal) => {
+        $(
+            impl<T> ReportConversion<$from, markers::Mutable, T> for $err
+            where
+                Self: markers::ObjectMarkerFor<T>,
+                &'static str: markers::ObjectMarkerFor<T>,
+            {
+                fn convert_report(
+                    report: Report<$from, markers::Mutable, T>,
+                ) -> Report<Self, markers::Mutable, T> {
+                    report.context($err::$variant).attach($msg)
+
+                }
+            }
+        )+
+    };
+
+    ($($from:ty)|+, $err:ident::$variant:ident) => {
+        $(
+            impl<T> ReportConversion<$from, markers::Mutable, T> for $err
+            where
+                Self: markers::ObjectMarkerFor<T>,
+            {
+                fn convert_report(
+                    report: Report<$from, markers::Mutable, T>,
+                ) -> Report<Self, markers::Mutable, T> {
+                    report.context($err::$variant)
+
+                }
+            }
+        )+
+    };
+}
+
+report_conversion!(
+    tokio::task::JoinError,
+    TopiaryError::Other,
+    "Could not join parallel formatting tasks"
+);
+
+report_conversion!(FormatterError, TopiaryError::Lib);
+
+impl ReportConversion<TopiaryConfigError, markers::Mutable, Local> for TopiaryError
+where
+    Self: markers::ObjectMarkerFor<Local>,
+    TopiaryConfigError: markers::ObjectMarkerFor<Local>,
+{
+    fn convert_report(
+        report: Report<TopiaryConfigError, markers::Mutable, Local>,
+    ) -> Report<Self, markers::Mutable, Local> {
+        report.context(TopiaryError::Config)
+    }
+}
+
+impl ReportConversion<TopiaryConfigFetchingError, markers::Mutable, Local> for TopiaryError
+where
+    Self: markers::ObjectMarkerFor<Local>,
+    TopiaryConfigFetchingError: markers::ObjectMarkerFor<Local>,
+{
+    fn convert_report(
+        report: Report<TopiaryConfigFetchingError, markers::Mutable, Local>,
+    ) -> Report<Self, markers::Mutable, Local> {
+        report.context(TopiaryError::Config)
+    }
+}
+
+pub(crate) trait PreformatLocal<C> {
+    fn preformat_context(self) -> Report<C>;
+}
+
+impl PreformatLocal<TopiaryError> for TopiaryConfigError {
+    fn preformat_context(self) -> Report<TopiaryError> {
+        report!(self).preformat().context(TopiaryError::Config)
+    }
+}
+
+impl PreformatLocal<TopiaryError> for TopiaryConfigFetchingError {
+    fn preformat_context(self) -> Report<TopiaryError> {
+        report!(self).preformat().context(TopiaryError::Config)
+    }
+}
+
+pub(crate) trait ResultPreformatLocal<T, C> {
+    fn preformat_context(self) -> Result<T, Report<C>>;
+}
+
+impl<T, C, C2> ResultPreformatLocal<T, C2> for Result<T, C>
+where
+    C: PreformatLocal<C2>,
+{
+    fn preformat_context(self) -> Result<T, Report<C2>> {
+        match self {
+            Ok(t) => Ok(t),
+            Err(e) => Err(e.preformat_context()),
+        }
+    }
+}
+fn iter_downcast_reports<T: 'static>(
+    report: &Report<impl ?Sized, Mutable, Local>,
+) -> impl Iterator<Item = &T> {
+    report
+        .iter_reports()
+        .filter_map(|r| r.downcast_current_context::<T>())
+        .into_iter()
+}
+
+// fn iter_downcast_reports<T>(report: Report) -> Iterator<Item = &T> {
+//     report.iter_reports()
+//         .filter_map(|r|
+//             r.downcast_current_context::<T>()
+//         ).into()
+// }

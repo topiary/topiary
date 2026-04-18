@@ -17,7 +17,7 @@ use rootcause::{prelude::ResultExt, report};
 use tree_sitter::Position;
 
 pub use crate::{
-    error::FormatterError,
+    error::{ErrorSpan, FormatterError, SpanAttachment},
     language::Language,
     tree_sitter::{
         CoverageData, SyntaxNode, TopiaryQuery, Visualisation, apply_query, check_query_coverage,

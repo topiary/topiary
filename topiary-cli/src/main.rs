@@ -11,13 +11,14 @@ use std::{
 };
 
 use error::Benign;
+use rootcause::{markers::Local, prelude::ResultExt};
 use tabled::{Table, settings::Style};
 use topiary_config::source::Source;
-use topiary_core::{Operation, check_query_coverage, formatter};
+use topiary_core::{Operation, SpanAttachment, check_query_coverage, formatter};
 
 use crate::{
     cli::Commands,
-    error::{CLIResult, print_error},
+    error::{CLIResult, exit_code, print_error},
     io::{Inputs, OutputFile, process_inputs, read_input},
 };
 
@@ -27,20 +28,21 @@ use miette::{NamedSource, Report};
 async fn main() -> ExitCode {
     if let Err(e) = run().await {
         if !e.benign() {
-            print_error(&e)
+            log::error!("{e:?}");
         }
-        return e.into();
+        return exit_code(e);
     }
 
     ExitCode::SUCCESS
 }
 
-async fn run() -> CLIResult<()> {
+async fn run() -> CLIResult<(), Local> {
     let args = cli::get_args()?;
 
     let file_config = &args.global.configuration;
     let (config, nickel_config) =
-        topiary_config::Configuration::fetch(args.global.merge_configuration, file_config)?;
+        topiary_config::Configuration::fetch(args.global.merge_configuration, file_config)
+            .local_context_to()?;
 
     // Delegate by subcommand
     match args.command {
@@ -80,10 +82,11 @@ async fn run() -> CLIResult<()> {
                             skip_idempotence,
                             tolerate_parsing_errors,
                         },
-                    )?;
+                    )
+                    .context_to()?;
                 }
 
-                buf_output.into_inner()?.persist()?;
+                buf_output.into_inner().context_to()?.persist()?;
 
                 CLIResult::Ok(())
             })
@@ -94,14 +97,14 @@ async fn run() -> CLIResult<()> {
             let inputs = Inputs::new(&config, &inputs);
 
             process_inputs(inputs, |mut input, language| {
-                let input_content = read_input(&mut input)?;
+                let input_content = read_input(&mut input).context_to()?;
                 log::debug!(
                     "Checking {}, as {} for grammar correctness",
                     input.source(),
                     input.language().name,
                 );
 
-                topiary_core::parse(&input_content, &language.grammar, false)?;
+                topiary_core::parse(&input_content, &language.grammar, false).context_to()?;
 
                 Ok(())
             })
@@ -135,7 +138,13 @@ async fn run() -> CLIResult<()> {
                     output_format: format.into(),
                 },
             )
-            .map_err(|e| e.with_location(format!("{}", buf_input.get_ref().source())))?;
+            .map_err(|e| {
+                if let Some(filepath) = buf_input.get_ref().source().location().to_path() {
+                    return e.attach_filepath(filepath);
+                }
+                e
+            })
+            .context_to()?;
         }
 
         Commands::Config {
@@ -177,8 +186,8 @@ async fn run() -> CLIResult<()> {
         }
 
         Commands::Prefetch { force, language } => match language {
-            Some(l) => config.prefetch_language(l, force)?,
-            _ => config.prefetch_languages(force)?,
+            Some(l) => config.prefetch_language(l, force).local_context_to()?,
+            _ => config.prefetch_languages(force).local_context_to()?,
         },
 
         Commands::Coverage { input } => {
@@ -199,11 +208,12 @@ async fn run() -> CLIResult<()> {
             let mut buf_input = BufReader::new(input);
             let mut buf_output = BufWriter::new(output);
 
-            let input_content = read_input(&mut buf_input)?;
+            let input_content = read_input(&mut buf_input).context_to()?;
 
             let coverage_data =
                 check_query_coverage(&input_content, &language.query, &language.grammar)
-                    .map_err(|e| e.with_location(buf_input.get_ref().source().to_string()))?;
+                    .map_err(|e| e.attach_source(&input_content))
+                    .context_to()?;
             let coverage_res = coverage_data.get_result();
 
             let query_source = NamedSource::new(
@@ -215,9 +225,10 @@ async fn run() -> CLIResult<()> {
                 &mut buf_output,
                 "{:?}",
                 Report::new(coverage_data).with_source_code(query_source)
-            )?;
+            )
+            .context_to()?;
 
-            coverage_res?;
+            coverage_res.context_to()?;
         }
 
         Commands::Completion { shell } => {
