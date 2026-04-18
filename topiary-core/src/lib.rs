@@ -388,7 +388,7 @@ mod tests {
     use test_log::test;
 
     use crate::{
-        Language, Operation, SpanAttachment, TopiaryQuery, error::FormatterError, formatter,
+        Language, Operation, SpanAttachment, TopiaryQuery, formatter,
         test_utils::pretty_assert_eq,
     };
 

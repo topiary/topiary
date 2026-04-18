@@ -10,7 +10,6 @@ use std::{
 use nickel_lang_core::eval::value::NickelValue;
 use rootcause::{
     Report,
-    markers::{Local, Mutable},
     prelude::ResultExt,
     report,
     report_collection::ReportCollection,
@@ -21,7 +20,7 @@ use topiary_core::{Language, Operation, SpanAttachment, TopiaryQuery, formatter}
 
 use crate::{
     cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
-    error::{CLIResult, PreformatLocal, ResultPreformatLocal, TopiaryError, print_error},
+    error::{CLIResult, PreformatLocal, ResultPreformatLocal, TopiaryError},
     language::LanguageDefinitionCache,
 };
 

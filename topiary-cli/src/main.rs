@@ -18,7 +18,7 @@ use topiary_core::{Operation, SpanAttachment, check_query_coverage, formatter};
 
 use crate::{
     cli::Commands,
-    error::{CLIResult, exit_code, print_error},
+    error::{CLIResult, exit_code},
     io::{Inputs, OutputFile, process_inputs, read_input},
 };
 

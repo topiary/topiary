@@ -2,9 +2,8 @@ use rootcause::{
     Report, ReportConversion,
     markers::{self, Local, Mutable, SendSync},
     report,
-    report_collection::ReportCollection,
 };
-use std::{error, fmt, io, path::PathBuf, process::ExitCode, result};
+use std::{error, fmt, io, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError};
 use topiary_core::FormatterError;
 
