@@ -431,11 +431,9 @@ impl NodeSpan {
     }
 
     fn report(self) -> Report<FormatterError> {
-        let report = report!(FormatterError::Parsing)
-            .attach_custom::<Any, _>(self.source_span())
-            .attach_custom::<Any, _>(self.range);
+        let report = report!(FormatterError::Parsing).attach_range(self.range);
         if let Some(language) = self.language {
-            report.attach_custom::<Any, _>(error::Language(language))
+            report.attach_language(language)
         } else {
             report
         }
