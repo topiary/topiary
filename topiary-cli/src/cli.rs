@@ -197,7 +197,6 @@ pub enum ConfigCommand {
 }
 
 /// Parse CLI arguments and normalise them for the caller
-#[allow(clippy::result_large_err)]
 pub fn get_args() -> CLIResult<Cli> {
     let mut args = Cli::parse();
 

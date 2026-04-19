@@ -5,7 +5,7 @@
 use std::{collections::HashSet, fmt::Display};
 
 use miette::{LabeledSpan, Severity, SourceSpan};
-use rootcause::{IntoReport, Report, handlers::Any, prelude::ResultExt, report};
+use rootcause::{Report, prelude::ResultExt, report};
 use serde::Serialize;
 
 use topiary_tree_sitter_facade::{
@@ -17,7 +17,7 @@ use streaming_iterator::StreamingIterator;
 use crate::{
     FormatterResult,
     atom_collection::{AtomCollection, QueryPredicates},
-    error::{self, FormatterError, SpanAttachment},
+    error::{FormatterError, SpanAttachment},
 };
 
 /// Supported visualisation formats
@@ -424,10 +424,6 @@ impl NodeSpan {
             range: node.range(),
             language: node.language_name(),
         }
-    }
-    /// Creates a [`SourceSpan`] from the node's byte range
-    pub fn source_span(&self) -> SourceSpan {
-        (self.range.start_byte() as usize..=self.range.end_byte() as usize).into()
     }
 
     fn report(self) -> Report<FormatterError> {

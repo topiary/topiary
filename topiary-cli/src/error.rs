@@ -1,6 +1,6 @@
 use rootcause::{
     Report, ReportConversion,
-    markers::{self, Local, Mutable, SendSync},
+    markers::{self, Local, Mutable, ObjectMarkerFor, SendSync},
     report,
 };
 use std::{error, fmt, io, process::ExitCode, result};
@@ -14,7 +14,6 @@ pub type CLIResult<C, T = SendSync> = result::Result<C, Report<TopiaryError, Mut
 /// library code. This acts as a supertype of `FormatterError`, with additional members to denote
 /// CLI-specific failures.
 #[derive(Debug)]
-#[allow(clippy::large_enum_variant)]
 pub enum TopiaryError {
     Lib,
     Config,
@@ -25,30 +24,18 @@ pub enum TopiaryError {
     Other,
 }
 
-/// # Safety
-///
-/// Something can safely be Send unless it shares mutable state with something
-/// else without enforcing exclusive access to it. TopiaryError does not have a
-/// mutable state.
-// unsafe impl Send for TopiaryError {
-/// # Safety
-///
-/// Something can safely be Sync if and only if no other &TopiaryError can write
-/// to it. Since our TopiaryError contains no mutable data, TopiaryError is Sync.
-// unsafe impl Sync for TopiaryError {}
-
 impl fmt::Display for TopiaryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TopiaryError::Lib => write!(f, "formatter error"),
+            TopiaryError::Lib => write!(f, "Formatter error"),
             TopiaryError::Io => write!(f, "I/O Error"),
-            TopiaryError::Config => write!(f, "configuration error"),
+            TopiaryError::Config => write!(f, "Configuration error"),
             TopiaryError::Multiple => write!(
                 f,
                 "Processing of one or more inputs failed; see below for details"
             ),
             TopiaryError::UnsupportedLanguage(name) => {
-                write!(f, " The specified language is unsupported: {name}")
+                write!(f, "The specified language is unsupported: {name}")
             }
             TopiaryError::Other => todo!(),
         }
@@ -105,28 +92,26 @@ where
     ExitCode::from(code)
 }
 
-impl<T> ReportConversion<tempfile::PersistError, markers::Mutable, T> for TopiaryError
+impl<T> ReportConversion<tempfile::PersistError, Mutable, T> for TopiaryError
 where
-    Self: markers::ObjectMarkerFor<T>,
-    String: markers::ObjectMarkerFor<T>,
+    Self: ObjectMarkerFor<T>,
+    String: ObjectMarkerFor<T>,
 {
     fn convert_report(
-        report: Report<tempfile::PersistError, markers::Mutable, T>,
-    ) -> Report<Self, markers::Mutable, T> {
+        report: Report<tempfile::PersistError, Mutable, T>,
+    ) -> Report<Self, Mutable, T> {
         let filepath = format!("{}", report.current_context().file.path().display());
         report.context(TopiaryError::Io).attach(filepath)
     }
 }
 
-impl<T> ReportConversion<io::Error, markers::Mutable, T> for TopiaryError
+impl<T> ReportConversion<io::Error, Mutable, T> for TopiaryError
 where
-    Self: markers::ObjectMarkerFor<T>,
-    io::ErrorKind: markers::ObjectMarkerFor<T>,
-    &'static str: markers::ObjectMarkerFor<T>,
+    Self: ObjectMarkerFor<T>,
+    io::ErrorKind: ObjectMarkerFor<T>,
+    &'static str: ObjectMarkerFor<T>,
 {
-    fn convert_report(
-        report: Report<io::Error, markers::Mutable, T>,
-    ) -> Report<Self, markers::Mutable, T> {
+    fn convert_report(report: Report<io::Error, Mutable, T>) -> Report<Self, Mutable, T> {
         let kind = report.current_context().kind();
         let msg = match kind {
             io::ErrorKind::NotFound => "File not found",
@@ -139,15 +124,15 @@ where
 
 // We only have to deal with io::BufWriter<crate::output::OutputFile>,
 // but the genericised code is clearer
-impl<W, T> ReportConversion<io::IntoInnerError<W>, markers::Mutable, T> for TopiaryError
+impl<W, T> ReportConversion<io::IntoInnerError<W>, Mutable, T> for TopiaryError
 where
-    Self: markers::ObjectMarkerFor<T>,
+    Self: ObjectMarkerFor<T>,
     W: io::Write + fmt::Debug + Send + 'static,
-    &'static str: markers::ObjectMarkerFor<T>,
+    &'static str: ObjectMarkerFor<T>,
 {
     fn convert_report(
-        report: Report<io::IntoInnerError<W>, markers::Mutable, T>,
-    ) -> Report<Self, markers::Mutable, T> {
+        report: Report<io::IntoInnerError<W>, Mutable, T>,
+    ) -> Report<Self, Mutable, T> {
         report
             .context(Self::Io)
             .attach("Cannot flush internal buffer")
@@ -171,13 +156,6 @@ where
             return true;
         }
         false
-    }
-}
-
-pub(crate) fn print_error(e: &dyn error::Error) {
-    log::error!("{e}");
-    if let Some(source) = e.source() {
-        log::error!("Cause: {source}");
     }
 }
 
@@ -226,26 +204,26 @@ report_conversion!(
 
 report_conversion!(FormatterError, TopiaryError::Lib);
 
-impl ReportConversion<TopiaryConfigError, markers::Mutable, Local> for TopiaryError
+impl ReportConversion<TopiaryConfigError, Mutable, Local> for TopiaryError
 where
-    Self: markers::ObjectMarkerFor<Local>,
-    TopiaryConfigError: markers::ObjectMarkerFor<Local>,
+    Self: ObjectMarkerFor<Local>,
+    TopiaryConfigError: ObjectMarkerFor<Local>,
 {
     fn convert_report(
-        report: Report<TopiaryConfigError, markers::Mutable, Local>,
-    ) -> Report<Self, markers::Mutable, Local> {
+        report: Report<TopiaryConfigError, Mutable, Local>,
+    ) -> Report<Self, Mutable, Local> {
         report.context(TopiaryError::Config)
     }
 }
 
-impl ReportConversion<TopiaryConfigFetchingError, markers::Mutable, Local> for TopiaryError
+impl ReportConversion<TopiaryConfigFetchingError, Mutable, Local> for TopiaryError
 where
-    Self: markers::ObjectMarkerFor<Local>,
-    TopiaryConfigFetchingError: markers::ObjectMarkerFor<Local>,
+    Self: ObjectMarkerFor<Local>,
+    TopiaryConfigFetchingError: ObjectMarkerFor<Local>,
 {
     fn convert_report(
-        report: Report<TopiaryConfigFetchingError, markers::Mutable, Local>,
-    ) -> Report<Self, markers::Mutable, Local> {
+        report: Report<TopiaryConfigFetchingError, Mutable, Local>,
+    ) -> Report<Self, Mutable, Local> {
         report.context(TopiaryError::Config)
     }
 }
@@ -281,6 +259,7 @@ where
         }
     }
 }
+
 fn iter_downcast_reports<T: 'static>(
     report: &Report<impl ?Sized, Mutable, Local>,
 ) -> impl Iterator<Item = &T> {
@@ -288,10 +267,3 @@ fn iter_downcast_reports<T: 'static>(
         .iter_reports()
         .filter_map(|r| r.downcast_current_context::<T>())
 }
-
-// fn iter_downcast_reports<T>(report: Report) -> Iterator<Item = &T> {
-//     report.iter_reports()
-//         .filter_map(|r|
-//             r.downcast_current_context::<T>()
-//         ).into()
-// }

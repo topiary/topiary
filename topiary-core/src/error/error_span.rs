@@ -6,32 +6,81 @@
 #![allow(unused_assignments)]
 
 use std::{
+    boxed::Box,
     fmt,
+    ops::Deref,
     path::{Path, PathBuf},
 };
 
 use miette::{Diagnostic, MietteError, MietteSpanContents, SourceCode, SourceSpan, SpanContents};
-use rootcause::{markers::ObjectMarkerFor, prelude::ResultExt};
+use rootcause::{
+    handlers::{AttachmentFormattingPlacement, AttachmentFormattingStyle, FormattingFunction},
+    hooks::attachment_formatter::AttachmentFormatterHook,
+    markers::{Dynamic, ObjectMarkerFor},
+    prelude::ResultExt,
+    report_attachment::ReportAttachmentRef,
+};
 use topiary_tree_sitter_facade::Range;
 
-#[derive(Diagnostic, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct ErrorSpan {
     source: Option<String>,
     filepath: Option<PathBuf>,
     language: Option<&'static str>,
     pub(crate) range: Option<Range>,
 
-    #[label("(ERROR) node")]
     span: Option<SourceSpan>,
 }
 
+impl miette::Diagnostic for ErrorSpan {
+    #[allow(unused_variables)]
+    fn labels(
+        &self,
+    ) -> std::option::Option<Box<dyn std::iter::Iterator<Item = miette::LabeledSpan> + '_>> {
+        use miette::macro_helpers::ToOption;
+        let Self {
+            source,
+            filepath,
+            language,
+            range,
+            span,
+        } = self;
+        let labels_iter = vec![
+            miette::macro_helpers::OptionalWrapper::<Option<SourceSpan>>::new()
+                .to_option(&self.span)
+                .map(|__miette_internal_var| {
+                    miette::LabeledSpan::new_with_span(
+                        std::option::Option::Some(format!("(ERROR) node")),
+                        __miette_internal_var.clone(),
+                    )
+                }),
+        ]
+        .into_iter();
+        std::option::Option::Some(Box::new(
+            labels_iter.filter(Option::is_some).map(Option::unwrap),
+        ))
+    }
+    #[allow(unused_variables)]
+    fn source_code(&self) -> std::option::Option<&dyn miette::SourceCode> {
+        Some(self)
+    }
+}
+
 impl ErrorSpan {
-    pub fn with_source(mut self, source: &str) -> Self {
+    pub fn set_source(&mut self, source: &str) {
         self.source = Some(source.to_owned());
+    }
+
+    pub fn with_source(mut self, source: &str) -> Self {
+        self.set_source(source);
         self
     }
-    pub fn with_filepath(mut self, filepath: &Path) -> Self {
+
+    pub fn set_filepath(&mut self, filepath: &Path) {
         self.filepath = Some(filepath.to_owned());
+    }
+    pub fn with_filepath(mut self, filepath: &Path) -> Self {
+        self.set_filepath(filepath);
         self
     }
 
@@ -85,54 +134,25 @@ impl SourceCode for ErrorSpan {
             inner_contents.line_count(),
         );
         if let Some(language) = self.language {
+            dbg!(language);
             contents = contents.with_language(language);
         }
         Ok(Box::new(contents))
     }
 }
 
-// impl miette::Diagnostic for ErrorSpan {
-// #[allow(unused_variables)]
-// fn labels(
-//     &self,
-// ) -> std::option::Option<
-//     std::boxed::Box<dyn std::iter::Iterator<Item = miette::LabeledSpan> + '_>,
-// > {
-//     use miette::macro_helpers::ToOption;
-//     let Self { src, span } = self;
-//     let labels_iter = vec![
-//         miette::macro_helpers::OptionalWrapper::<SourceSpan>::new()
-//             .to_option(&self.span)
-//             .map(|__miette_internal_var| {
-//                 miette::LabeledSpan::new_with_span(
-//                     std::option::Option::Some(format!("(ERROR) node")),
-//                     __miette_internal_var.clone(),
-//                 )
-//             }),
-//     ]
-//     .into_iter();
-//     std::option::Option::Some(Box::new(
-//         labels_iter.filter(Option::is_some).map(Option::unwrap),
-//     ))
-// }
-//     #[allow(unused_variables)]
-//     fn source_code(&self) -> Option<&dyn miette::SourceCode> {
-//         let Self { src, span } = self;
-//         self.src.as_ref().map(|s| s as _)
-//     }
-// }
-
 impl std::fmt::Display for ErrorSpan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(range) = self.range {
             let start = range.start_point();
             let end = range.end_point();
+            // `QuerryError`s and `Node`s report rows starting with 0
             write!(
                 f,
                 "Parsing error between line {}, column {} and line {}, column {}",
-                start.row(),
+                start.row() + 1,
                 start.column(),
-                end.row(),
+                end.row() + 1,
                 end.column()
             )
         } else {
@@ -142,21 +162,6 @@ impl std::fmt::Display for ErrorSpan {
 }
 
 impl std::error::Error for ErrorSpan {}
-
-// impl From<&Box<NodeSpan>> for ErrorSpan {
-//     fn from(span: &Box<NodeSpan>) -> Self {
-//         Self {
-//             source: NamedSource::new(
-//                 span.location.clone().unwrap_or_default(),
-//                 span.content.clone().unwrap_or_default(),
-//             )
-//             .with_language(span.language),
-//             span: span.source_span(),
-//             range: span.range,
-//         }
-//     }
-// }
-
 pub trait SpanAttachment {
     fn attach_filepath(self, filepath: &Path) -> Self;
     fn attach_source(self, source: &str) -> Self;
@@ -246,6 +251,45 @@ where
         match self {
             Ok(_) => None,
             Err(e) => e.get_span(),
+        }
+    }
+}
+
+// Move verbose query diagnostics to appendix instead of cluttering inline
+pub struct MietteSpanFormatter;
+
+impl AttachmentFormatterHook<ErrorSpan> for MietteSpanFormatter {
+    fn display(
+        &self,
+        attachment: ReportAttachmentRef<'_, ErrorSpan>,
+        _attachment_parent: Option<rootcause::hooks::attachment_formatter::AttachmentParent<'_>>,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        let report = miette::Report::new(attachment.inner().clone());
+        write!(f, "{report:?}")
+    }
+    fn preferred_formatting_style(
+        &self,
+        _attachment: ReportAttachmentRef<'_, Dynamic>,
+        formatting_function: FormattingFunction,
+    ) -> AttachmentFormattingStyle {
+        match formatting_function {
+            // for display printing we want the full verbosity level and
+            // put it in an appendix
+            FormattingFunction::Display => AttachmentFormattingStyle {
+                placement: AttachmentFormattingPlacement::Appendix {
+                    appendix_name: "Error Span",
+                },
+                function: FormattingFunction::Display,
+                priority: 0,
+            },
+            // debug printing of the attachment is more compact so
+            // we put it inline but at the end
+            FormattingFunction::Debug => AttachmentFormattingStyle {
+                placement: AttachmentFormattingPlacement::Inline,
+                function: FormattingFunction::Display,
+                priority: -10,
+            },
         }
     }
 }

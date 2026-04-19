@@ -118,6 +118,13 @@ impl InputSource {
             InputSource::Disk(path, _) => InputLocation(Some(path.clone())),
         }
     }
+
+    fn filepath(&self) -> Option<&Path> {
+        match self {
+            InputSource::Stdin => None,
+            InputSource::Disk(path, _) => Some(path.as_ref()),
+        }
+    }
 }
 
 impl fmt::Display for InputSource {
@@ -159,7 +166,6 @@ pub struct InputFile<'cfg> {
 
 impl InputFile<'_> {
     /// Convert our `InputFile` into language definition values that Topiary can consume
-    #[allow(clippy::result_large_err)]
     pub async fn to_language(&self) -> CLIResult<Language> {
         let grammar = self.language().grammar().preformat_context()?;
         let query_contents = self.query.get_content().await?;
@@ -186,6 +192,10 @@ impl InputFile<'_> {
     /// Expose query path for input
     pub fn query(&self) -> &QuerySource {
         &self.query
+    }
+
+    pub(crate) fn filepath(&self) -> Option<&Path> {
+        self.source().filepath()
     }
 }
 
@@ -233,7 +243,6 @@ impl Read for InputFile<'_> {
 
 /// `Inputs` is an iterator of fully qualified `InputFile`s, each wrapped in `CLIResult`, which is
 /// populated by its constructor from any type that implements `Into<InputFrom>`
-#[allow(clippy::result_large_err)]
 pub struct Inputs<'cfg>(Vec<CLIResult<InputFile<'cfg>>>);
 
 impl<'cfg, 'i> Inputs<'cfg> {
@@ -282,7 +291,6 @@ impl<'cfg, 'i> Inputs<'cfg> {
     }
 }
 
-#[allow(clippy::result_large_err)]
 fn to_query_from_language(language: &topiary_config::language::Language) -> CLIResult<QuerySource> {
     let query: QuerySource = match language.find_query_file() {
         Ok(p) => p.into(),
@@ -301,7 +309,6 @@ fn to_query_from_language(language: &topiary_config::language::Language) -> CLIR
 }
 
 impl<'cfg> Iterator for Inputs<'cfg> {
-    #[allow(clippy::result_large_err)]
     type Item = CLIResult<InputFile<'cfg>>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -326,7 +333,6 @@ pub enum OutputFile {
 }
 
 impl OutputFile {
-    #[allow(clippy::result_large_err)]
     pub fn new(path: &str) -> CLIResult<Self> {
         match path {
             "-" => Ok(Self::Stdout),
@@ -338,7 +344,6 @@ impl OutputFile {
     }
 
     // This function must be called to persist the output to disk
-    #[allow(clippy::result_large_err)]
     pub fn persist(self) -> CLIResult<()> {
         if let Self::Disk { mut staged, output } = self {
             // Rewind to the beginning of the staged output
@@ -387,7 +392,6 @@ impl Write for OutputFile {
 impl TryFrom<&InputFile<'_>> for OutputFile {
     type Error = Report<TopiaryError>;
 
-    #[allow(clippy::result_large_err)]
     fn try_from(input: &InputFile) -> CLIResult<Self> {
         match &input.source {
             InputSource::Stdin => Ok(Self::Stdout),
@@ -396,7 +400,6 @@ impl TryFrom<&InputFile<'_>> for OutputFile {
     }
 }
 
-#[allow(clippy::result_large_err)]
 fn to_query<T>(name: T) -> CLIResult<QuerySource>
 where
     T: AsRef<str> + fmt::Display,

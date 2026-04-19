@@ -9,7 +9,7 @@ use rootcause::{
     prelude::*,
 };
 
-pub use error_span::{ErrorSpan, SpanAttachment};
+pub use error_span::{ErrorSpan, MietteSpanFormatter, SpanAttachment};
 
 mod error_span;
 
@@ -203,7 +203,3 @@ where
         report.context(Self::Io).attach(msg).attach(kind)
     }
 }
-
-pub struct Filename(pub PathBuf);
-pub struct Source(pub String);
-pub struct Language(pub &'static str);

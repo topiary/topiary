@@ -11,10 +11,16 @@ use std::{
 };
 
 use error::Benign;
-use rootcause::{markers::Local, prelude::ResultExt};
+use rootcause::{
+    hooks::{Hooks, builtin_hooks::report_formatter::DefaultReportFormatter},
+    markers::Local,
+    prelude::ResultExt,
+};
 use tabled::{Table, settings::Style};
 use topiary_config::source::Source;
-use topiary_core::{Operation, SpanAttachment, check_query_coverage, formatter};
+use topiary_core::{
+    ErrorSpan, MietteSpanFormatter, Operation, SpanAttachment, check_query_coverage, formatter,
+};
 
 use crate::{
     cli::Commands,
@@ -26,9 +32,16 @@ use miette::{NamedSource, Report};
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    // Use ASCII-only formatting
+    Hooks::new()
+        .attachment_formatter::<ErrorSpan, _>(MietteSpanFormatter)
+        .report_formatter(DefaultReportFormatter::UNICODE_COLORS)
+        .install()
+        .ok();
+
     if let Err(e) = run().await {
         if !e.benign() {
-            log::error!("{e:?}");
+            log::error!("{e}");
         }
         return exit_code(e);
     }
@@ -212,7 +225,13 @@ async fn run() -> CLIResult<(), Local> {
 
             let coverage_data =
                 check_query_coverage(&input_content, &language.query, &language.grammar)
-                    .map_err(|e| e.attach_source(&input_content))
+                    .attach_source(&input_content)
+                    .map_err(|e| {
+                        if let Some(filepath) = buf_input.get_ref().filepath() {
+                            return e.attach_filepath(filepath);
+                        }
+                        e
+                    })
                     .context_to()?;
             let coverage_res = coverage_data.get_result();
 

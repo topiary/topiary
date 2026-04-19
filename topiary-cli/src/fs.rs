@@ -42,7 +42,6 @@ struct FileMeta {
 }
 
 impl FileMeta {
-    #[allow(clippy::result_large_err)]
     fn new<P: AsRef<Path>>(path: &P) -> CLIResult<Self> {
         // Stat a potential symlink
         let lmeta = fs::symlink_metadata(path).context_to()?;
@@ -108,7 +107,6 @@ impl FileMeta {
 /// Given a vector of paths, recursively expand those that identify as directories, in place.
 /// Follow symlinks, if specified, and skip over files with multiple links. Ultimately, we'll
 /// finish with a vector of canonical paths to real files with a single link.
-#[allow(clippy::result_large_err)]
 pub fn traverse(files: &mut Vec<PathBuf>, follow_symlinks: bool) -> CLIResult<()> {
     let mut expanded = vec![];
 

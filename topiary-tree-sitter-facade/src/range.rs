@@ -34,7 +34,7 @@ mod native {
             let end_column = source
                 .as_ref()
                 .lines()
-                .nth(start_point.row() as usize - 1)
+                .nth(start_point.row() as usize)
                 .map(|l| l.len())
                 .unwrap_or(1);
             let end_point = Point::new(start_point.row(), end_column as u32);
