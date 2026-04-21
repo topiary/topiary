@@ -19,7 +19,7 @@
 ; always ends with a line break.
 [
   (block_comment)
-  (line_comment)
+  (ine_comment)
 ] @prepend_input_softline
 
 ; Allow blank line before

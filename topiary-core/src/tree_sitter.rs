@@ -9,7 +9,8 @@ use rootcause::{Report, prelude::ResultExt, report};
 use serde::Serialize;
 
 use topiary_tree_sitter_facade::{
-    Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryMatch, QueryPredicate, Range, Tree,
+    Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryError, QueryMatch, QueryPredicate,
+    Range, Tree,
 };
 
 use streaming_iterator::StreamingIterator;
@@ -62,13 +63,10 @@ impl TopiaryQuery {
     pub fn new(
         grammar: &topiary_tree_sitter_facade::Language,
         query_content: &str,
-    ) -> FormatterResult<TopiaryQuery> {
+    ) -> FormatterResult<TopiaryQuery, QueryError> {
         let query = Query::new(grammar, query_content)
-            .context_to()
-            .map_err(|e| {
-                e.attach_language("tree_sitter_query")
-                    .attach_source(query_content)
-            })?;
+            .into_report()
+            .attach_source(query_content)?;
 
         Ok(TopiaryQuery {
             query,

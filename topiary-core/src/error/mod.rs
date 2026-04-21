@@ -1,7 +1,7 @@
 //! This module defines all errors that might be propagated out of the library,
 //! including all of the trait implementations one might expect for Errors.
 
-use std::{error::Error, fmt, io, path::PathBuf, str};
+use std::{error::Error, fmt, io, str};
 
 use rootcause::{
     Report, ReportConversion,
@@ -9,7 +9,7 @@ use rootcause::{
     prelude::*,
 };
 
-pub use error_span::{ErrorSpan, MietteSpanFormatter, SpanAttachment};
+pub use error_span::{ErrorSpan, SpanAttachment, SpanFormatter, SpanHook};
 
 mod error_span;
 
@@ -42,22 +42,6 @@ pub enum FormatterError {
     /// I/O-related errors
     Io,
 }
-
-// impl GetSpan for Report<FormatterError> {
-//     fn get_or_init(&mut self) -> ErrorSpan {
-//         let attachments = self.attachments_mut();
-//         let new_attachments = ReportAttachments
-//         while let Some(a) = attachments.pop() {
-//         }
-//         let span_idx = attachments
-//             .iter()
-//             .find_position(|a| a.inner_type_id() == TypeId::of::<ErrorSpan>())
-//             .map(|(idx, a)| idx);
-//         if let Some(idx) = span_idx {
-//             attachments.pop()
-//         }
-//     }
-// }
 
 impl fmt::Display for FormatterError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -151,22 +135,6 @@ report_conversion!(
     FormatterError::Parsing,
     "Error while parsing"
 );
-
-impl<T> ReportConversion<topiary_tree_sitter_facade::QueryError, markers::Mutable, T>
-    for FormatterError
-where
-    ErrorSpan: markers::ObjectMarkerFor<T>,
-    Self: markers::ObjectMarkerFor<T>,
-{
-    fn convert_report(
-        report: Report<topiary_tree_sitter_facade::QueryError, markers::Mutable, T>,
-    ) -> Report<Self, markers::Mutable, T> {
-        let range = report.current_context().range;
-        report
-            .context(Self::Query("Error parsing query file".to_string()))
-            .attach_range(range)
-    }
-}
 
 // We only have to deal with io::BufWriter<Vec<u8>>, but the genericised code is
 // clearer

@@ -41,7 +41,7 @@ topiary-core.workspace = true
 topiary-config.workspace = true
 topiary-queries.workspace = true
 topiary-tree-sitter-facade.workspace = true
-miette.workspace = true
+miette = { workspace = true, features = ["fancy"] }
 tabled = { workspace = true }
 rootcause.workspace = true
 

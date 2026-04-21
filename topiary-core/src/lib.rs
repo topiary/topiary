@@ -17,7 +17,7 @@ use rootcause::{prelude::ResultExt, report};
 use tree_sitter::Position;
 
 pub use crate::{
-    error::{ErrorSpan, FormatterError, MietteSpanFormatter, SpanAttachment},
+    error::{ErrorSpan, FormatterError, SpanAttachment, SpanFormatter, SpanHook},
     language::Language,
     tree_sitter::{
         CoverageData, SyntaxNode, TopiaryQuery, Visualisation, apply_query, check_query_coverage,
@@ -165,7 +165,7 @@ pub enum ScopeCondition {
 }
 
 /// A convenience wrapper around `std::result::Result<T, FormatterError>`.
-pub type FormatterResult<T> = std::result::Result<T, rootcause::Report<FormatterError>>;
+pub type FormatterResult<T, E = FormatterError> = Result<T, rootcause::Report<E>>;
 
 /// Operations that can be performed by the formatter.
 #[derive(Clone, Copy, Debug)]

@@ -6,62 +6,59 @@
 #![allow(unused_assignments)]
 
 use std::{
+    borrow::Cow,
     boxed::Box,
     fmt,
-    ops::Deref,
+    iter::Iterator,
+    option::Option,
     path::{Path, PathBuf},
 };
 
-use miette::{Diagnostic, MietteError, MietteSpanContents, SourceCode, SourceSpan, SpanContents};
+use miette::{
+    Diagnostic, LabeledSpan, MietteError, MietteSpanContents, NamedSource, SourceCode, SourceSpan,
+    SpanContents,
+};
 use rootcause::{
+    ReportMut,
     handlers::{AttachmentFormattingPlacement, AttachmentFormattingStyle, FormattingFunction},
-    hooks::attachment_formatter::AttachmentFormatterHook,
-    markers::{Dynamic, ObjectMarkerFor},
+    hooks::{
+        attachment_formatter::{AttachmentFormatterHook, AttachmentParent},
+        report_creation::ReportCreationHook,
+    },
+    markers::{Dynamic, Local, ObjectMarkerFor, SendSync},
     prelude::ResultExt,
     report_attachment::ReportAttachmentRef,
 };
-use topiary_tree_sitter_facade::Range;
+use topiary_tree_sitter_facade::{QueryError, Range};
 
-#[derive(Clone, Debug, Default)]
+/// ErrorSpan is meant to represent errors code that lives outside of the topiary
+/// call stack and is rendered with [`miette::Report`].
+/// Examples of files that generate  ErrorSpans (these are typically runtime objects):
+/// * configuration files (such as languages.ncl)
+/// * code that is being formatted
+/// * tree-sitter query files
+#[derive(Debug, Default, Clone)]
 pub struct ErrorSpan {
     source: Option<String>,
     filepath: Option<PathBuf>,
     language: Option<&'static str>,
     pub(crate) range: Option<Range>,
 
+    // label for our immediate `SourceSpan`
+    primary_label: Option<String>,
     span: Option<SourceSpan>,
 }
 
 impl miette::Diagnostic for ErrorSpan {
     #[allow(unused_variables)]
-    fn labels(
-        &self,
-    ) -> std::option::Option<Box<dyn std::iter::Iterator<Item = miette::LabeledSpan> + '_>> {
-        use miette::macro_helpers::ToOption;
-        let Self {
-            source,
-            filepath,
-            language,
-            range,
-            span,
-        } = self;
-        let labels_iter = vec![
-            miette::macro_helpers::OptionalWrapper::<Option<SourceSpan>>::new()
-                .to_option(&self.span)
-                .map(|__miette_internal_var| {
-                    miette::LabeledSpan::new_with_span(
-                        std::option::Option::Some(format!("(ERROR) node")),
-                        __miette_internal_var.clone(),
-                    )
-                }),
-        ]
-        .into_iter();
-        std::option::Option::Some(Box::new(
-            labels_iter.filter(Option::is_some).map(Option::unwrap),
-        ))
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
+        self.span
+            .map(|s| std::iter::once(LabeledSpan::new_with_span(Some(self.primary_label()), s)))
+            .map(Box::new)
+            .map(|b| b as Box<dyn Iterator<Item = LabeledSpan>>)
     }
-    #[allow(unused_variables)]
-    fn source_code(&self) -> std::option::Option<&dyn miette::SourceCode> {
+
+    fn source_code(&self) -> Option<&dyn miette::SourceCode> {
         Some(self)
     }
 }
@@ -110,16 +107,21 @@ impl ErrorSpan {
             .and_then(|f| f.to_str())
             .unwrap_or("built-in")
     }
+
+    fn primary_label(&self) -> String {
+        self.primary_label
+            .clone()
+            .unwrap_or_else(|| "(ERROR) node".to_owned())
+    }
 }
 
 impl SourceCode for ErrorSpan {
     fn read_span<'a>(
         &'a self,
-        _span: &SourceSpan,
+        span: &SourceSpan,
         context_lines_before: usize,
         context_lines_after: usize,
     ) -> Result<Box<dyn SpanContents<'a> + 'a>, MietteError> {
-        let span = self.span.unwrap_or(0.into());
         let inner_contents = self.source.as_deref().unwrap_or_default().read_span(
             &span,
             context_lines_before,
@@ -134,7 +136,6 @@ impl SourceCode for ErrorSpan {
             inner_contents.line_count(),
         );
         if let Some(language) = self.language {
-            dbg!(language);
             contents = contents.with_language(language);
         }
         Ok(Box::new(contents))
@@ -146,7 +147,7 @@ impl std::fmt::Display for ErrorSpan {
         if let Some(range) = self.range {
             let start = range.start_point();
             let end = range.end_point();
-            // `QuerryError`s and `Node`s report rows starting with 0
+            // `QueryError`s and `Node`s report rows starting with 0
             write!(
                 f,
                 "Parsing error between line {}, column {} and line {}, column {}",
@@ -162,6 +163,7 @@ impl std::fmt::Display for ErrorSpan {
 }
 
 impl std::error::Error for ErrorSpan {}
+
 pub trait SpanAttachment {
     fn attach_filepath(self, filepath: &Path) -> Self;
     fn attach_source(self, source: &str) -> Self;
@@ -256,16 +258,17 @@ where
 }
 
 // Move verbose query diagnostics to appendix instead of cluttering inline
-pub struct MietteSpanFormatter;
+pub struct SpanFormatter;
 
-impl AttachmentFormatterHook<ErrorSpan> for MietteSpanFormatter {
+impl AttachmentFormatterHook<ErrorSpan> for SpanFormatter {
     fn display(
         &self,
         attachment: ReportAttachmentRef<'_, ErrorSpan>,
-        _attachment_parent: Option<rootcause::hooks::attachment_formatter::AttachmentParent<'_>>,
+        _attachment_parent: Option<AttachmentParent<'_>>,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        let report = miette::Report::new(attachment.inner().clone());
+        let error_span = attachment.inner().clone();
+        let report = miette::Report::new(error_span);
         write!(f, "{report:?}")
     }
     fn preferred_formatting_style(
@@ -291,5 +294,36 @@ impl AttachmentFormatterHook<ErrorSpan> for MietteSpanFormatter {
                 priority: -10,
             },
         }
+    }
+}
+
+pub struct SpanHook;
+
+impl SpanHook {
+    fn on_create<T>(mut report: ReportMut<'_, Dynamic, T>)
+    where
+        ErrorSpan: ObjectMarkerFor<T>,
+    {
+        if let Some(query_error) = report.downcast_current_context::<QueryError>() {
+            let span = ErrorSpan {
+                source: None,
+                filepath: None,
+                language: Some("tree_sitter_query"),
+                range: Some(query_error.range),
+                primary_label: Some(format!("{query_error}")),
+                span: None,
+            };
+            report.attachments_mut().push(span.into());
+        }
+    }
+}
+
+impl ReportCreationHook for SpanHook {
+    fn on_local_creation(&self, report: ReportMut<'_, Dynamic, Local>) {
+        Self::on_create(report);
+    }
+
+    fn on_sendsync_creation(&self, report: ReportMut<'_, Dynamic, SendSync>) {
+        Self::on_create(report);
     }
 }

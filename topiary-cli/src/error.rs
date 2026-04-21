@@ -6,6 +6,7 @@ use rootcause::{
 use std::{error, fmt, io, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError};
 use topiary_core::FormatterError;
+use topiary_tree_sitter_facade::QueryError;
 
 /// A convenience wrapper around `std::result::Result<T, TopiaryError>`.
 pub type CLIResult<C, T = SendSync> = result::Result<C, Report<TopiaryError, Mutable, T>>;
@@ -15,6 +16,7 @@ pub type CLIResult<C, T = SendSync> = result::Result<C, Report<TopiaryError, Mut
 /// CLI-specific failures.
 #[derive(Debug)]
 pub enum TopiaryError {
+    // formatter errors or general errors such as tree-sitter specific ones
     Lib,
     Config,
     /// I/O-related errors
@@ -202,7 +204,7 @@ report_conversion!(
     "Could not join parallel formatting tasks"
 );
 
-report_conversion!(FormatterError, TopiaryError::Lib);
+report_conversion!(FormatterError | QueryError, TopiaryError::Lib);
 
 impl ReportConversion<TopiaryConfigError, Mutable, Local> for TopiaryError
 where

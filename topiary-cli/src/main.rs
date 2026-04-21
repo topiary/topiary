@@ -19,7 +19,7 @@ use rootcause::{
 use tabled::{Table, settings::Style};
 use topiary_config::source::Source;
 use topiary_core::{
-    ErrorSpan, MietteSpanFormatter, Operation, SpanAttachment, check_query_coverage, formatter,
+    ErrorSpan, Operation, SpanAttachment, SpanFormatter, SpanHook, check_query_coverage, formatter,
 };
 
 use crate::{
@@ -34,8 +34,9 @@ use miette::{NamedSource, Report};
 async fn main() -> ExitCode {
     // Use ASCII-only formatting
     Hooks::new()
-        .attachment_formatter::<ErrorSpan, _>(MietteSpanFormatter)
         .report_formatter(DefaultReportFormatter::UNICODE_COLORS)
+        .report_creation_hook(SpanHook)
+        .attachment_formatter::<ErrorSpan, _>(SpanFormatter)
         .install()
         .ok();
 
