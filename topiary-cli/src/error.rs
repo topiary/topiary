@@ -1,4 +1,6 @@
 use std::{error, fmt, io, path::PathBuf, process::ExitCode, result};
+
+use similar::TextDiff;
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError};
 use topiary_core::FormatterError;
 
@@ -24,6 +26,13 @@ pub enum CLIError {
     Multiple,
     UnsupportedLanguage(String),
 
+    /// Formatting check failed: input is not already formatted
+    CheckFailed {
+        source_name: String,
+        original: String,
+        formatted: String,
+    },
+
     /// Could not detect the input language from the `(filename, Option<extension>)`
     LanguageDetection(PathBuf, Option<String>),
 }
@@ -45,6 +54,23 @@ impl fmt::Display for TopiaryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             TopiaryError::Lib(error) => write!(f, "{error}"),
+            TopiaryError::Bin(
+                _,
+                Some(CLIError::CheckFailed {
+                    source_name,
+                    original,
+                    formatted,
+                }),
+            ) => {
+                let diff = TextDiff::from_lines(original, formatted);
+                write!(
+                    f,
+                    "Diff in {source_name}:\n{}",
+                    diff.unified_diff()
+                        .context_radius(3)
+                        .header("original", "formatted")
+                )
+            }
             TopiaryError::Bin(message, _) => write!(f, "{message}"),
             TopiaryError::Config(e) => write!(f, "{e}"),
         }
@@ -59,6 +85,7 @@ impl error::Error for TopiaryError {
             TopiaryError::Bin(_, Some(CLIError::Generic(error))) => error.source(),
             TopiaryError::Bin(_, Some(CLIError::Multiple)) => None,
             TopiaryError::Bin(_, Some(CLIError::UnsupportedLanguage(_))) => None,
+            TopiaryError::Bin(_, Some(CLIError::CheckFailed { .. })) => None,
             TopiaryError::Bin(_, Some(CLIError::LanguageDetection(_, _))) => None,
             TopiaryError::Bin(_, None) => None,
             TopiaryError::Config(error) => error.source(),
@@ -71,6 +98,10 @@ impl From<TopiaryError> for ExitCode {
         let exit_code = match e {
             // Things went well but Topiary needs to answer 'false' in a clean way: Exit 1
             _ if e.benign() => 1,
+
+            // Check mode detected unformatted files: Exit 1
+            // This error is not benign, but we still need to answer `false` without resulting in a typical an error
+            TopiaryError::Bin(_, Some(CLIError::CheckFailed { .. })) => 1,
 
             // Multiple errors: Exit 9
             TopiaryError::Bin(_, Some(CLIError::Multiple)) => 9,

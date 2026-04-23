@@ -39,6 +39,7 @@ topiary-config.workspace = true
 topiary-queries.workspace = true
 miette.workspace = true
 tabled = { workspace = true }
+similar = "3.1"
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

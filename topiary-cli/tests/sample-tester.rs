@@ -133,6 +133,58 @@ mod test_fmt {
 }
 
 #[cfg(test)]
+mod test_check {
+    use super::*;
+
+    #[allow(unused)]
+    fn check_input(lang: &str) {
+        let file = format!("{lang}.{}", get_file_extension(lang));
+        let input = PathBuf::from(format!("tests/samples/input/{file}"));
+        let expected = PathBuf::from(format!("tests/samples/expected/{file}"));
+
+        // Make sure our test makes sense
+        assert!(input.exists() && expected.exists());
+
+        // The input file is unformatted, so --check should fail
+        let mut topiary = cargo_bin_cmd!("topiary");
+        topiary
+            .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
+            .arg("fmt")
+            .arg("--check")
+            .arg(&input)
+            .assert()
+            .failure();
+
+        // The expected file is already formatted, so --check should succeed
+        let mut topiary = cargo_bin_cmd!("topiary");
+        topiary
+            .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
+            .arg("fmt")
+            .arg("--check")
+            .arg(&expected)
+            .assert()
+            .success();
+    }
+
+    lang_test!(
+        "bash",
+        "css",
+        "json",
+        "nickel",
+        "ocaml",
+        "ocaml_interface",
+        "ocamllex",
+        "openscad",
+        "rust",
+        "sdml",
+        "toml",
+        "tree_sitter_query",
+        "wit",
+        check_input
+    );
+}
+
+#[cfg(test)]
 mod test_coverage {
     use super::*;
 

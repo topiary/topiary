@@ -1,3 +1,4 @@
+mod check;
 mod cli;
 mod error;
 mod fs;
@@ -45,49 +46,64 @@ async fn run() -> CLIResult<()> {
     // Delegate by subcommand
     match args.command {
         Commands::Format {
+            check,
             tolerate_parsing_errors,
             skip_idempotence,
             inputs,
         } => {
             let inputs = Inputs::new(&config, &inputs);
 
-            process_inputs(inputs, move |input, language| {
-                let output = OutputFile::try_from(&input)?;
+            if check {
+                process_inputs(inputs, move |input, language| {
+                    log::info!(
+                        "Checking {}, as {} using {}",
+                        input.source(),
+                        input.language().name,
+                        input.query(),
+                    );
 
-                log::info!(
-                    "Formatting {}, as {} using {}, to {}",
-                    input.source(),
-                    input.language().name,
-                    input.query(),
-                    output
-                );
+                    check::check_input(input, &language, skip_idempotence, tolerate_parsing_errors)
+                })
+                .await?;
+            } else {
+                process_inputs(inputs, move |input, language| {
+                    let output = OutputFile::try_from(&input)?;
 
-                let mut buf_output = BufWriter::new(output);
+                    log::info!(
+                        "Formatting {}, as {} using {}, to {}",
+                        input.source(),
+                        input.language().name,
+                        input.query(),
+                        output
+                    );
 
-                {
-                    // NOTE This newly opened scope is important! `buf_input` takes
-                    // ownership of `input`, which -- upon reading -- contains an
-                    // open file handle. We need to close this file, by dropping
-                    // `buf_input`, before we attempt to persist our output.
-                    // Otherwise, we get an exclusive lock problem on Windows.
-                    let mut buf_input = BufReader::new(input);
+                    let mut buf_output = BufWriter::new(output);
 
-                    formatter(
-                        &mut buf_input,
-                        &mut buf_output,
-                        &language,
-                        Operation::Format {
-                            skip_idempotence,
-                            tolerate_parsing_errors,
-                        },
-                    )?;
-                }
+                    {
+                        // NOTE This newly opened scope is important! `buf_input` takes
+                        // ownership of `input`, which -- upon reading -- contains an
+                        // open file handle. We need to close this file, by dropping
+                        // `buf_input`, before we attempt to persist our output.
+                        // Otherwise, we get an exclusive lock problem on Windows.
+                        let mut buf_input = BufReader::new(input);
 
-                buf_output.into_inner()?.persist()?;
+                        formatter(
+                            &mut buf_input,
+                            &mut buf_output,
+                            &language,
+                            Operation::Format {
+                                skip_idempotence,
+                                tolerate_parsing_errors,
+                            },
+                        )?;
+                    }
 
-                CLIResult::Ok(())
-            })
-            .await?;
+                    buf_output.into_inner()?.persist()?;
+
+                    CLIResult::Ok(())
+                })
+                .await?;
+            }
         }
 
         Commands::CheckGrammar { inputs } => {

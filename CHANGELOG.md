@@ -54,6 +54,10 @@ This name should be decided amongst the team before the release.
 
 ### Added
 - [#1200](https://github.com/topiary/topiary/pull/1200) Build and deploy Topiary Docker images to ghcr.io.
+- [#1217](https://github.com/topiary/topiary/pull/1217) Add `--check` flag to `topiary fmt` for CI formatting verification.
+
+### Removed
+- [#1217](https://github.com/topiary/topiary/pull/1217) The `check` alias for the `check-grammar` subcommand, to avoid confusion with `topiary fmt --check`.
 
 <!--
 ### Changed

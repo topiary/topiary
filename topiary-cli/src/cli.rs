@@ -122,6 +122,10 @@ pub enum Commands {
     /// Format inputs
     #[command(alias = "fmt", display_order = 1)]
     Format {
+        /// Verify inputs are already formatted (exit non-zero with diff if not)
+        #[arg(short = 'c', long)]
+        check: bool,
+
         /// Consume as much as possible in the presence of parsing errors
         #[arg(short, long)]
         tolerate_parsing_errors: bool,
@@ -182,7 +186,7 @@ pub enum Commands {
     },
 
     /// Check if an input parses to the respective Tree-sitter grammar
-    #[command(alias = "check", display_order = 6)]
+    #[command(display_order = 6)]
     CheckGrammar {
         #[command(flatten)]
         inputs: AtLeastOneInput,
