@@ -24,7 +24,7 @@ use topiary_core::{
 
 use crate::{
     cli::Commands,
-    error::{CLIResult, exit_code},
+    error::{CLIResult, ResultPreformatLocal, exit_code},
     io::{Inputs, OutputFile, process_inputs, read_input},
 };
 
@@ -50,13 +50,13 @@ async fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-async fn run() -> CLIResult<(), Local> {
+async fn run() -> CLIResult<()> {
     let args = cli::get_args()?;
 
     let file_config = &args.global.configuration;
     let (config, nickel_config) =
         topiary_config::Configuration::fetch(args.global.merge_configuration, file_config)
-            .local_context_to()?;
+            .preformat_context()?;
 
     // Delegate by subcommand
     match args.command {
@@ -200,8 +200,8 @@ async fn run() -> CLIResult<(), Local> {
         }
 
         Commands::Prefetch { force, language } => match language {
-            Some(l) => config.prefetch_language(l, force).local_context_to()?,
-            _ => config.prefetch_languages(force).local_context_to()?,
+            Some(l) => config.prefetch_language(l, force).preformat_context()?,
+            _ => config.prefetch_languages(force).preformat_context()?,
         },
 
         Commands::Coverage { input } => {

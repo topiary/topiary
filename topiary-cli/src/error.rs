@@ -47,7 +47,7 @@ impl fmt::Display for TopiaryError {
 // source is handled by `rootcause::Report::current_context_error_source`
 impl error::Error for TopiaryError {}
 
-pub(crate) fn exit_code<C>(r: Report<C, Mutable, Local>) -> ExitCode
+pub(crate) fn exit_code<C>(r: Report<C>) -> ExitCode
 where
     C: ?Sized,
 {
@@ -147,13 +147,13 @@ pub trait Benign {
     fn benign(&self) -> bool;
 }
 
-impl<C> Benign for Report<C, Mutable, Local>
+impl<C> Benign for Report<C>
 where
     C: ?Sized,
 {
     fn benign(&self) -> bool {
         if let Some(FormatterError::PatternDoesNotMatch) =
-            iter_downcast_reports::<FormatterError>(self).next()
+            iter_downcast_reports::<FormatterError>(&self).next()
         {
             return true;
         }
@@ -262,9 +262,7 @@ where
     }
 }
 
-fn iter_downcast_reports<T: 'static>(
-    report: &Report<impl ?Sized, Mutable, Local>,
-) -> impl Iterator<Item = &T> {
+fn iter_downcast_reports<T: 'static>(report: &Report<impl ?Sized>) -> impl Iterator<Item = &T> {
     report
         .iter_reports()
         .filter_map(|r| r.downcast_current_context::<T>())

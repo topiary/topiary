@@ -305,14 +305,11 @@ impl SpanHook {
         ErrorSpan: ObjectMarkerFor<T>,
     {
         if let Some(query_error) = report.downcast_current_context::<QueryError>() {
-            let span = ErrorSpan {
-                source: None,
-                filepath: None,
-                language: Some("tree_sitter_query"),
-                range: Some(query_error.range),
-                primary_label: Some(format!("{query_error}")),
-                span: None,
-            };
+            // TODO add error_span.with_label(...) setter methods
+            let mut span = ErrorSpan::default()
+                .with_range(query_error.range)
+                .with_language("tree_sitter_query");
+            span.primary_label = Some(format!("{query_error}"));
             report.attachments_mut().push(span.into());
         }
     }
