@@ -12,6 +12,33 @@ The Topiary CLI, amongst other things, is available on
 cargo install topiary-cli
 ```
 
+## Docker
+
+Prebuilt, lightweight Docker images of the Topiary CLI are available on
+[GitHub](https://github.com/topiary/topiary/pkgs/container/topiary).
+
+```sh
+docker pull ghcr.io/topiary/topiary:latest
+```
+
+For example:
+
+```sh
+docker run --rm -i ghcr.io/topiary/topiary format -l json <<< '{"foo":123}'
+```
+
+You will need to orchestrate Docker bind mounts (`-v`/`--volume`) in
+order to format files on disk.
+
+<div class="warning">
+
+Docker images have been constructed to contain all the supported
+grammars defined in the shipped configuration. However, importantly,
+they do not contain a C/C++ toolchain, so are not independently capable
+of building other grammars.
+
+</div>
+
 ## OPAM (OCaml Package Manager)
 
 Topiary is available through [OPAM](https://opam.ocaml.org/packages/topiary)

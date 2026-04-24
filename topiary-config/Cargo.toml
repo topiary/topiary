@@ -18,15 +18,12 @@ license.workspace = true
 [dependencies]
 anyhow.workspace = true
 directories.workspace = true
-itertools.workspace = true
 gix.workspace = true
 log.workspace = true
 nickel-lang-core.workspace = true
 rayon = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 tempfile.workspace = true
-toml.workspace = true
-tree-sitter.workspace = true
 tree-sitter-language.workspace = true
 
 topiary-tree-sitter-facade.workspace = true

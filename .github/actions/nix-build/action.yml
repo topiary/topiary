@@ -22,13 +22,13 @@ runs:
     uses: rui314/setup-mold@v1
 
   - name: Set up Nix cache
-    uses: cachix/cachix-action@v16
+    uses: cachix/cachix-action@v17
     with:
       name: tweag-topiary
       authToken: "${{ inputs.auth_token }}"
 
   - name: Set up frontend cache
-    uses: actions/cache@v4
+    uses: actions/cache@v5
     with:
       path: |
         **/node_modules

@@ -64,7 +64,7 @@ impl TreeSitter {
         Ok(())
     }
 
-    #[cfg(feature = "web-sys")]
+    #[cfg(all(feature = "web-sys", not(feature = "node")))]
     pub async fn init() -> Result<(), JsError> {
         #![allow(non_snake_case)]
 
