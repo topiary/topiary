@@ -30,11 +30,11 @@ pub struct AtomCollection {
     /// A flat list of all Atoms. This is is updated by some formatting
     /// directives, but most require some more complexity.
     atoms: Vec<Atom>,
-    /// Whenever a formatting directive instructs tree-sitter to prepend
+    /// Whenever a formatting directive instructs topiary to prepend
     /// something to a node, a new Atom is added to this HashMap.
     /// The key of the hashmap is the identifier of the node.
     prepend: HashMap<usize, Vec<Atom>>,
-    /// Whenever a formatting directive instructs tree-sitter to append
+    /// Whenever a formatting directive instructs topiary to append
     /// something to a node, a new Atom is added to this HashMap.
     /// The key of the hashmap is the identifier of the node.
     append: HashMap<usize, Vec<Atom>>,
