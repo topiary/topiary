@@ -6,7 +6,6 @@
 #![allow(unused_assignments)]
 
 use std::{
-    borrow::Cow,
     boxed::Box,
     fmt,
     iter::Iterator,
@@ -15,7 +14,7 @@ use std::{
 };
 
 use miette::{
-    Diagnostic, LabeledSpan, MietteError, MietteSpanContents, NamedSource, SourceCode, SourceSpan,
+    Diagnostic, LabeledSpan, MietteError, MietteSpanContents, SourceCode, SourceSpan,
     SpanContents,
 };
 use rootcause::{
