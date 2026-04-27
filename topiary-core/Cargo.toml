@@ -33,6 +33,7 @@ criterion = { workspace = true, features = ["async_futures"] }
 env_logger = { workspace = true }
 test-log = { workspace = true }
 tokio-test = { workspace = true }
+topiary-queries.workspace = true
 tree-sitter-json.workspace = true
 tree-sitter-nickel.workspace = true
 

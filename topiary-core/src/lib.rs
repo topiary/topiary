@@ -205,7 +205,7 @@ pub enum Operation {
 /// let mut output = Vec::new();
 /// let json = topiary_tree_sitter_facade::Language::from(tree_sitter_json::LANGUAGE);
 ///
-/// let mut query_file = BufReader::new(File::open("../topiary-queries/queries/json.scm").expect("query file"));
+/// let mut query_file = BufReader::new(File::open("../topiary-queries/queries/json/formatting.scm").expect("query file"));
 /// let mut query_content = String::new();
 /// query_file.read_to_string(&mut query_content).expect("read query file");
 ///
@@ -429,7 +429,11 @@ mod tests {
         let expected = "{ \"one\": {\"bar\"   \"baz\"}, \"two\": \"bar\" }\n";
 
         let mut output = Vec::new();
-        let query_content = fs::read_to_string("../topiary-queries/queries/json.scm").unwrap();
+        let query_content = fs::read_to_string(format!(
+            "../topiary-queries/queries/json/{}",
+            topiary_queries::FORMATTING_QUERY
+        ))
+        .unwrap();
         let grammar = tree_sitter_json::LANGUAGE.into();
         let language = Language {
             name: "json".to_owned(),

@@ -100,34 +100,39 @@ mod test_fmt {
     #[test]
     #[cfg(feature = "tree_sitter_query")]
     fn fmt_queries() {
-        let language_dir = fs::read_dir("../topiary-queries/queries").unwrap();
+        // Top level query directory
+        let query_dir = fs::read_dir("../topiary-queries/queries").unwrap();
 
-        for file in language_dir {
-            let file = file.unwrap();
+        for language_dir in query_dir {
+            let language_dir = fs::read_dir(language_dir.unwrap().path()).unwrap();
 
-            // Load the query file (we assume is formatted correctly)
-            let expected = fs::read_to_string(file.path()).unwrap();
+            for file in language_dir {
+                let file = file.unwrap();
 
-            let tmp_dir = TempDir::new().unwrap();
+                // Load the query file (we assume is formatted correctly)
+                let expected = fs::read_to_string(file.path()).unwrap();
 
-            // Copy the file to a temp dir
-            let mut input_file = tmp_dir.path().to_path_buf();
-            input_file.push(file.path().file_name().unwrap());
-            fs::copy(file.path(), &input_file).unwrap();
+                let tmp_dir = TempDir::new().unwrap();
 
-            // Run topiary on the input file in the temp dir
-            let mut topiary = cargo_bin_cmd!("topiary");
-            topiary
-                .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
-                .arg("fmt")
-                .arg(&input_file)
-                .assert()
-                .success();
+                // Copy the file to a temp dir
+                let mut input_file = tmp_dir.path().to_path_buf();
+                input_file.push(file.path().file_name().unwrap());
+                fs::copy(file.path(), &input_file).unwrap();
 
-            // Read the file after formatting
-            let formatted = fs::read_to_string(input_file).unwrap();
+                // Run topiary on the input file in the temp dir
+                let mut topiary = cargo_bin_cmd!("topiary");
+                topiary
+                    .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
+                    .arg("fmt")
+                    .arg(&input_file)
+                    .assert()
+                    .success();
 
-            pretty_assert_eq(&expected, &formatted);
+                // Read the file after formatting
+                let formatted = fs::read_to_string(input_file).unwrap();
+
+                pretty_assert_eq(&expected, &formatted);
+            }
         }
     }
 }
@@ -182,33 +187,37 @@ mod test_coverage {
 #[test]
 #[cfg(feature = "tree_sitter_query")]
 fn formatted_query_tester() {
-    let language_dir = fs::read_dir("../topiary-queries/queries").unwrap();
+    // Top level query directory
+    let query_dir = fs::read_dir("../topiary-queries/queries").unwrap();
 
-    for file in language_dir {
-        let file = file.unwrap();
+    for language_dir in query_dir {
+        let language_dir = fs::read_dir(language_dir.unwrap().path()).unwrap();
+        for file in language_dir {
+            let file = file.unwrap();
 
-        // Load the query file (we assume is formatted correctly)
-        let expected = fs::read_to_string(file.path()).unwrap();
+            // Load the query file (we assume is formatted correctly)
+            let expected = fs::read_to_string(file.path()).unwrap();
 
-        let tmp_dir = TempDir::new().unwrap();
+            let tmp_dir = TempDir::new().unwrap();
 
-        // Copy the file to a temp dir
-        let mut input_file = tmp_dir.path().to_path_buf();
-        input_file.push(file.path().file_name().unwrap());
-        fs::copy(file.path(), &input_file).unwrap();
+            // Copy the file to a temp dir
+            let mut input_file = tmp_dir.path().to_path_buf();
+            input_file.push(file.path().file_name().unwrap());
+            fs::copy(file.path(), &input_file).unwrap();
 
-        // Run topiary on the input file in the temp dir
-        let mut topiary = cargo_bin_cmd!("topiary");
-        topiary
-            .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
-            .arg("fmt")
-            .arg(&input_file)
-            .assert()
-            .success();
+            // Run topiary on the input file in the temp dir
+            let mut topiary = cargo_bin_cmd!("topiary");
+            topiary
+                .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
+                .arg("fmt")
+                .arg(&input_file)
+                .assert()
+                .success();
 
-        // Read the file after formatting
-        let formatted = fs::read_to_string(input_file).unwrap();
+            // Read the file after formatting
+            let formatted = fs::read_to_string(input_file).unwrap();
 
-        pretty_assert_eq(&expected, &formatted);
+            pretty_assert_eq(&expected, &formatted);
+        }
     }
 }

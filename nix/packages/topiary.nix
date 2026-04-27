@@ -114,7 +114,8 @@ let
         );
 
         postInstall = ''
-          install -Dm444 topiary-queries/queries/* -t $out/share/queries
+          mkdir -p $out/share/queries
+          cp -r topiary-queries/queries/* $out/share/queries
         '';
 
         # Set TOPIARY_LANGUAGE_DIR to the Nix store
@@ -138,7 +139,8 @@ let
       pname = "topiary-queries";
       cargoExtraArgs = "-p topiary-queries";
       postInstall = ''
-        install -Dm444 topiary-queries/queries/* -t $out/share/queries
+        mkdir -p $out/share/queries
+        cp -r --no-preserve=mode topiary-queries/queries/* $out/share/queries
       '';
     }
   );
