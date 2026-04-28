@@ -1,6 +1,5 @@
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
-    use miette::SourceOffset;
 
     use crate::point::Point;
     use std::convert::TryFrom;
@@ -30,19 +29,18 @@ mod native {
         /// linewise ranges.
         /// The last non newline character on a row will determine the range end.
         #[inline]
-        pub fn new_linewise(source: impl AsRef<str>, start_byte: u32, start_point: &Point) -> Self {
-            let end_column = source
-                .as_ref()
-                .lines()
-                .nth(start_point.row() as usize)
-                .map(|l| l.len())
-                .unwrap_or(1);
-            let end_point = Point::new(start_point.row(), end_column as u32);
-            let end_byte =
-                SourceOffset::from_location(source, start_point.row() as usize, end_column)
-                    .offset();
+        pub fn new_linewise(source: &str, start_byte: u32, start_point: &Point) -> Self {
+            // The last character index before a newline appears
+            let end_byte = source[start_byte as usize..]
+                .find('\n')
+                .map(|i| i + start_byte as usize)
+                .unwrap_or(source.len()) as u32;
+            let end_point = Point::new(
+                start_point.row(),
+                start_point.column() + end_byte - start_byte,
+            );
 
-            Self::new(start_byte, end_byte as u32, start_point, &end_point)
+            Self::new(start_byte, end_byte, start_point, &end_point)
         }
 
         #[inline]

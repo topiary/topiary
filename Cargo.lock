@@ -4411,7 +4411,6 @@ name = "topiary-tree-sitter-facade"
 version = "0.7.3"
 dependencies = [
  "js-sys",
- "miette",
  "streaming-iterator",
  "topiary-web-tree-sitter-sys",
  "tree-sitter",
