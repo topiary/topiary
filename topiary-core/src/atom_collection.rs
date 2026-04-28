@@ -242,6 +242,15 @@ impl AtomCollection {
 
                 self.append(space, node, predicates);
             }
+            "append_empty_input_softline" => {
+                let space = if self.line_break_after.contains(&node.id()) {
+                    Atom::Hardline
+                } else {
+                    Atom::Empty
+                };
+
+                self.append(space, node, predicates);
+            }
             "append_space" => self.append(Atom::Space, node, predicates),
             "append_antispace" => self.append(Atom::Antispace, node, predicates),
             "append_spaced_softline" => {
@@ -263,6 +272,15 @@ impl AtomCollection {
                     Atom::Hardline
                 } else {
                     Atom::Space
+                };
+
+                self.prepend(space, node, predicates);
+            }
+            "prepend_empty_input_softline" => {
+                let space = if self.line_break_before.contains(&node.id()) {
+                    Atom::Hardline
+                } else {
+                    Atom::Empty
                 };
 
                 self.prepend(space, node, predicates);
