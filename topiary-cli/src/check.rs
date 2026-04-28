@@ -1,0 +1,48 @@
+use std::io::BufReader;
+
+use rootcause::{bail, prelude::ResultExt};
+use topiary_core::{Language, Operation, formatter};
+
+use crate::{
+    error::{CLIResult, TopiaryError},
+    io::{InputFile, read_input},
+};
+
+/// Run the formatter on an input and compare the result to the original.
+/// Returns `Ok(())` if the input is already formatted, or a `CheckFailed` error
+/// containing the original and formatted strings if it is not.
+pub fn check_input(
+    input: InputFile,
+    language: &Language,
+    skip_idempotence: bool,
+    tolerate_parsing_errors: bool,
+) -> CLIResult<()> {
+    let source_name = input.source().to_string();
+
+    let mut buf_input = BufReader::new(input);
+    let original = read_input(&mut buf_input).context_to()?;
+
+    let mut formatted_bytes: Vec<u8> = Vec::new();
+    formatter(
+        &mut original.as_bytes(),
+        &mut formatted_bytes,
+        language,
+        Operation::Format {
+            skip_idempotence,
+            tolerate_parsing_errors,
+        },
+    )
+    .context_to()?;
+
+    let formatted = String::from_utf8_lossy(&formatted_bytes).into_owned();
+
+    if original != formatted {
+        bail!(TopiaryError::CheckFailed {
+            source_name,
+            original,
+            formatted,
+        });
+    }
+
+    Ok(())
+}

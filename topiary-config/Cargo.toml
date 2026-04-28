@@ -26,6 +26,7 @@ serde = { workspace = true, features = ["derive"] }
 tempfile.workspace = true
 tree-sitter-language.workspace = true
 
+topiary-queries.workspace = true
 topiary-tree-sitter-facade.workspace = true
 topiary-web-tree-sitter-sys.workspace = true
 

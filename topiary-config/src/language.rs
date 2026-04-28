@@ -94,7 +94,7 @@ impl Language {
     pub fn find_query_file(&self) -> TopiaryConfigResult<PathBuf> {
         use crate::source::Source;
 
-        let basename = PathBuf::from(self.name.as_str()).with_extension("scm");
+        let name = self.name.as_str();
 
         #[rustfmt::skip]
         let potentials: [Option<PathBuf>; 5] = [
@@ -108,9 +108,16 @@ impl Language {
         potentials
             .into_iter()
             .flatten()
-            .map(|path| path.join(&basename))
+            .flat_map(|path| {
+                [
+                    // New layout: <dir>/<lang>/formatting.scm
+                    path.join(name).join(topiary_queries::FORMATTING_QUERY),
+                    // Old layout: <dir>/<lang>.scm
+                    path.join(format!("{name}.scm")),
+                ]
+            })
             .find(|path| path.exists())
-            .ok_or_else(|| TopiaryConfigError::QueryFileNotFound(basename))
+            .ok_or_else(|| TopiaryConfigError::QueryFileNotFound(PathBuf::from(name)))
     }
 
     #[cfg(not(target_arch = "wasm32"))]

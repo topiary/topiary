@@ -48,12 +48,17 @@ This name should be decided amongst the team before the release.
 - [#1172](https://github.com/topiary/topiary/pull/1172) Split out `mdbook-manmunge` into its own repository.
 - [#1174](https://github.com/topiary/topiary/pull/1174) Split out the Topiary Playground into its own repository.
 - [#1191](https://github.com/topiary/topiary/pull/1191) Split out the Topiary website into its own repository.
+- [#1226](https://github.com/topiary/topiary/pull/1226) Query files moved from `queries/<lang>.scm` to `queries/<lang>/formatting.scm` in preparation for language injection support. The old flat layout is still supported as a fallback.
 
 ### Fixed
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
 
 ### Added
 - [#1200](https://github.com/topiary/topiary/pull/1200) Build and deploy Topiary Docker images to ghcr.io.
+- [#1217](https://github.com/topiary/topiary/pull/1217) Add `--check` flag to `topiary fmt` for CI formatting verification.
+
+### Removed
+- [#1217](https://github.com/topiary/topiary/pull/1217) The `check` alias for the `check-grammar` subcommand, to avoid confusion with `topiary fmt --check`.
 
 <!--
 ### Changed

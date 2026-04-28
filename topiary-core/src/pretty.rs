@@ -8,14 +8,21 @@ use rootcause::prelude::ResultExt;
 
 use crate::{Atom, Capitalisation, FormatterError, FormatterResult};
 
-/// Renders a slice of Atoms into an owned string.
-/// The indent &str is used when an `Atom::IdentStart` is encountered.
-/// Any string is accepted, but you will probably want to specify something
-/// along the lines of "  " "    " or "\t".
+/// Renders a slice of [`Atom`]s into formatted source code.
+///
+/// This is the final stage of the formatting pipeline. It walks through the
+/// atom list produced by [`apply_query_tree`](crate::tree_sitter::apply_query_tree),
+/// interpreting each atom to emit text, newlines, and indentation into the
+/// output buffer.
+///
+/// The `indent` parameter specifies the string used for one level of
+/// indentation (e.g. `"  "`, `"    "`, or `"\t"`).
 ///
 /// # Errors
 ///
-/// If an unexpected Atom is encountered, a `FormatterError::Internal` is returned.
+/// Returns an error if an atom that should have been removed during
+/// post-processing is still present, or if indentation blocks are
+/// mismatched.
 pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
     let mut buffer = String::new();
     let mut indent_level: usize = 0;

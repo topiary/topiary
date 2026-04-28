@@ -35,7 +35,8 @@ your query file to be able to iterate on formatting query writing.
 ## Create the query file
 
 ```sh
-touch topiary-queries/queries/clang.scm
+mkdir topiary-queries/queries/clang
+touch topiary-queries/queries/clang/formatting.scm
 ```
 
 ### Testing
@@ -174,7 +175,7 @@ cargo test --no-default-features -F clang -p topiary-cli --test sample-tester
 /// Returns the Topiary-compatible query file for C.
 #[cfg(feature = "clang")]
 pub fn clang() -> &'static str {
-    include_str!("../queries/clang.scm")
+    include_str!("../queries/clang/formatting.scm")
 }
 ```
 
@@ -195,7 +196,7 @@ query, when no other file can be found at runtime for your language.
 ## Iterate
 
 Once the above steps have been completed, Topiary will be able to use
-the C Tree-sitter grammar and the formatting queries in `clang.scm` to
+the C Tree-sitter grammar and the formatting queries in `clang/formatting.scm` to
 format C code.
 
 You can now iterate on the formatting queries and the respective input

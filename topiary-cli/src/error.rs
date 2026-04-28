@@ -7,6 +7,8 @@ use rootcause::{
     report,
 };
 use std::{error, fmt, io, process::ExitCode, result};
+
+use similar::TextDiff;
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError};
 use topiary_core::FormatterError;
 use topiary_tree_sitter_facade::QueryError;
@@ -27,6 +29,12 @@ pub enum TopiaryError {
     Multiple,
     UnsupportedLanguage(String),
     Other,
+    /// Formatting check failed: input is not already formatted
+    CheckFailed {
+        source_name: String,
+        original: String,
+        formatted: String,
+    },
 }
 
 impl fmt::Display for TopiaryError {
@@ -43,6 +51,21 @@ impl fmt::Display for TopiaryError {
                 write!(f, "The specified language is unsupported: {name}")
             }
             TopiaryError::Other => todo!(),
+            TopiaryError::CheckFailed {
+                source_name,
+                original,
+                formatted,
+            } => {
+                writeln!(f, "{source_name} is not formatted")?;
+                let diff = TextDiff::from_lines(original, formatted);
+                write!(
+                    f,
+                    "Diff in {source_name}:\n{}",
+                    diff.unified_diff()
+                        .context_radius(3)
+                        .header("original", "formatted")
+                )
+            }
         }
     }
 }
@@ -66,6 +89,7 @@ where
     for rep in r.iter_reports() {
         if let Some(e) = rep.downcast_current_context::<FormatterError>() {
             code = match e {
+                // TODO check failed
                 // I/O errors: Exit 3
                 FormatterError::Io => 3,
                 // Query errors: Exit 4

@@ -106,7 +106,10 @@ fn test_fmt_stdin_query() {
         .arg("--language")
         .arg("json")
         .arg("--query")
-        .arg("../topiary-queries/queries/json.scm")
+        .arg(format!(
+            "../topiary-queries/queries/json/{}",
+            topiary_queries::FORMATTING_QUERY
+        ))
         .write_stdin(JSON_INPUT)
         .assert()
         .success()
@@ -192,6 +195,78 @@ fn test_fmt_dir() {
         .success();
 
     assert_eq!(json.read(), JSON_EXPECTED);
+}
+
+#[test]
+#[cfg(feature = "json")]
+fn test_check_stdin_clean() {
+    initialize();
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("fmt")
+        .arg("--check")
+        .arg("--language")
+        .arg("json")
+        .write_stdin(JSON_EXPECTED)
+        .assert()
+        .success();
+}
+
+#[test]
+#[cfg(feature = "json")]
+fn test_check_stdin_dirty() {
+    initialize();
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("fmt")
+        .arg("--check")
+        .arg("--language")
+        .arg("json")
+        .write_stdin(JSON_INPUT)
+        .assert()
+        .failure();
+}
+
+#[test]
+#[cfg(feature = "json")]
+fn test_check_file_dirty_no_modify() {
+    initialize();
+    let json = State::new(JSON_INPUT, "json");
+    let original_content = json.read();
+
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("fmt")
+        .arg("--check")
+        .arg(json.path())
+        .assert()
+        .failure();
+
+    // The file must NOT be modified by --check
+    assert_eq!(json.read(), original_content);
+}
+
+#[test]
+#[cfg(feature = "json")]
+fn test_check_file_clean() {
+    initialize();
+    let json = State::new(JSON_EXPECTED, "json");
+
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("fmt")
+        .arg("--check")
+        .arg(json.path())
+        .assert()
+        .success();
 }
 
 #[test]

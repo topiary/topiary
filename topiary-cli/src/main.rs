@@ -1,3 +1,4 @@
+mod check;
 mod cli;
 mod error;
 mod fs;
@@ -57,9 +58,29 @@ async fn run() -> CLIResult<()> {
     // Delegate by subcommand
     match args.command {
         Commands::Format {
+            check: true,
             tolerate_parsing_errors,
             skip_idempotence,
             inputs,
+        } => {
+            let inputs = Inputs::new(&config, &inputs);
+            process_inputs(inputs, move |input, language| {
+                log::info!(
+                    "Checking {}, as {} using {}",
+                    input.source(),
+                    input.language().name,
+                    input.query(),
+                );
+
+                check::check_input(input, &language, skip_idempotence, tolerate_parsing_errors)
+            })
+            .await?;
+        }
+        Commands::Format {
+            tolerate_parsing_errors,
+            skip_idempotence,
+            inputs,
+            ..
         } => {
             let inputs = Inputs::new(&config, &inputs);
 

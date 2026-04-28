@@ -42,14 +42,17 @@ jobs:
           nix_path: nixpkgs=channel:nixpkgs-unstable
           auth_token: "${{ secrets.CACHIX_TWEAG_TOPIARY_AUTH_TOKEN }}"
 
-      - name: Build and test executable
+      - name: Build executable
+        run: nix build . -L
+
+      - name: Test executable
         run: 'echo \{ \"foo\": \"bar\" \} | nix run . -- fmt -l json'
 
       - name: Build client-app example
-        run: nix build .#client-app
+        run: nix build .#client-app -L
 
       - name: Verify that usage in README.md matches CLI output
-        run: nix run .#verify-documented-usage
+        run: nix run .#verify-documented-usage -L
 
       - name: Test against config regressions
         run: |

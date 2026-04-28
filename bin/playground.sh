@@ -7,6 +7,9 @@ set -euo pipefail
 PROGNAME="$(basename "$0")"
 readonly PROGNAME
 
+FORMATTING_QUERY="formatting.scm"
+readonly FORMATTING_QUERY
+
 fail() {
   local error="$*"
 
@@ -41,7 +44,7 @@ get-default-query() {
       ;;
   esac
 
-  printf "topiary-queries/queries/%s.scm" "${query}"
+  printf "topiary-queries/queries/%s/%s" "${query}" "${FORMATTING_QUERY}"
 }
 
 get-sample-input() {

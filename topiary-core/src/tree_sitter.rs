@@ -290,15 +290,29 @@ pub fn apply_query(
     apply_query_tree(tree, input_content, query)
 }
 
-/// Applies a query to a tree and returns a collection of atoms.
+/// Applies tree-sitter formatting queries to a parsed syntax tree, producing
+/// an [`AtomCollection`] ready for rendering.
+///
+/// This is the second stage of the formatting pipeline, between
+/// [`parse`] and [`render`](crate::pretty::render). It performs the
+/// following steps:
+///
+/// 1. Match: Runs the query patterns against the tree's root node,
+///    collecting all matches and their captures.
+/// 2. Identify leaves: Finds nodes marked with `@leaf` in the query so
+///    the flattening step will not recurse into them.
+/// 3. Flatten: Converts the tree into a flat [`AtomCollection`] of
+///    terminal/leaf nodes.
+/// 4. Apply formatting: Processes each match and evaluates predicates
+///    (e.g. `#single_line_only!`) and applies formatting directives
+///    (`@append_space`, `@prepend_hardline`, etc.) to the corresponding atoms.
 ///
 /// # Errors
 ///
 /// This function can return an error if:
-/// - The query content cannot be parsed by the grammar.
 /// - The input exhaustivity check fails.
-/// - A found predicate could not be parsed or is malformed.
-/// - A unknown capture name was encountered in the query.
+/// - A predicate could not be parsed or is malformed.
+/// - An unknown capture name was encountered in the query.
 pub fn apply_query_tree(
     tree: Tree,
     input_content: &str,
@@ -434,7 +448,18 @@ impl NodeSpan {
     }
 }
 
-/// Parses some string into a syntax tree, given a tree-sitter grammar.
+/// Parses source code into a tree-sitter syntax tree.
+///
+/// This is the first stage of the formatting pipeline. It creates a
+/// tree-sitter parser, applies the given grammar, and parses the input
+/// into a concrete syntax tree. Unless `tolerate_parsing_errors` is set,
+/// the resulting tree is checked for error nodes to ensure it is complete.
+///
+/// # Errors
+///
+/// Returns an error if the grammar cannot be applied, the input cannot
+/// be parsed, or the resulting tree contains error nodes (when
+/// `tolerate_parsing_errors` is `false`).
 pub fn parse(
     content: &str,
     grammar: &topiary_tree_sitter_facade::Language,

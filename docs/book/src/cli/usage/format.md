@@ -15,6 +15,9 @@ Arguments:
           defined in the Topiary configuration.
 
 Options:
+  -c, --check
+          Verify inputs are already formatted (exit non-zero with diff if not)
+
   -t, --tolerate-parsing-errors
           Consume as much as possible in the presence of parsing errors
 
@@ -73,6 +76,24 @@ some_command | topiary format --language LANGUAGE
 ```
 
 </div>
+
+## Checking formatting
+
+The `--check` flag (or `-c`) verifies that inputs are already formatted
+without modifying them. If any input differs from its formatted form,
+Topiary prints a diff to stderr and exits with code 1. This is useful
+for CI pipelines:
+
+```bash
+# Check a single file
+topiary format --check src/main.rs
+
+# Check all files in a directory
+topiary format --check src/
+
+# Check via stdin
+echo '{"foo":"bar"}' | topiary format --check --language json
+```
 
 <div class="warning">
 

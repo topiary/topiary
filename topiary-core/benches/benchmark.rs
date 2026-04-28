@@ -6,7 +6,11 @@ use topiary_core::{Language, Operation, TopiaryQuery, formatter};
 
 async fn format() {
     let input = fs::read_to_string("../topiary-cli/tests/samples/input/nickel.ncl").unwrap();
-    let query_content = fs::read_to_string("../topiary-queries/queries/nickel.scm").unwrap();
+    let query_content = fs::read_to_string(format!(
+        "../topiary-queries/queries/nickel/{}",
+        topiary_queries::FORMATTING_QUERY
+    ))
+    .unwrap();
     let nickel = tree_sitter_nickel::LANGUAGE;
 
     let mut input = input.as_bytes();
