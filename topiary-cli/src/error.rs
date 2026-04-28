@@ -156,7 +156,7 @@ where
 {
     fn benign(&self) -> bool {
         if let Some(FormatterError::PatternDoesNotMatch) =
-            iter_downcast_reports::<FormatterError>(&self).next()
+            iter_downcast_reports::<FormatterError>(self).next()
         {
             return true;
         }

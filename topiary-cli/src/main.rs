@@ -13,7 +13,6 @@ use std::{
 use error::{Benign, SpanFormatter};
 use rootcause::{
     hooks::{Hooks, builtin_hooks::report_formatter::DefaultReportFormatter},
-    markers::Local,
     prelude::ResultExt,
 };
 use tabled::{Table, settings::Style};

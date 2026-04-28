@@ -13,21 +13,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use miette::{
-    Diagnostic, LabeledSpan, MietteError, MietteSpanContents, SourceCode, SourceSpan, SpanContents,
-};
-use rootcause::{
-    ReportMut,
-    handlers::{AttachmentFormattingPlacement, AttachmentFormattingStyle, FormattingFunction},
-    hooks::{
-        attachment_formatter::{AttachmentFormatterHook, AttachmentParent},
-        report_creation::ReportCreationHook,
-    },
-    markers::{Dynamic, Local, ObjectMarkerFor, SendSync},
-    prelude::ResultExt,
-    report_attachment::ReportAttachmentRef,
-};
-use topiary_tree_sitter_facade::{QueryError, Range};
+use miette::{LabeledSpan, MietteError, MietteSpanContents, SourceCode, SourceSpan, SpanContents};
+use rootcause::markers::ObjectMarkerFor;
+use topiary_tree_sitter_facade::Range;
 
 /// ErrorSpan is meant to represent errors code that lives outside of the topiary
 /// call stack and is rendered with [`miette::Report`].
@@ -122,7 +110,7 @@ impl SourceCode for ErrorSpan {
         context_lines_after: usize,
     ) -> Result<Box<dyn SpanContents<'a> + 'a>, MietteError> {
         let inner_contents = self.source.as_deref().unwrap_or_default().read_span(
-            &span,
+            span,
             context_lines_before,
             context_lines_after,
         )?;
