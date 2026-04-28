@@ -5,12 +5,12 @@
 use std::{collections::HashSet, fmt::Display};
 
 use miette::{LabeledSpan, Severity, SourceSpan};
-use rootcause::{Report, prelude::ResultExt, report};
+use rootcause::{prelude::ResultExt, report};
 use serde::Serialize;
 
 use topiary_tree_sitter_facade::{
     Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryError, QueryMatch, QueryPredicate,
-    Range, Tree,
+    Tree,
 };
 
 use streaming_iterator::StreamingIterator;
@@ -416,38 +416,6 @@ pub fn apply_query_tree(
     Ok(atoms)
 }
 
-/// Represents the code span for a given tree-sitter node
-#[derive(Debug)]
-pub struct NodeSpan {
-    pub(crate) range: Range,
-    pub language: Option<&'static str>,
-}
-
-impl From<&Node<'_>> for NodeSpan {
-    fn from(value: &Node) -> Self {
-        Self::new(value)
-    }
-}
-
-impl NodeSpan {
-    /// Creates a new [`Self`] without source text or language
-    pub fn new(node: &Node) -> Self {
-        Self {
-            range: node.range(),
-            language: node.language_name(),
-        }
-    }
-
-    fn report(self) -> Report<FormatterError> {
-        let report = report!(FormatterError::Parsing).attach_range(self.range);
-        if let Some(language) = self.language {
-            report.attach_language(language)
-        } else {
-            report
-        }
-    }
-}
-
 /// Parses source code into a tree-sitter syntax tree.
 ///
 /// This is the first stage of the formatting pipeline. It creates a
@@ -479,16 +447,20 @@ pub fn parse(
 
     // Fail parsing if we don't get a complete syntax tree.
     if !tolerate_parsing_errors {
-        check_for_error_nodes(&tree.root_node()).map_err(NodeSpan::report)?;
+        check_for_error_nodes(&tree.root_node())?;
     }
 
     Ok(tree)
 }
 
 // returns first error node encountered
-fn check_for_error_nodes(node: &Node) -> Result<(), NodeSpan> {
+fn check_for_error_nodes(node: &Node) -> FormatterResult<()> {
     if node.is_error() {
-        return Err(NodeSpan::new(node));
+        let mut report = report!(FormatterError::Parsing).attach_range(node.range());
+        if let Some(lang) = node.language_name() {
+            report = report.attach_language(lang);
+        }
+        return Err(report);
     }
 
     for child in node.children(&mut node.walk()) {
