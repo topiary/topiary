@@ -3,13 +3,9 @@
 
 use std::{error::Error, fmt, io, str};
 
-use rootcause::{
-    Report, ReportConversion,
-    markers::{self},
-    prelude::*,
-};
+use rootcause::{Report, ReportConversion, markers};
 
-pub use error_span::{ErrorSpan, SpanAttachment, SpanFormatter, SpanHook};
+pub use error_span::{ErrorSpan, SpanAttachment};
 
 mod error_span;
 

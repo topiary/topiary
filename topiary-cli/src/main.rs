@@ -10,7 +10,7 @@ use std::{
     process::ExitCode,
 };
 
-use error::Benign;
+use error::{Benign, SpanFormatter};
 use rootcause::{
     hooks::{Hooks, builtin_hooks::report_formatter::DefaultReportFormatter},
     markers::Local,
@@ -18,9 +18,7 @@ use rootcause::{
 };
 use tabled::{Table, settings::Style};
 use topiary_config::source::Source;
-use topiary_core::{
-    ErrorSpan, Operation, SpanAttachment, SpanFormatter, SpanHook, check_query_coverage, formatter,
-};
+use topiary_core::{ErrorSpan, Operation, SpanAttachment, check_query_coverage, formatter};
 
 use crate::{
     cli::Commands,
@@ -35,14 +33,13 @@ async fn main() -> ExitCode {
     // Use ASCII-only formatting
     Hooks::new()
         .report_formatter(DefaultReportFormatter::UNICODE_COLORS)
-        .report_creation_hook(SpanHook)
         .attachment_formatter::<ErrorSpan, _>(SpanFormatter)
         .install()
         .ok();
 
     if let Err(e) = run().await {
         if !e.benign() {
-            log::error!("{e}");
+            log::error!("{e:?}");
         }
         return exit_code(e);
     }
