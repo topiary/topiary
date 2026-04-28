@@ -25,6 +25,7 @@ See:
 - [`@append_empty_softline` / `@prepend_empty_softline`](#append_empty_softline--prepend_empty_softline)
 - [`@append_spaced_softline` / `@prepend_spaced_softline`](#append_spaced_softline--prepend_spaced_softline)
 - [`@append_input_softline` / `@prepend_input_softline`](#append_input_softline--prepend_input_softline)
+- [`@append_empty_input_softline` / `@prepend_empty_input_softline`](#append_empty_input_softline--prepend_empty_input_softline)
 
 <div class="warning">
 
@@ -40,16 +41,17 @@ Windows).
 
 ### Understanding the different line break captures
 
-| Type            | Single-Line Context | Multi-Line Context |
-| :-------------- | :------------------ | :----------------- |
-| Hardline        | Line break          | Line break         |
-| Empty Softline  | Nothing             | Line break         |
-| Spaced Softline | Space               | Line break         |
-| Input Softline  | Space               | Input-Dependent    |
+| Type                 | Single-Line Context | Multi-Line Context |
+| :------------------- | :------------------ | :----------------- |
+| Hardline             | Line break          | Line break         |
+| Empty Softline       | Nothing             | Line break         |
+| Spaced Softline      | Space               | Line break         |
+| Input Softline       | Space               | Input-Dependent    |
+| Empty Input Softline | Nothing             | Input-Dependent    |
 
 "Input softlines" are rendered as line breaks whenever the targeted node
 follows/precedes (for append/prepend, respectively) a line break in the
-input. Otherwise, they are rendered as spaces.
+input. Otherwise, they are rendered as nothing or spaces, depending on the capture name.
 
 #### Example
 
@@ -229,6 +231,34 @@ In the single-line context, a space is added before each delimiter; in
 the multi-line context, a line break is added before the delimiters that
 had a line break before them in the original input.
 
+##### `@append_empty_input_softline`
+
+```json
+{
+  "single-line":
+  [1,2,3,4],
+  "multi-line":
+  [1,2,
+  3,4]
+}
+```
+
+The same as `@append_input_softline` except it does not insert a space.
+
+##### `@prepend_empty_input_softline`
+
+```json
+{
+  "single-line":
+  [1,2,3,4],
+  "multi-line":
+  [1,2,3
+  ,4]
+}
+```
+
+The same as `@prepend_input_softline` except it does not insert a space.
+
 ### Testing context with predicates
 
 Sometimes, similarly to what happens with softlines, we want a query to
@@ -383,6 +413,14 @@ input document, otherwise it is a space.
   [ "," ";" ]* @do_nothing
 )
 ```
+
+## `@append_empty_input_softline` / `@prepend_empty_input_softline`
+
+This option is the empty counterpart to [`@append_input_softline` / `@prepend_input_softline`](#append_input_softline--prepend_input_softline)
+
+This option has the same relation to [`@append_input_softline` / `@prepend_input_softline`](#append_input_softline--prepend_input_softline)
+as [`@append_empty_softline` / `@prepend_empty_softline`](#append_empty_softline--prepend_empty_softline)
+has to [`@append_spaced_softline` / `@prepend_spaced_softline`](#append_spaced_softline--prepend_spaced_softline)
 
 ## `@keep_whitespace`
 
