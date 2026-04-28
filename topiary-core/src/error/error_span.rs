@@ -32,7 +32,7 @@ pub struct ErrorSpan {
     pub(crate) range: Option<Range>,
 
     // label for our immediate `SourceSpan`
-    primary_label: Option<String>,
+    pub primary_label: Option<String>,
     span: Option<SourceSpan>,
 }
 

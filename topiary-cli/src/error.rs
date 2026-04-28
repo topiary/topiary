@@ -1,6 +1,6 @@
 mod hooks;
 
-pub(crate) use hooks::SpanFormatter;
+pub use hooks::{SpanFormatter, SpanHook};
 use rootcause::{
     Report, ReportConversion,
     markers::{self, Local, Mutable, ObjectMarkerFor, SendSync},

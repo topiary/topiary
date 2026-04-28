@@ -11,7 +11,7 @@ use std::{
     process::ExitCode,
 };
 
-use error::{Benign, SpanFormatter};
+use crate::error::{Benign, SpanFormatter, SpanHook};
 use rootcause::{
     hooks::{Hooks, builtin_hooks::report_formatter::DefaultReportFormatter},
     prelude::ResultExt,
@@ -33,13 +33,14 @@ async fn main() -> ExitCode {
     // Use ASCII-only formatting
     Hooks::new()
         .report_formatter(DefaultReportFormatter::UNICODE_COLORS)
+        .report_creation_hook(SpanHook)
         .attachment_formatter::<ErrorSpan, _>(SpanFormatter)
         .install()
         .ok();
 
     if let Err(e) = run().await {
         if !e.benign() {
-            log::error!("{e:?}");
+            log::error!("{e}");
         }
         return exit_code(e);
     }
