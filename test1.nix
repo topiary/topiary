@@ -1,0 +1,5 @@
+{
+  abcd = /* comment */ ''
+    abcd
+  '';
+}
