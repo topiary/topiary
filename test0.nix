@@ -1,8 +1,2 @@
-{
-  abc = ''
-    abc
-  '';
-  abcd = /* comment */''
-    abcd
-  '';
+{a = 8;
 }
