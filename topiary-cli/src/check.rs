@@ -15,6 +15,7 @@ pub fn check_input(
     language: &Language,
     skip_idempotence: bool,
     tolerate_parsing_errors: bool,
+    resolve: Option<&dyn Fn(&str) -> Option<&Language>>,
 ) -> CLIResult<()> {
     let source_name = input.source().to_string();
 
@@ -30,6 +31,7 @@ pub fn check_input(
             skip_idempotence,
             tolerate_parsing_errors,
         },
+        resolve,
     )?;
 
     let formatted = String::from_utf8_lossy(&formatted_bytes).into_owned();

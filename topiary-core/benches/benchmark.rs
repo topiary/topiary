@@ -21,6 +21,7 @@ async fn format() {
         query: TopiaryQuery::new(&nickel.into(), &query_content).unwrap(),
         grammar: tree_sitter_nickel::LANGUAGE.into(),
         indent: None,
+        injection_query: None,
     };
 
     formatter(
@@ -31,6 +32,7 @@ async fn format() {
             skip_idempotence: true,
             tolerate_parsing_errors: false,
         },
+        None,
     )
     .unwrap();
 }

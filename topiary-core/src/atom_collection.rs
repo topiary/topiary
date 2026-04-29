@@ -116,6 +116,24 @@ impl AtomCollection {
         Ok(atoms)
     }
 
+    /// Replace the `content` of the [`Atom::Leaf`] whose tree-sitter `id`
+    /// matches `node_id`. Returns whether a matching leaf was found.
+    ///
+    /// Used by the injection flow to splice formatted inner-language text
+    /// into a host leaf atom after the host's atom collection has been
+    /// built but before rendering.
+    pub fn rewrite_leaf_content(&mut self, node_id: usize, new_content: String) -> bool {
+        for atom in &mut self.atoms {
+            if let Atom::Leaf { id, content, .. } = atom
+                && *id == node_id
+            {
+                *content = new_content;
+                return true;
+            }
+        }
+        false
+    }
+
     // wrap inside a conditional atom if #single/multi_line_scope_only! is set
     fn wrap(&mut self, atom: Atom, predicates: &QueryPredicates) -> Atom {
         if let Some(scope_id) = &predicates.single_line_scope_only {

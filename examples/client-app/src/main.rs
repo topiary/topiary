@@ -28,6 +28,7 @@ async fn main() {
         query: TopiaryQuery::new(&grammar, query).unwrap(),
         grammar,
         indent: None,
+        injection_query: None,
     };
 
     // Format the input JSON using the language configuration
@@ -39,6 +40,7 @@ async fn main() {
             skip_idempotence: false,
             tolerate_parsing_errors: false,
         },
+        None,
     )
     .unwrap();
 

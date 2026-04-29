@@ -188,6 +188,7 @@ impl InputFile<'_> {
             query,
             grammar,
             indent: self.language().indent(),
+            injection_query: None,
         })
     }
 
@@ -228,6 +229,7 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
         query,
         grammar,
         indent: config_language.indent(),
+        injection_query: None,
     })
 }
 
@@ -486,6 +488,7 @@ pub(crate) async fn format_config(
             skip_idempotence: true,
             tolerate_parsing_errors: false,
         },
+        None,
     )?;
 
     Ok(())

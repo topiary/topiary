@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::TopiaryQuery;
+use crate::{InjectionQuery, TopiaryQuery};
 
 /// A Language contains all the information Topiary requires to format that
 /// specific languages.
@@ -19,6 +19,9 @@ pub struct Language {
     /// if not provided. Any string can be provided, but in most instances will be
     /// some whitespace: "  ", "    ", or "\t".
     pub indent: Option<String>,
+    /// Optional injection query identifying regions of source that should be
+    /// formatted as a different language.
+    pub injection_query: Option<InjectionQuery>,
 }
 
 impl fmt::Display for Language {

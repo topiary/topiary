@@ -20,8 +20,8 @@ pub use crate::{
     error::{ErrorSpan, FormatterError, SpanAttachment},
     language::Language,
     tree_sitter::{
-        CoverageData, SyntaxNode, TopiaryQuery, Visualisation, apply_query, check_query_coverage,
-        parse,
+        CoverageData, InjectionQuery, InjectionSpan, SyntaxNode, TopiaryQuery, Visualisation,
+        apply_query, check_query_coverage, collect_injections, parse,
     },
 };
 
@@ -215,9 +215,10 @@ pub enum Operation {
 ///     query: TopiaryQuery::new(&json.clone().into(), &query_content).unwrap(),
 ///     grammar: json.into(),
 ///     indent: None,
+///     injection_query: None,
 /// };
 ///
-/// match formatter(&mut input, &mut output, &language, Operation::Format{ skip_idempotence: false, tolerate_parsing_errors: false }) {
+/// match formatter(&mut input, &mut output, &language, Operation::Format{ skip_idempotence: false, tolerate_parsing_errors: false }, None) {
 ///   Ok(()) => {
 ///     let formatted = String::from_utf8(output).expect("valid utf-8");
 ///   }
@@ -235,12 +236,13 @@ pub fn formatter(
     output: &mut impl io::Write,
     language: &Language,
     operation: Operation,
+    resolve: Option<&dyn Fn(&str) -> Option<&Language>>,
 ) -> FormatterResult<()> {
     let content = read_input(input)
         .context_to()
         .attach("Failed to read input contents")?;
 
-    formatter_str(&content, output, language, operation)
+    formatter_str(&content, output, language, operation, resolve)
 }
 
 /// The function that takes a string slice and formats, or visualises an output.
@@ -253,6 +255,7 @@ pub fn formatter_str(
     output: &mut impl io::Write,
     language: &Language,
     operation: Operation,
+    resolve: Option<&dyn Fn(&str) -> Option<&Language>>,
 ) -> FormatterResult<()> {
     let tolerate_parsing_errors = match operation {
         Operation::Format {
@@ -264,7 +267,7 @@ pub fn formatter_str(
 
     let tree = tree_sitter::parse(input, &language.grammar, tolerate_parsing_errors)?;
 
-    formatter_tree(tree, input, output, language, operation)?;
+    formatter_tree(tree, input, output, language, operation, resolve)?;
 
     Ok(())
 }
@@ -280,16 +283,40 @@ pub fn formatter_tree(
     output: &mut impl io::Write,
     language: &Language,
     operation: Operation,
+    resolve: Option<&dyn Fn(&str) -> Option<&Language>>,
 ) -> FormatterResult<()> {
     match operation {
         Operation::Format {
             skip_idempotence,
             tolerate_parsing_errors,
         } => {
+            log::debug!("Discovering potentially injected languages");
+            let spans = match &language.injection_query {
+                Some(injection_query) => collect_injections(&tree, input_content, injection_query)?,
+                None => Vec::new(),
+            };
+
+            // Create a list of nodes that are injection formatted.
+            // These must will be treated as leafs (although, in all likelyhood, they already are).
+            let injection_leaf_nodes = spans.iter().map(|span| span.node_id);
+
             // All the work related to tree-sitter and the query is done here
             log::debug!("Apply Tree-sitter query");
 
-            let mut atoms = tree_sitter::apply_query_tree(tree, input_content, &language.query)?;
+            let mut atoms = tree_sitter::apply_query_tree_with_forced_leaves(
+                tree,
+                input_content,
+                &language.query,
+                injection_leaf_nodes,
+            )?;
+
+            rewrite_injected_leaves(
+                &mut atoms,
+                input_content,
+                spans,
+                resolve,
+                tolerate_parsing_errors,
+            );
 
             // Various post-processing of whitespace
             atoms.post_process();
@@ -306,7 +333,7 @@ pub fn formatter_tree(
             let rendered = format!("{}\n", rendered.trim());
 
             if !skip_idempotence {
-                idempotence_check(&rendered, language, tolerate_parsing_errors)?;
+                idempotence_check(&rendered, language, tolerate_parsing_errors, resolve)?;
             }
 
             write!(output, "{rendered}").context_to()?;
@@ -322,6 +349,70 @@ pub fn formatter_tree(
         }
     };
     Ok(())
+}
+
+fn rewrite_injected_leaves(
+    atoms: &mut atom_collection::AtomCollection,
+    input_content: &str,
+    spans: Vec<InjectionSpan>,
+    resolve: Option<&dyn Fn(&str) -> Option<&Language>>,
+    tolerate_parsing_errors: bool,
+) {
+    for span in spans {
+        let Some(inner_source) = input_content.get(span.start_byte..span.end_byte) else {
+            log::warn!(
+                "Injected {} span is not on UTF-8 boundaries; skipping",
+                span.language
+            );
+            continue;
+        };
+
+        let Some(inner_language) = resolve.and_then(|resolve| resolve(&span.language)) else {
+            log::warn!(
+                "No language definition available for injected {}; skipping",
+                span.language
+            );
+            continue;
+        };
+
+        let mut formatted_inner = Vec::new();
+        if let Err(err) = formatter_str(
+            inner_source,
+            &mut formatted_inner,
+            inner_language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors,
+            },
+            resolve,
+        ) {
+            log::warn!(
+                "Failed to format injected {} span: {}; skipping",
+                span.language,
+                err
+            );
+            continue;
+        }
+
+        let formatted_inner = match String::from_utf8(formatted_inner) {
+            Ok(formatted_inner) => formatted_inner.trim_end_matches('\n').to_owned(),
+            Err(err) => {
+                log::warn!(
+                    "Injected {} formatter produced invalid UTF-8: {}; skipping",
+                    span.language,
+                    err
+                );
+                continue;
+            }
+        };
+
+        if !atoms.rewrite_leaf_content(span.node_id, formatted_inner) {
+            log::warn!(
+                "Could not find leaf for injected {} span; skipping",
+                span.language
+            );
+        }
+    }
 }
 
 /// Simple helper function to read the full content of an io Read stream
@@ -344,6 +435,7 @@ fn idempotence_check(
     content: &str,
     language: &Language,
     tolerate_parsing_errors: bool,
+    resolve: Option<&dyn Fn(&str) -> Option<&Language>>,
 ) -> FormatterResult<()> {
     log::info!("Checking for idempotence ...");
 
@@ -358,6 +450,7 @@ fn idempotence_check(
             skip_idempotence: true,
             tolerate_parsing_errors,
         },
+        resolve,
     ) {
         Ok(()) => {
             let reformatted = output
@@ -403,6 +496,7 @@ mod tests {
             query: TopiaryQuery::new(&grammar, query_content).unwrap(),
             grammar,
             indent: None,
+            injection_query: None,
         };
 
         let mut result = formatter(
@@ -413,6 +507,7 @@ mod tests {
                 skip_idempotence: true,
                 tolerate_parsing_errors: false,
             },
+            None,
         );
 
         if let Some(range) = result
@@ -445,6 +540,7 @@ mod tests {
             query: TopiaryQuery::new(&grammar, &query_content).unwrap(),
             grammar,
             indent: None,
+            injection_query: None,
         };
 
         formatter(
@@ -455,6 +551,7 @@ mod tests {
                 skip_idempotence: true,
                 tolerate_parsing_errors: true,
             },
+            None,
         )
         .unwrap();
 

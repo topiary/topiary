@@ -60,7 +60,13 @@ async fn run() -> CLIResult<()> {
                     input.query(),
                 );
 
-                check::check_input(input, &language, skip_idempotence, tolerate_parsing_errors)
+                check::check_input(
+                    input,
+                    &language,
+                    skip_idempotence,
+                    tolerate_parsing_errors,
+                    None, // TODO(Erin): Language Injection
+                )
             })
             .await?;
         }
@@ -101,6 +107,7 @@ async fn run() -> CLIResult<()> {
                             skip_idempotence,
                             tolerate_parsing_errors,
                         },
+                        None, // TODO(Erin): Language Injection
                     )?;
                 }
 
@@ -155,6 +162,7 @@ async fn run() -> CLIResult<()> {
                 Operation::Visualise {
                     output_format: format.into(),
                 },
+                None, // TODO(Erin): Language Injection
             )
             .attach_filepath(buf_input.get_ref().filepath())?;
         }
