@@ -415,7 +415,6 @@ mod tests {
             },
         );
 
-        dbg!(result.get_span().is_some());
         if let Some(range) = result
             .get_span()
             .and_then(|s| s.range)
