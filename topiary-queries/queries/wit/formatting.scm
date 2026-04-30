@@ -225,4 +225,4 @@
 )
 
 ; Keep inline comments on same line as export/import statements
-([(mport_item) (export_item)] . (line_comment) @prepend_space)
+([(import_item) (export_item)] . (line_comment) @prepend_space)
