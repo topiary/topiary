@@ -3,14 +3,15 @@ use std::{
     fmt::{self, Display},
     fs::File,
     io::{self, BufWriter, Read, Result, Seek, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
 use nickel_lang_core::eval::value::NickelValue;
+use rootcause::prelude::ResultExt;
 use tempfile::tempfile;
 use topiary_config::Configuration;
-use topiary_core::{Language, Operation, TopiaryQuery, formatter};
+use topiary_core::{FormatterError, Language, Operation, SpanAttachment, TopiaryQuery, formatter};
 
 use crate::{
     cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
@@ -117,6 +118,13 @@ impl InputSource {
             InputSource::Disk(path, _) => InputLocation(Some(path.clone())),
         }
     }
+
+    fn filepath(&self) -> Option<&Path> {
+        match self {
+            InputSource::Stdin => None,
+            InputSource::Disk(path, _) => Some(path.as_ref()),
+        }
+    }
 }
 
 impl fmt::Display for InputSource {
@@ -131,6 +139,12 @@ impl fmt::Display for InputSource {
 /// A location for a given [InputSource], `None` represents standard input
 #[derive(Debug)]
 pub struct InputLocation(Option<Arc<PathBuf>>);
+
+impl InputLocation {
+    pub(crate) fn to_path(&self) -> Option<&Path> {
+        self.0.as_ref().map(|p| p.as_path())
+    }
+}
 
 impl fmt::Display for InputLocation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -156,7 +170,8 @@ impl InputFile<'_> {
     pub async fn to_language(&self) -> CLIResult<Language> {
         let grammar = self.language().grammar()?;
         let query_contents = self.query.get_content().await?;
-        let query = TopiaryQuery::new(&grammar, &query_contents)?;
+        let query =
+            TopiaryQuery::new(&grammar, &query_contents).context(FormatterError::Parsing)?;
 
         Ok(Language {
             name: self.language.name.clone(),
@@ -169,6 +184,10 @@ impl InputFile<'_> {
     /// Expose input source
     pub fn source(&self) -> &InputSource {
         &self.source
+    }
+
+    pub(crate) fn filepath(&self) -> Option<&Path> {
+        self.source().filepath()
     }
 
     /// Expose language for input
@@ -191,7 +210,7 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
     let query_content = to_query_from_language(config_language)?
         .get_content()
         .await?;
-    let query = TopiaryQuery::new(&grammar, &query_content)?;
+    let query = TopiaryQuery::new(&grammar, &query_content).context(FormatterError::Parsing)?;
 
     Ok(Language {
         name: name.as_ref().to_string(),
@@ -475,11 +494,11 @@ where
                 let input = input?;
                 let location = input.source().location();
                 let language = cache.fetch(&input).await?;
-                process_fn(input, language).map_err(|e| {
-                    let TopiaryError::Lib(fmt_err) = e else {
-                        return e;
-                    };
-                    fmt_err.with_location(location.to_string()).into()
+                process_fn(input, language).map_err(|e| match (e, location.to_path()) {
+                    (TopiaryError::Lib(report), Some(filepath)) => {
+                        report.attach_filepath(filepath).into()
+                    }
+                    (e, _) => e,
                 })
             });
         }

@@ -2,7 +2,7 @@
 //! Named syntax nodes are elliptical; anonymous are rectangular.
 use std::{borrow::Cow, fmt, io};
 
-use crate::{FormatterResult, tree_sitter::SyntaxNode};
+use crate::tree_sitter::SyntaxNode;
 
 /// Doubly escapes whitespace (\n and \t) so it is
 /// rendered as the escaped value in the GraphViz output
@@ -83,7 +83,7 @@ impl fmt::Display for SyntaxNode {
 }
 
 /// Writes the Graphviz Graph in the dot format to the specified output buffer.
-pub fn write(output: &mut dyn io::Write, root: &SyntaxNode) -> FormatterResult<()> {
+pub fn write(output: &mut dyn io::Write, root: &SyntaxNode) -> std::io::Result<()> {
     writeln!(output, "graph {{")?;
     write!(output, "{root}")?;
     writeln!(output, "}}")?;

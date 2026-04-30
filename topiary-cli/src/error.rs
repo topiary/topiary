@@ -1,5 +1,6 @@
 use std::{error, fmt, io, path::PathBuf, process::ExitCode, result};
 
+use rootcause::Report;
 use similar::TextDiff;
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError};
 use topiary_core::FormatterError;
@@ -13,7 +14,7 @@ pub type CLIResult<T> = result::Result<T, TopiaryError>;
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum TopiaryError {
-    Lib(FormatterError),
+    Lib(Report<FormatterError>),
     Bin(String, Option<CLIError>),
     Config(topiary_config::error::TopiaryConfigError),
 }
@@ -80,7 +81,7 @@ impl fmt::Display for TopiaryError {
 impl error::Error for TopiaryError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            TopiaryError::Lib(error) => error.source(),
+            TopiaryError::Lib(error) => error.current_context_error_source(),
             TopiaryError::Bin(_, Some(CLIError::IOError(error))) => Some(error),
             TopiaryError::Bin(_, Some(CLIError::Generic(error))) => error.source(),
             TopiaryError::Bin(_, Some(CLIError::Multiple)) => None,
@@ -105,24 +106,25 @@ impl From<TopiaryError> for ExitCode {
 
             // Multiple errors: Exit 9
             TopiaryError::Bin(_, Some(CLIError::Multiple)) => 9,
-
-            // Idempotency parsing errors: Exit 8
-            TopiaryError::Lib(FormatterError::IdempotenceParsing(_)) => 8,
-
-            // Idempotency errors: Exit 7
-            TopiaryError::Lib(FormatterError::Idempotence) => 7,
-
-            // Exit 6 no longer exists and is now reserved for compatibility reasons
-
-            // Parsing errors: Exit 5
-            TopiaryError::Lib(FormatterError::Parsing { .. }) => 5,
-
-            // Query errors: Exit 4
-            TopiaryError::Lib(FormatterError::Query(_, _)) => 4,
+            TopiaryError::Lib(r) => {
+                match r.current_context() {
+                    // Idempotency parsing errors: Exit 8
+                    FormatterError::IdempotenceParsing => 8,
+                    // Idempotency errors: Exit 7
+                    FormatterError::Idempotence => 7,
+                    // Parsing errors: Exit 5
+                    FormatterError::Parsing => 5,
+                    // Query errors: Exit 4
+                    FormatterError::Query(_) => 4,
+                    // I/O errors: Exit 3
+                    FormatterError::Io => 3,
+                    // Anything else: Exit 10
+                    _ => 10,
+                }
+            }
 
             // I/O errors: Exit 3
-            TopiaryError::Lib(FormatterError::Io(_))
-            | TopiaryError::Bin(_, Some(CLIError::IOError(_))) => 3,
+            TopiaryError::Bin(_, Some(CLIError::IOError(_))) => 3,
 
             // Bad arguments: Exit 2
             // (Handled by clap: https://github.com/clap-rs/clap/issues/3426)
@@ -135,8 +137,8 @@ impl From<TopiaryError> for ExitCode {
     }
 }
 
-impl From<FormatterError> for TopiaryError {
-    fn from(e: FormatterError) -> Self {
+impl From<Report<FormatterError>> for TopiaryError {
+    fn from(e: Report<FormatterError>) -> Self {
         Self::Lib(e)
     }
 }
@@ -210,7 +212,9 @@ impl Benign for TopiaryError {
     #[allow(clippy::match_like_matches_macro)]
     fn benign(&self) -> bool {
         match self {
-            TopiaryError::Lib(FormatterError::PatternDoesNotMatch) => true,
+            TopiaryError::Lib(r) if r.current_context() == &FormatterError::PatternDoesNotMatch => {
+                true
+            }
             _ => false,
         }
     }

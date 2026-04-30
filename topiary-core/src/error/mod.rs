@@ -1,16 +1,16 @@
 //! This module defines all errors that might be propagated out of the library,
 //! including all of the trait implementations one might expect for Errors.
 
+use std::{error::Error, fmt, io, str};
+
+use rootcause::{Report, ReportConversion, markers};
+
+pub use error_span::{ErrorSpan, SpanAttachment};
+
 mod error_span;
 
-use std::{error::Error, fmt, io, ops::Deref, str, string};
-
-use crate::tree_sitter::NodeSpan;
-
-use error_span::ErrorSpan;
-
 /// The various errors the formatter may return.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FormatterError {
     /// The input produced output that isn't idempotent, i.e. formatting the
     /// output again made further changes. If this happened using our provided
@@ -20,60 +20,23 @@ pub enum FormatterError {
     /// The input produced invalid output, i.e. formatting the output again led
     /// to a parsing error. If this happened using our provided query files, it
     /// is a bug. Please log an issue.
-    IdempotenceParsing(Box<FormatterError>),
+    IdempotenceParsing,
 
     /// An internal error occurred. This is a bug. Please log an issue.
-    Internal(String, Option<Box<dyn Error>>),
+    Internal(String),
 
     // Tree-sitter could not parse the input without errors.
-    Parsing(Box<NodeSpan>),
+    Parsing,
+
     /// The query contains a pattern that had no match in the input file.
     PatternDoesNotMatch,
 
     /// There was an error in the query file. If this happened using our
     /// provided query files, it is a bug. Please log an issue.
-    Query(String, Option<topiary_tree_sitter_facade::QueryError>),
+    Query(String),
 
     /// I/O-related errors
-    Io(IoError),
-}
-
-/// A subtype of `FormatterError::Io`
-#[derive(Debug)]
-pub enum IoError {
-    // NOTE: Filesystem-based IO errors _ought_ to become a thing of the past,
-    // once the library and binary code have been completely separated (see
-    // Issue #303).
-    /// A filesystem based IO error, with an additional owned string to provide
-    /// Topiary specific information
-    Filesystem(String, io::Error),
-
-    /// Any other Error with an additional owned string to provide Topiary
-    /// specific information
-    Generic(String, Option<Box<dyn Error>>),
-}
-
-impl FormatterError {
-    fn get_span(&mut self) -> Option<&mut NodeSpan> {
-        match self {
-            Self::Parsing(span) => Some(span),
-            Self::IdempotenceParsing(err) => err.get_span(),
-            _ => None,
-        }
-    }
-    pub fn with_content(mut self, content: String) -> Self {
-        if let Some(span) = self.get_span() {
-            span.set_content(content);
-        }
-        self
-    }
-
-    pub fn with_location(mut self, location: String) -> Self {
-        if let Some(span) = self.get_span() {
-            span.set_location(location);
-        }
-        self
-    }
+    Io,
 }
 
 impl fmt::Display for FormatterError {
@@ -87,16 +50,15 @@ impl fmt::Display for FormatterError {
                 )
             }
 
-            Self::IdempotenceParsing(_) => {
+            Self::IdempotenceParsing => {
                 write!(
                     f,
                     "The formatter produced invalid output and\nfailed when trying to format twice (idempotence check).\n\n{please_log_message}\n\nThe following is the error received when running the second time, but note\nthat any line and column numbers refer to the formatted code, not the\noriginal input. Run Topiary with the --skip-idempotence flag to see this\ninvalid formatted code."
                 )
             }
 
-            Self::Parsing(span) => {
-                let report = miette::Report::new(ErrorSpan::from(span));
-                write!(f, "{report:?}")
+            Self::Parsing => {
+                write!(f, "Tree-sitter could not parse the input without errors.")
             }
 
             Self::PatternDoesNotMatch => {
@@ -105,118 +67,103 @@ impl fmt::Display for FormatterError {
                     "The query contains a pattern that does not match the input"
                 )
             }
-
-            Self::Internal(message, _)
-            | Self::Query(message, _)
-            | Self::Io(IoError::Filesystem(message, _) | IoError::Generic(message, _)) => {
+            Self::Io => {
+                write!(f, "I/O Error")
+            }
+            Self::Internal(message) | Self::Query(message) => {
                 write!(f, "{message}")
             }
         }
     }
 }
 
-impl Error for FormatterError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Idempotence
-            | Self::Parsing(_)
-            | Self::PatternDoesNotMatch
-            | Self::Io(IoError::Generic(_, None)) => None,
-            Self::Internal(_, source) => source.as_ref().map(Deref::deref),
-            Self::Query(_, source) => source.as_ref().map(|e| e as &dyn Error),
-            Self::Io(IoError::Filesystem(_, source)) => Some(source),
-            Self::Io(IoError::Generic(_, Some(source))) => Some(source.as_ref()),
-            Self::IdempotenceParsing(source) => Some(source),
-        }
-    }
+impl Error for FormatterError {}
+
+// private convenience macro to do [`rootcause::ReportConversion`]
+// https://docs.rs/rootcause/latest/rootcause/trait.ReportConversion.html
+macro_rules! report_conversion {
+    ($($from:ty)|+, $err:ident::$variant:ident, $msg:literal) => {
+        $(
+            impl<T> ReportConversion<$from, markers::Mutable, T> for $err
+            where
+                Self: markers::ObjectMarkerFor<T>,
+                &'static str: markers::ObjectMarkerFor<T>,
+            {
+                fn convert_report(
+                    report: Report<$from, markers::Mutable, T>,
+                ) -> Report<Self, markers::Mutable, T> {
+                    let report = report.context($err::$variant);
+                    let report = report.attach($msg);
+                    report
+
+                }
+            }
+        )+
+    };
 }
 
-// NOTE: Filesystem-based IO errors _ought_ to become a thing of the past, once
-// the library and binary code have been completely separated (see Issue #303).
-impl From<io::Error> for FormatterError {
-    fn from(e: io::Error) -> Self {
-        IoError::from(e).into()
-    }
-}
+report_conversion!(
+    std::str::Utf8Error | std::string::FromUtf8Error,
+    FormatterError::Io,
+    "Input is not valid UTF-8"
+);
 
-impl From<io::Error> for IoError {
-    fn from(e: io::Error) -> Self {
-        match e.kind() {
-            io::ErrorKind::NotFound => IoError::Filesystem("File not found".into(), e),
-            _ => IoError::Filesystem("Could not read or write to file".into(), e),
-        }
-    }
-}
-impl From<IoError> for FormatterError {
-    fn from(e: IoError) -> Self {
-        Self::Io(e)
-    }
-}
+report_conversion!(
+    std::fmt::Error,
+    FormatterError::Io,
+    "Failed to format output"
+);
 
-impl From<str::Utf8Error> for FormatterError {
-    fn from(e: str::Utf8Error) -> Self {
-        Self::Io(IoError::Generic(
-            "Input is not valid UTF-8".into(),
-            Some(Box::new(e)),
-        ))
-    }
-}
+report_conversion!(
+    serde_json::Error,
+    FormatterError::Io,
+    "Could not serialise JSON output"
+);
 
-impl From<string::FromUtf8Error> for FormatterError {
-    fn from(e: string::FromUtf8Error) -> Self {
-        Self::Io(IoError::Generic(
-            "Input is not valid UTF-8".into(),
-            Some(Box::new(e)),
-        ))
-    }
-}
+report_conversion!(
+    topiary_tree_sitter_facade::LanguageError,
+    FormatterError::Parsing,
+    "Error while loading language grammar"
+);
 
-impl From<fmt::Error> for FormatterError {
-    fn from(e: fmt::Error) -> Self {
-        Self::Io(IoError::Generic(
-            "Failed to format output".into(),
-            Some(Box::new(e)),
-        ))
-    }
-}
+report_conversion!(
+    topiary_tree_sitter_facade::ParserError,
+    FormatterError::Parsing,
+    "Error while parsing"
+);
 
 // We only have to deal with io::BufWriter<Vec<u8>>, but the genericised code is
 // clearer
-impl<W> From<io::IntoInnerError<W>> for FormatterError
+impl<W, T> ReportConversion<io::IntoInnerError<W>, markers::Mutable, T> for FormatterError
 where
+    Self: markers::ObjectMarkerFor<T>,
     W: io::Write + fmt::Debug + Send + 'static,
+    &'static str: markers::ObjectMarkerFor<T>,
 {
-    fn from(e: io::IntoInnerError<W>) -> Self {
-        Self::Io(IoError::Generic(
-            "Cannot flush internal buffer".into(),
-            Some(Box::new(e)),
-        ))
+    fn convert_report(
+        report: Report<io::IntoInnerError<W>, markers::Mutable, T>,
+    ) -> Report<Self, markers::Mutable, T> {
+        report
+            .context(Self::Io)
+            .attach("Cannot flush internal buffer")
     }
 }
 
-impl From<serde_json::Error> for FormatterError {
-    fn from(e: serde_json::Error) -> Self {
-        Self::Internal("Could not serialise JSON output".into(), Some(Box::new(e)))
-    }
-}
+impl<T> ReportConversion<io::Error, markers::Mutable, T> for FormatterError
+where
+    Self: markers::ObjectMarkerFor<T>,
+    io::ErrorKind: markers::ObjectMarkerFor<T>,
+    &'static str: markers::ObjectMarkerFor<T>,
+{
+    fn convert_report(
+        report: Report<io::Error, markers::Mutable, T>,
+    ) -> Report<Self, markers::Mutable, T> {
+        let kind = report.current_context().kind();
+        let msg = match kind {
+            io::ErrorKind::NotFound => "File not found",
+            _ => "Could not read or write to file",
+        };
 
-impl From<topiary_tree_sitter_facade::LanguageError> for FormatterError {
-    fn from(e: topiary_tree_sitter_facade::LanguageError) -> Self {
-        Self::Internal(
-            "Error while loading language grammar".into(),
-            Some(Box::new(e)),
-        )
-    }
-}
-
-impl From<topiary_tree_sitter_facade::ParserError> for FormatterError {
-    fn from(e: topiary_tree_sitter_facade::ParserError) -> Self {
-        Self::Internal("Error while parsing".into(), Some(Box::new(e)))
-    }
-}
-
-impl From<NodeSpan> for FormatterError {
-    fn from(span: NodeSpan) -> Self {
-        Self::Parsing(Box::new(span))
+        report.context(Self::Io).attach(msg).attach(kind)
     }
 }
