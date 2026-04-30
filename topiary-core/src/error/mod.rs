@@ -10,7 +10,7 @@ pub use error_span::{ErrorSpan, SpanAttachment};
 mod error_span;
 
 /// The various errors the formatter may return.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FormatterError {
     /// The input produced output that isn't idempotent, i.e. formatting the
     /// output again made further changes. If this happened using our provided

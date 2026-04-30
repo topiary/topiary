@@ -179,12 +179,8 @@ where
     C: ?Sized,
 {
     fn benign(&self) -> bool {
-        if let Some(FormatterError::PatternDoesNotMatch) =
-            iter_downcast_reports::<FormatterError>(self).next()
-        {
-            return true;
-        }
-        false
+        iter_downcast_reports::<FormatterError>(self)
+            .any(|fmt_err| *fmt_err == FormatterError::PatternDoesNotMatch)
     }
 }
 
