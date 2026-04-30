@@ -17,9 +17,9 @@ use miette::{LabeledSpan, MietteError, MietteSpanContents, SourceCode, SourceSpa
 use rootcause::markers::ObjectMarkerFor;
 use topiary_tree_sitter_facade::Range;
 
-/// ErrorSpan is meant to represent errors code that lives outside of the topiary
+/// ErrorSpan is meant to represent error codes that lives outside of the topiary
 /// call stack and is rendered with [`miette::Report`].
-/// Examples of files that generate  ErrorSpans (these are typically runtime objects):
+/// Examples of files that generate ErrorSpans (these are typically runtime objects):
 /// * configuration files (such as languages.ncl)
 /// * code that is being formatted
 /// * tree-sitter query files
