@@ -1,5 +1,2 @@
-{
-  abcd = /* comment */ ''
-    abcd
-  '';
-}
+{abcd=/* comment */ ''
+ abcd'';}
