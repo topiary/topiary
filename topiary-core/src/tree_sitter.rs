@@ -57,7 +57,7 @@ impl TopiaryQuery {
     /// contents of the query file.
     ///
     /// # Errors
-    ///https://docs.rs/miette/latest/miette/struct.Report.html
+    ///
     /// This function will return an error if tree-sitter failed to parse the
     /// query file.
     pub fn new(
