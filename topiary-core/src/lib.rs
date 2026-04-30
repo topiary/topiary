@@ -221,10 +221,10 @@ pub enum Operation {
 ///   Ok(()) => {
 ///     let formatted = String::from_utf8(output).expect("valid utf-8");
 ///   }
-///   Err(ref r) if let FormatterError::Query(message) = r.current_context() => {
-///     panic!("Error in query file: {message}");
-///   }
-///   Err(_) => {
+///   Err(r) => {
+///     if let FormatterError::Query(message) = r.current_context() {
+///         panic!("Error in query file: {message}");
+///     }
 ///     panic!("An error occurred");
 ///   }
 /// }
