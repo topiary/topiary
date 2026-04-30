@@ -19,6 +19,12 @@ pub fn json() -> &'static str {
     include_str!("../queries/json/formatting.scm")
 }
 
+/// Returns the Topiary-compatible query file for JSON5.
+#[cfg(feature = "json5")]
+pub fn json5() -> &'static str {
+    include_str!("../queries/json5.scm")
+}
+
 /// Returns the Topiary-compatible query file for Nickel.
 #[cfg(feature = "nickel")]
 pub fn nickel() -> &'static str {
