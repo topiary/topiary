@@ -211,12 +211,7 @@ pub trait Benign {
 impl Benign for TopiaryError {
     #[allow(clippy::match_like_matches_macro)]
     fn benign(&self) -> bool {
-        match self {
-            TopiaryError::Lib(r) if r.current_context() == &FormatterError::PatternDoesNotMatch => {
-                true
-            }
-            _ => false,
-        }
+        matches!(self, TopiaryError::Lib(r) if r.current_context() == &FormatterError::PatternDoesNotMatch)
     }
 }
 
