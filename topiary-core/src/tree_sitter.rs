@@ -447,7 +447,7 @@ pub fn parse(
 
     // Fail parsing if we don't get a complete syntax tree.
     if !tolerate_parsing_errors {
-        check_for_error_nodes(&tree.root_node())?;
+        check_for_error_nodes(&tree.root_node()).attach_source(content)?;
     }
 
     Ok(tree)

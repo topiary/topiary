@@ -494,11 +494,11 @@ where
                 let input = input?;
                 let location = input.source().location();
                 let language = cache.fetch(&input).await?;
-                process_fn(input, language).map_err(|e| match (e, location.to_path()) {
-                    (TopiaryError::Lib(report), Some(filepath)) => {
-                        report.attach_filepath(filepath).into()
+                process_fn(input, language).map_err(|e| {
+                    if let TopiaryError::Lib(report) = e {
+                        return report.attach_filepath(location.to_path()).into();
                     }
-                    (e, _) => e,
+                    e
                 })
             });
         }
