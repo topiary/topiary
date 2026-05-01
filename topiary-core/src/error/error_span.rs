@@ -155,9 +155,9 @@ impl std::error::Error for ErrorSpan {}
 /// that allow for rendering of the error location for use
 /// in libraries such as `miette`.
 pub trait SpanAttachment {
-    fn attach_filepath(self, filepath: &Path) -> Self;
-    fn attach_source(self, source: &str) -> Self;
-    fn attach_language(self, language: &'static str) -> Self;
+    fn attach_filepath<'a>(self, filepath: impl Into<Option<&'a Path>>) -> Self;
+    fn attach_source<'a>(self, source: impl Into<Option<&'a str>>) -> Self;
+    fn attach_language(self, language: impl Into<Option<&'static str>>) -> Self;
     fn attach_range(self, range: Range) -> Self;
     fn get_span(&mut self) -> Option<&mut ErrorSpan>;
 }
@@ -166,7 +166,10 @@ impl<C, T> SpanAttachment for rootcause::Report<C, rootcause::markers::Mutable, 
 where
     ErrorSpan: ObjectMarkerFor<T>,
 {
-    fn attach_filepath(mut self, filepath: &Path) -> Self {
+    fn attach_filepath<'a>(mut self, filepath: impl Into<Option<&'a Path>>) -> Self {
+        let Some(filepath) = filepath.into() else {
+            return self;
+        };
         if let Some(span) = self.get_span() {
             span.filepath = Some(filepath.to_owned());
             return self;
@@ -174,7 +177,10 @@ where
         self.attach(ErrorSpan::default().with_filepath(filepath))
     }
 
-    fn attach_source(mut self, source: &str) -> Self {
+    fn attach_source<'a>(mut self, source: impl Into<Option<&'a str>>) -> Self {
+        let Some(source) = source.into() else {
+            return self;
+        };
         if let Some(span) = self.get_span() {
             span.source = Some(source.to_owned());
             return self;
@@ -182,7 +188,10 @@ where
         self.attach(ErrorSpan::default().with_source(source))
     }
 
-    fn attach_language(mut self, language: &'static str) -> Self {
+    fn attach_language(mut self, language: impl Into<Option<&'static str>>) -> Self {
+        let Some(language) = language.into() else {
+            return self;
+        };
         if let Some(span) = self.get_span() {
             span.language = Some(language);
             return self;
@@ -211,21 +220,21 @@ impl<V, E> SpanAttachment for Result<V, E>
 where
     E: SpanAttachment,
 {
-    fn attach_filepath(self, filepath: &Path) -> Self {
+    fn attach_filepath<'a>(self, filepath: impl Into<Option<&'a Path>>) -> Self {
         match self {
             Ok(v) => Ok(v),
             Err(e) => Err(e.attach_filepath(filepath)),
         }
     }
 
-    fn attach_source(self, source: &str) -> Self {
+    fn attach_source<'a>(self, source: impl Into<Option<&'a str>>) -> Self {
         match self {
             Ok(v) => Ok(v),
             Err(e) => Err(e.attach_source(source)),
         }
     }
 
-    fn attach_language(self, language: &'static str) -> Self {
+    fn attach_language(self, language: impl Into<Option<&'static str>>) -> Self {
         match self {
             Ok(v) => Ok(v),
             Err(e) => Err(e.attach_language(language)),

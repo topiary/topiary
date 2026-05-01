@@ -456,11 +456,9 @@ pub fn parse(
 // returns first error node encountered
 fn check_for_error_nodes(node: &Node) -> FormatterResult<()> {
     if node.is_error() {
-        let mut report = report!(FormatterError::Parsing).attach_range(node.range());
-        if let Some(lang) = node.language_name() {
-            report = report.attach_language(lang);
-        }
-        return Err(report);
+        return Err(report!(FormatterError::Parsing)
+            .attach_range(node.range())
+            .attach_language(node.language_name()));
     }
 
     for child in node.children(&mut node.walk()) {

@@ -156,12 +156,7 @@ async fn run() -> CLIResult<()> {
                     output_format: format.into(),
                 },
             )
-            .map_err(|e| {
-                if let Some(filepath) = buf_input.get_ref().filepath() {
-                    return e.attach_filepath(filepath);
-                }
-                e
-            })?;
+            .attach_filepath(buf_input.get_ref().filepath())?;
         }
 
         Commands::Config {
@@ -229,13 +224,8 @@ async fn run() -> CLIResult<()> {
 
             let coverage_data =
                 check_query_coverage(&input_content, &language.query, &language.grammar)
-                    .attach_source(&input_content)
-                    .map_err(|e| {
-                        if let Some(filepath) = buf_input.get_ref().filepath() {
-                            return e.attach_filepath(filepath);
-                        }
-                        e
-                    })?;
+                    .attach_source(input_content.as_str())
+                    .attach_filepath(buf_input.get_ref().filepath())?;
             let coverage_res = coverage_data.get_result();
 
             let query_source = NamedSource::new(

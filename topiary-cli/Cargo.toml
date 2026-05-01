@@ -37,7 +37,7 @@ toml = { workspace = true }
 topiary-core.workspace = true
 topiary-config.workspace = true
 topiary-queries.workspace = true
-miette.workspace = true
+miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 tabled = { workspace = true }
 similar = "3.1"
 rootcause.workspace = true
