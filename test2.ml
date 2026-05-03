@@ -4,3 +4,7 @@ let a =
     comment
   *)
   8
+let b =
+    {|
+      test
+    |}
