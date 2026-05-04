@@ -1,6 +1,9 @@
 /// The filename used for formatting queries within each language's query directory.
 pub const FORMATTING_QUERY: &str = "formatting.scm";
 
+/// The filename used for language injection queries within each language's query directory.
+pub const INJECTIONS_QUERY: &str = "injections.scm";
+
 /// Returns the Topiary-compatible query file for Bash.
 #[cfg(feature = "bash")]
 pub fn bash() -> &'static str {
@@ -41,6 +44,12 @@ pub fn ocaml_interface() -> &'static str {
 #[cfg(feature = "ocamllex")]
 pub fn ocamllex() -> &'static str {
     include_str!("../queries/ocamllex/formatting.scm")
+}
+
+/// Returns the Topiary-compatible injection query file for Ocamllex.
+#[cfg(feature = "ocamllex")]
+pub fn ocamllex_injections() -> &'static str {
+    include_str!("../queries/ocamllex/injections.scm")
 }
 
 /// Returns the Topiary-compatible query file for OpenSCAD.
