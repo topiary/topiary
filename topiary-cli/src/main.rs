@@ -9,6 +9,7 @@ mod visualisation;
 use std::{
     io::{BufReader, BufWriter, Write},
     process::ExitCode,
+    sync::Arc,
 };
 
 use error::Benign;
@@ -19,7 +20,7 @@ use topiary_core::{Operation, SpanAttachment, check_query_coverage, formatter};
 use crate::{
     cli::Commands,
     error::{CLIResult, print_error},
-    io::{Inputs, OutputFile, process_inputs, read_input},
+    io::{Inputs, LanguageResolver, OutputFile, process_inputs, read_input},
 };
 
 use miette::{NamedSource, Report};
@@ -52,6 +53,7 @@ async fn run() -> CLIResult<()> {
             inputs,
         } => {
             let inputs = Inputs::new(&config, &inputs);
+            let resolver = Arc::new(LanguageResolver::new(config.clone()));
             process_inputs(inputs, move |input, language| {
                 log::info!(
                     "Checking {}, as {} using {}",
@@ -65,7 +67,7 @@ async fn run() -> CLIResult<()> {
                     &language,
                     skip_idempotence,
                     tolerate_parsing_errors,
-                    None, // TODO(Erin): Language Injection
+                    Some(&|name| resolver.resolve(name)),
                 )
             })
             .await?;
@@ -77,6 +79,7 @@ async fn run() -> CLIResult<()> {
             ..
         } => {
             let inputs = Inputs::new(&config, &inputs);
+            let resolver = Arc::new(LanguageResolver::new(config.clone()));
 
             process_inputs(inputs, move |input, language| {
                 let output = OutputFile::try_from(&input)?;
@@ -107,7 +110,7 @@ async fn run() -> CLIResult<()> {
                             skip_idempotence,
                             tolerate_parsing_errors,
                         },
-                        None, // TODO(Erin): Language Injection
+                        Some(&|name| resolver.resolve(name)),
                     )?;
                 }
 

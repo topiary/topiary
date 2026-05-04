@@ -1,10 +1,11 @@
 use std::{
+    collections::HashMap,
     ffi::OsString,
     fmt::{self, Display},
     fs::File,
     io::{self, BufWriter, Read, Result, Seek, Write},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use nickel_lang_core::eval::value::NickelValue;
@@ -70,6 +71,43 @@ impl QuerySource {
             Self::BuiltIn(contents) => contents.to_owned(),
         };
         Ok(contents)
+    }
+
+    fn get_content_sync(&self) -> CLIResult<String> {
+        let contents = match self {
+            Self::Path(query) => std::fs::read_to_string(query)?,
+            Self::BuiltIn(contents) => contents.to_owned(),
+        };
+        Ok(contents)
+    }
+}
+
+pub(crate) struct LanguageResolver {
+    config: Configuration,
+    cache: Mutex<HashMap<String, &'static Language>>,
+}
+
+impl LanguageResolver {
+    pub(crate) fn new(config: Configuration) -> Self {
+        Self {
+            config,
+            cache: Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub(crate) fn resolve(&self, name: &str) -> Option<&'static Language> {
+        if let Some(language) = self.cache.lock().ok()?.get(name).copied() {
+            return Some(language);
+        }
+
+        let language = to_language_from_config_sync(&self.config, name).ok()?;
+        let language: &'static Language = Box::leak(Box::new(language));
+        self.cache
+            .lock()
+            .ok()?
+            .insert(name.to_owned(), language);
+
+        Some(language)
     }
 }
 
@@ -240,6 +278,34 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
         grammar,
         indent: config_language.indent(),
         injection_query: None,
+    })
+}
+
+fn to_language_from_config_sync<T: AsRef<str> + fmt::Display>(
+    config: &Configuration,
+    name: T,
+) -> CLIResult<Language> {
+    let config_language = config.get_language(name.as_ref())?;
+    let grammar = config_language.grammar()?;
+    let query_source = to_query_from_language(config_language)?;
+    let query_content = query_source.get_content_sync()?;
+    let formatting_query = TopiaryQuery::new(&grammar, &query_content)
+        .attach_filepath(query_source.filepath())
+        .context(FormatterError::Parsing)?;
+    let injection_query = match to_injection_query_from_language(config_language) {
+        Some(source) => {
+            let contents = source.get_content_sync()?;
+            Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
+        }
+        None => None,
+    };
+
+    Ok(Language {
+        name: name.as_ref().to_string(),
+        formatting_query,
+        injection_query,
+        grammar,
+        indent: config_language.indent(),
     })
 }
 
