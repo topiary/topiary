@@ -11,7 +11,9 @@ use nickel_lang_core::eval::value::NickelValue;
 use rootcause::prelude::ResultExt;
 use tempfile::tempfile;
 use topiary_config::Configuration;
-use topiary_core::{FormatterError, Language, Operation, SpanAttachment, TopiaryQuery, formatter};
+use topiary_core::{
+    FormatterError, InjectionQuery, Language, Operation, SpanAttachment, TopiaryQuery, formatter,
+};
 
 use crate::{
     cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
@@ -170,7 +172,8 @@ impl fmt::Display for InputLocation {
 pub struct InputFile<'cfg> {
     source: InputSource,
     language: &'cfg topiary_config::language::Language,
-    pub(crate) query: QuerySource,
+    pub(crate) formatting_query: QuerySource,
+    pub(crate) injection_query: Option<QuerySource>,
 }
 
 impl InputFile<'_> {
@@ -178,17 +181,24 @@ impl InputFile<'_> {
     #[allow(clippy::result_large_err)]
     pub async fn to_language(&self) -> CLIResult<Language> {
         let grammar = self.language().grammar()?;
-        let query_contents = self.query.get_content().await?;
-        let query = TopiaryQuery::new(&grammar, &query_contents)
-            .attach_filepath(self.query.filepath())
+        let query_contents = self.formatting_query.get_content().await?;
+        let injection_query = match &self.injection_query {
+            Some(source) => {
+                let contents = source.get_content().await?;
+                Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
+            }
+            None => None,
+        };
+        let formatting_query = TopiaryQuery::new(&grammar, &query_contents)
+            .attach_filepath(self.formatting_query.filepath())
             .context(FormatterError::Parsing)?;
 
         Ok(Language {
             name: self.language.name.clone(),
-            query,
+            formatting_query,
+            injection_query,
             grammar,
             indent: self.language().indent(),
-            injection_query: None,
         })
     }
 
@@ -206,9 +216,9 @@ impl InputFile<'_> {
         self.language
     }
 
-    /// Expose query path for input
-    pub fn query(&self) -> &QuerySource {
-        &self.query
+    /// Expose formatting query path for input
+    pub fn formatting_query(&self) -> &QuerySource {
+        &self.formatting_query
     }
 }
 
@@ -226,7 +236,7 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
 
     Ok(Language {
         name: name.as_ref().to_string(),
-        query,
+        formatting_query: query,
         grammar,
         indent: config_language.indent(),
         injection_query: None,
@@ -276,11 +286,11 @@ impl<'cfg, 'i> Inputs<'cfg> {
                         // The user did not specify a file, try the default locations
                         None => to_query_from_language(language)?,
                     };
-
                     Ok(InputFile {
                         source: InputSource::Stdin,
                         language,
-                        query: query_source,
+                        formatting_query: query_source,
+                        injection_query: None,
                     })
                 })()]
             }
@@ -294,7 +304,8 @@ impl<'cfg, 'i> Inputs<'cfg> {
                     Ok(InputFile {
                         source: InputSource::Disk(path.into(), None),
                         language,
-                        query,
+                        formatting_query: query,
+                        injection_query: None,
                     })
                 })
                 .collect(),

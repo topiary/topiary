@@ -18,7 +18,7 @@ async fn format() {
 
     let language: Language = Language {
         name: "nickel".to_owned(),
-        query: TopiaryQuery::new(&nickel.into(), &query_content).unwrap(),
+        formatting_query: TopiaryQuery::new(&nickel.into(), &query_content).unwrap(),
         grammar: tree_sitter_nickel::LANGUAGE.into(),
         indent: None,
         injection_query: None,

@@ -12,16 +12,16 @@ pub struct Language {
     pub name: String,
     /// The Query Topiary will use to get the formatting captures, must be
     /// present. The topiary engine does not include any formatting queries.
-    pub query: TopiaryQuery,
+    pub formatting_query: TopiaryQuery,
+    /// Optional injection query identifying regions of source that should be
+    /// formatted as a different language.
+    pub injection_query: Option<InjectionQuery>,
     /// The tree-sitter Language. Topiary will use this Language for parsing.
     pub grammar: topiary_tree_sitter_facade::Language,
     /// The indentation string used for that particular language. Defaults to "  "
     /// if not provided. Any string can be provided, but in most instances will be
     /// some whitespace: "  ", "    ", or "\t".
     pub indent: Option<String>,
-    /// Optional injection query identifying regions of source that should be
-    /// formatted as a different language.
-    pub injection_query: Option<InjectionQuery>,
 }
 
 impl fmt::Display for Language {
