@@ -9,12 +9,13 @@
   exception UnexpectedCharacter of char
   exception UnterminatedQuote
 
-  let keywords =
-    [ "true",   TRUE;
-      "false",  FALSE;
-      "and",    AND;
-      "or",     OR;
-      "not",    NOT ]
+  let keywords = [
+    "true", TRUE;
+    "false", FALSE;
+    "and", AND;
+    "or", OR;
+    "not", NOT
+  ]
 }
 
 let alpha = ['a'-'z' 'A'-'Z']

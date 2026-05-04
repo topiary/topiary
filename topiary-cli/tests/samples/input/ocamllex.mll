@@ -62,4 +62,3 @@ and string buf = parse
   | eof    { raise UnterminatedQuote }
 
 and ocaml = parse "ocaml" { OCaml }
-

@@ -406,7 +406,7 @@ fn rewrite_injected_leaves(
             }
         };
 
-        if !atoms.rewrite_leaf_content(span.node_id, formatted_inner) {
+        if !atoms.rewrite_injected_leaf_content(span.node_id, formatted_inner) {
             log::warn!(
                 "Could not find leaf for injected {} span; skipping",
                 span.language

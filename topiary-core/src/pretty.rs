@@ -121,12 +121,12 @@ fn current_column(s: &str) -> usize {
 fn add_spaces_after_newlines(s: &str, n: i32) -> String {
     let mut result = String::new();
 
-    let chars = s.chars().peekable();
+    let mut chars = s.chars().peekable();
 
-    for c in chars {
+    while let Some(c) = chars.next() {
         result.push(c);
 
-        if c == '\n' {
+        if c == '\n' && !matches!(chars.peek(), Some('\n') | None) {
             for _ in 0..n {
                 result.push(' ');
             }
