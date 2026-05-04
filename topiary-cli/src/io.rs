@@ -286,11 +286,12 @@ impl<'cfg, 'i> Inputs<'cfg> {
                         // The user did not specify a file, try the default locations
                         None => to_query_from_language(language)?,
                     };
+                    let injection_query = to_injection_query_from_language(language);
                     Ok(InputFile {
                         source: InputSource::Stdin,
                         language,
                         formatting_query: query_source,
-                        injection_query: None,
+                        injection_query,
                     })
                 })()]
             }
@@ -300,12 +301,13 @@ impl<'cfg, 'i> Inputs<'cfg> {
                 .map(|path| {
                     let language = config.detect(&path)?;
                     let query: QuerySource = to_query_from_language(language)?;
+                    let injection_query = to_injection_query_from_language(language);
 
                     Ok(InputFile {
                         source: InputSource::Disk(path.into(), None),
                         language,
                         formatting_query: query,
-                        injection_query: None,
+                        injection_query,
                     })
                 })
                 .collect(),
@@ -331,6 +333,27 @@ fn to_query_from_language(language: &topiary_config::language::Language) -> CLIR
         }
     };
     Ok(query)
+}
+
+fn to_injection_query_from_language(
+    language: &topiary_config::language::Language,
+) -> Option<QuerySource> {
+    language
+        .find_injections_file()
+        .map(Into::into)
+        .or_else(|| to_injection_query(&language.name))
+}
+
+fn to_injection_query<T>(name: T) -> Option<QuerySource>
+where
+    T: AsRef<str>,
+{
+    match name.as_ref() {
+        #[cfg(feature = "ocamllex")]
+        "ocamllex" => Some(topiary_queries::ocamllex_injections().into()),
+
+        _ => None,
+    }
 }
 
 impl<'cfg> Iterator for Inputs<'cfg> {

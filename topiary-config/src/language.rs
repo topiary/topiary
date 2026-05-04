@@ -121,6 +121,28 @@ impl Language {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
+    pub fn find_injections_file(&self) -> Option<PathBuf> {
+        use crate::source::Source;
+
+        let name = self.name.as_str();
+
+        #[rustfmt::skip]
+        let potentials: [Option<PathBuf>; 5] = [
+            std::env::var("TOPIARY_LANGUAGE_DIR").map(PathBuf::from).ok(),
+            option_env!("TOPIARY_LANGUAGE_DIR").map(PathBuf::from),
+            Source::fetch_one(&None).queries_dir(),
+            Some(PathBuf::from("./topiary-queries/queries")),
+            Some(PathBuf::from("../topiary-queries/queries")),
+        ];
+
+        potentials
+            .into_iter()
+            .flatten()
+            .map(|path| path.join(name).join(topiary_queries::INJECTIONS_QUERY))
+            .find(|path| path.exists())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     // Returns the library path, and ensures the parent directories exist.
     pub fn library_path(&self) -> std::io::Result<PathBuf> {
         match &self.config.grammar.source {
