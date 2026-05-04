@@ -31,7 +31,7 @@ pub use source::Source;
 /// Contains information on how to format every language the user is interested in, modulo what is
 /// supported. It can be provided by the user of the library, or alternatively, Topiary ships with
 /// default configuration that can be accessed using `Configuration::default`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Configuration {
     languages: Vec<Language>,
 }
