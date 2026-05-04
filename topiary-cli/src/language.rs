@@ -27,7 +27,7 @@ impl LanguageDefinitionCache {
         let key = {
             let mut hash = DefaultHasher::new();
             input.language().name.hash(&mut hash);
-            input.query().hash(&mut hash);
+            input.formatting_query().hash(&mut hash);
 
             hash.finish()
         };
@@ -44,7 +44,7 @@ impl LanguageDefinitionCache {
                     self,
                     key,
                     input.language().name,
-                    input.query()
+                    input.formatting_query()
                 );
 
                 lang_def.get().to_owned()
@@ -57,7 +57,7 @@ impl LanguageDefinitionCache {
                     self,
                     key,
                     input.language().name,
-                    input.query()
+                    input.formatting_query()
                 );
 
                 let lang_def = Arc::new(input.to_language().await?);

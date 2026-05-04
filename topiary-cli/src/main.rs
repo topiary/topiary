@@ -57,7 +57,7 @@ async fn run() -> CLIResult<()> {
                     "Checking {}, as {} using {}",
                     input.source(),
                     input.language().name,
-                    input.query(),
+                    input.formatting_query(),
                 );
 
                 check::check_input(
@@ -85,7 +85,7 @@ async fn run() -> CLIResult<()> {
                     "Formatting {}, as {} using {}, to {}",
                     input.source(),
                     input.language().name,
-                    input.query(),
+                    input.formatting_query(),
                     output
                 );
 
@@ -231,14 +231,14 @@ async fn run() -> CLIResult<()> {
             let input_content = read_input(&mut buf_input)?;
 
             let coverage_data =
-                check_query_coverage(&input_content, &language.query, &language.grammar)
+                check_query_coverage(&input_content, &language.formatting_query, &language.grammar)
                     .attach_source(input_content.as_str())
                     .attach_filepath(buf_input.get_ref().filepath())?;
             let coverage_res = coverage_data.get_result();
 
             let query_source = NamedSource::new(
-                buf_input.get_ref().query.to_string(),
-                language.query.query_content,
+                buf_input.get_ref().formatting_query.to_string(),
+                language.formatting_query.query_content,
             )
             .with_language(&language.name);
             write!(

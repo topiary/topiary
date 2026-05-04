@@ -212,7 +212,7 @@ pub enum Operation {
 ///
 /// let language: Language = Language {
 ///     name: "json".to_owned(),
-///     query: TopiaryQuery::new(&json.clone().into(), &query_content).unwrap(),
+///     formatting_query: TopiaryQuery::new(&json.clone().into(), &query_content).unwrap(),
 ///     grammar: json.into(),
 ///     indent: None,
 ///     injection_query: None,
@@ -306,7 +306,7 @@ pub fn formatter_tree(
             let mut atoms = tree_sitter::apply_query_tree_with_forced_leaves(
                 tree,
                 input_content,
-                &language.query,
+                &language.formatting_query,
                 injection_leaf_nodes,
             )?;
 
@@ -493,7 +493,7 @@ mod tests {
         let grammar = topiary_tree_sitter_facade::Language::from(tree_sitter_json::LANGUAGE);
         let language = Language {
             name: "json".to_owned(),
-            query: TopiaryQuery::new(&grammar, query_content).unwrap(),
+            formatting_query: TopiaryQuery::new(&grammar, query_content).unwrap(),
             grammar,
             indent: None,
             injection_query: None,
@@ -537,7 +537,7 @@ mod tests {
         let grammar = tree_sitter_json::LANGUAGE.into();
         let language = Language {
             name: "json".to_owned(),
-            query: TopiaryQuery::new(&grammar, &query_content).unwrap(),
+            formatting_query: TopiaryQuery::new(&grammar, &query_content).unwrap(),
             grammar,
             indent: None,
             injection_query: None,
