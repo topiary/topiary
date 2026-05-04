@@ -122,12 +122,20 @@ impl AtomCollection {
     /// Used by the injection flow to splice formatted inner-language text
     /// into a host leaf atom after the host's atom collection has been
     /// built but before rendering.
-    pub fn rewrite_leaf_content(&mut self, node_id: usize, new_content: String) -> bool {
+    pub fn rewrite_injected_leaf_content(&mut self, node_id: usize, new_content: String) -> bool {
         for atom in &mut self.atoms {
-            if let Atom::Leaf { id, content, .. } = atom
+            if let Atom::Leaf {
+                id,
+                content,
+                original_position,
+                ..
+            } = atom
                 && *id == node_id
             {
                 *content = new_content;
+                // Injected formatters return column-zero text; let the host
+                // leaf indentation account for the current render column.
+                original_position.column = 1;
                 return true;
             }
         }
