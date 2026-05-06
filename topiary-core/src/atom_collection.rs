@@ -604,8 +604,6 @@ impl AtomCollection {
                 content: String::from(node.utf8_text(source).context_to()?),
                 id,
                 original_position: node.start_position().into(),
-                original_indentation:
-                    count_indenting_characters(str::from_utf8(&source[..node.start_byte() as usize])?) as u32,
                 single_line_no_indent: false,
                 multi_line_indent_all: false,
                 keep_whitespace: false,
@@ -1147,11 +1145,6 @@ pub struct QueryPredicates {
     pub multi_line_scope_only: Option<String>,
     /// A query name, for debugging/logging purposes
     pub query_name: Option<String>,
-}
-
-pub fn count_indenting_characters(s: &str) -> usize {
-    let last_line = &s[s.rfind('\n').map(|i| i + 1).unwrap_or(0)..];
-    last_line[..last_line.find(|c: char| !c.is_whitespace()).unwrap_or(last_line.len())].chars().count()
 }
 
 /// Collapses spaces before antispace atoms in a vector of atoms.

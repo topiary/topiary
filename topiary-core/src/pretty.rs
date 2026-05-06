@@ -51,7 +51,7 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
 
             Atom::Leaf {
                 content,
-                original_indentation,
+                original_position,
                 single_line_no_indent,
                 multi_line_indent_all,
                 keep_whitespace,
@@ -70,9 +70,12 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                 };
 
                 let mut content = if *multi_line_indent_all {
-                    let cursor = crate::atom_collection::count_indenting_characters(&buffer) as i32;
+                    let cursor = current_column(&buffer) as i32;
 
-                    let indenting = cursor - *original_indentation as i32;
+                    // original_position is 1-based
+                    let original_column = original_position.column as i32 - 1;
+
+                    let indenting = cursor - original_column;
 
                     // The following assumes spaces are used for indenting
                     match indenting {
@@ -109,6 +112,10 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
     }
 
     Ok(buffer)
+}
+
+fn current_column(s: &str) -> usize {
+    s.chars().rev().take_while(|c| *c != '\n').count()
 }
 
 fn add_spaces_after_newlines(s: &str, n: i32) -> String {
