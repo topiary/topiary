@@ -268,16 +268,23 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
     let grammar = config_language.grammar()?;
     let query_source = to_query_from_language(config_language)?;
     let query_content = query_source.get_content().await?;
-    let query = TopiaryQuery::new(&grammar, &query_content)
+    let formatting_query = TopiaryQuery::new(&grammar, &query_content)
         .attach_filepath(query_source.filepath())
         .context(FormatterError::Parsing)?;
+    let injection_query = match to_injection_query_from_language(config_language) {
+        Some(source) => {
+            let contents = source.get_content().await?;
+            Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
+        }
+        None => None,
+    };
 
     Ok(Language {
         name: name.as_ref().to_string(),
-        formatting_query: query,
+        formatting_query,
+        injection_query,
         grammar,
         indent: config_language.indent(),
-        injection_query: None,
     })
 }
 
