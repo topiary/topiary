@@ -1,5 +1,5 @@
 let a =
-  (*
-    comment
-  *)
-  8
+	(*
+		comment
+	*)
+	0
