@@ -74,7 +74,6 @@ pub enum Atom {
         content: String,
         id: usize,
         original_position: Position,
-        original_indentation: u32,
         // marks the leaf to be printed on a single line, with no indentation
         single_line_no_indent: bool,
         // if the leaf is multi-line, each line will be indented, not just the first
