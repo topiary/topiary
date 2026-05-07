@@ -66,6 +66,10 @@ impl TopiaryQuery {
     ) -> FormatterResult<TopiaryQuery, QueryError> {
         let query = Query::new(grammar, query_content)
             .into_report()
+            .map_err(|e| {
+                let range = e.current_context().range;
+                e.attach_range(range)
+            })
             .attach_source(query_content)?;
 
         Ok(TopiaryQuery {

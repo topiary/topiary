@@ -98,7 +98,7 @@ impl ErrorSpan {
     fn primary_label(&self) -> String {
         self.primary_label
             .clone()
-            .unwrap_or_else(|| "(ERROR) node".to_owned())
+            .unwrap_or_else(|| format!("{self}"))
     }
 }
 
