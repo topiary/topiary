@@ -14,7 +14,13 @@ use std::{
 };
 
 use miette::{LabeledSpan, MietteError, MietteSpanContents, SourceCode, SourceSpan, SpanContents};
-use rootcause::markers::ObjectMarkerFor;
+use rootcause::{
+    handlers::{
+        AttachmentFormattingPlacement, AttachmentFormattingStyle, AttachmentHandler,
+        FormattingFunction,
+    },
+    markers::ObjectMarkerFor,
+};
 use topiary_tree_sitter_facade::Range;
 
 /// ErrorSpan is meant to represent error codes that lives outside of the topiary
@@ -110,7 +116,7 @@ impl ErrorSpan {
                 end.column() + 1
             )
         } else {
-            format!("Parsing error: missing range")
+            "Parsing error: missing range".to_string()
         }
     }
 }
@@ -173,7 +179,7 @@ where
             span.filepath = Some(filepath.to_owned());
             return self;
         }
-        self.attach(ErrorSpan::default().with_filepath(filepath))
+        self.attach_custom::<MietteHandler, _>(ErrorSpan::default().with_filepath(filepath))
     }
 
     fn attach_source<'a>(mut self, source: impl Into<Option<&'a str>>) -> Self {
@@ -184,7 +190,7 @@ where
             span.source = Some(source.to_owned());
             return self;
         }
-        self.attach(ErrorSpan::default().with_source(source))
+        self.attach_custom::<MietteHandler, _>(ErrorSpan::default().with_source(source))
     }
 
     fn attach_language(mut self, language: impl Into<Option<&'static str>>) -> Self {
@@ -195,7 +201,7 @@ where
             span.language = Some(language);
             return self;
         }
-        self.attach(ErrorSpan::default().with_language(language))
+        self.attach_custom::<MietteHandler, _>(ErrorSpan::default().with_language(language))
     }
 
     fn attach_range(mut self, range: Range) -> Self {
@@ -203,7 +209,7 @@ where
             span.set_range(range);
             return self;
         }
-        self.attach(ErrorSpan::default().with_range(range))
+        self.attach_custom::<MietteHandler, _>(ErrorSpan::default().with_range(range))
     }
 
     fn get_span(&mut self) -> Option<&mut ErrorSpan> {
@@ -252,5 +258,42 @@ where
             Ok(_) => None,
             Err(e) => e.get_span(),
         }
+    }
+}
+
+struct MietteHandler;
+
+// This allows the ErrorSpan
+impl AttachmentHandler<ErrorSpan> for MietteHandler {
+    fn preferred_formatting_style(
+        _value: &ErrorSpan,
+        report_formatting_function: FormattingFunction,
+    ) -> AttachmentFormattingStyle {
+        match report_formatting_function {
+            // for display printing we want the full verbosity level and
+            // put it in an appendix
+            FormattingFunction::Display => AttachmentFormattingStyle {
+                placement: AttachmentFormattingPlacement::Appendix {
+                    appendix_name: "Error Span",
+                },
+                function: FormattingFunction::Debug,
+                priority: 0,
+            },
+            // debug printing of the attachment is more compact so
+            // we put it inline but at the end
+            FormattingFunction::Debug => AttachmentFormattingStyle {
+                placement: AttachmentFormattingPlacement::Inline,
+                function: FormattingFunction::Debug,
+                priority: -10,
+            },
+        }
+    }
+
+    fn display(value: &ErrorSpan, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(formatter, "{}", miette::Report::new(value.clone()))
+    }
+
+    fn debug(value: &ErrorSpan, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(formatter, "{:?}", miette::Report::new(value.clone()))
     }
 }
