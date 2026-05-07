@@ -1,7 +1,7 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::io;
 use topiary_config::Configuration;
-use topiary_core::{formatter_str, InjectionQuery, Language, Operation, TopiaryQuery};
+use topiary_core::{InjectionQuery, Language, Operation, TopiaryQuery, formatter_str};
 
 const OCAMLLEX_FORMATTING_QUERY: &str =
     include_str!("../../topiary-queries/queries/ocamllex/formatting.scm");
