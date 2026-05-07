@@ -102,10 +102,7 @@ impl LanguageResolver {
 
         let language = to_language_from_config_sync(&self.config, name).ok()?;
         let language: &'static Language = Box::leak(Box::new(language));
-        self.cache
-            .lock()
-            .ok()?
-            .insert(name.to_owned(), language);
+        self.cache.lock().ok()?.insert(name.to_owned(), language);
 
         Some(language)
     }

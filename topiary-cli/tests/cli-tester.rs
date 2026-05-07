@@ -1,5 +1,9 @@
 use std::{fmt, sync::Once};
-#[cfg(any(feature = "json", feature = "toml", all(feature = "ocamllex", feature = "ocaml")))]
+#[cfg(any(
+    feature = "json",
+    feature = "toml",
+    all(feature = "ocamllex", feature = "ocaml")
+))]
 use {
     std::{fs, fs::File, io::Write, path::PathBuf},
     tempfile::TempDir,
@@ -298,10 +302,8 @@ fn test_fmt_invalid() {
 #[test]
 #[cfg(all(feature = "ocamllex", feature = "ocaml"))]
 fn test_fmt_ocamllex_invalid_inner_ocaml_passthrough() {
-    let input =
-        fs::read_to_string("tests/samples/input/ocamllex_invalid_inner.mll").unwrap();
-    let expected =
-        fs::read_to_string("tests/samples/expected/ocamllex_invalid_inner.mll").unwrap();
+    let input = fs::read_to_string("tests/samples/input/ocamllex_invalid_inner.mll").unwrap();
+    let expected = fs::read_to_string("tests/samples/expected/ocamllex_invalid_inner.mll").unwrap();
 
     let mut topiary = cargo_bin_cmd!("topiary");
 
