@@ -96,9 +96,22 @@ impl ErrorSpan {
     }
 
     fn primary_label(&self) -> String {
-        self.primary_label
-            .clone()
-            .unwrap_or_else(|| format!("{self}"))
+        if let Some(label) = self.primary_label.clone() {
+            label
+        } else if let Some(range) = self.range {
+            let start = range.start_point();
+            let end = range.end_point();
+            // `QueryError`s and `Node`s report rows starting with 0
+            format!(
+                "Parsing error between line {}, column {} and line {}, column {}",
+                start.row() + 1,
+                start.column() + 1,
+                end.row() + 1,
+                end.column() + 1
+            )
+        } else {
+            format!("Parsing error: missing range")
+        }
     }
 }
 
@@ -131,21 +144,7 @@ impl SourceCode for ErrorSpan {
 
 impl std::fmt::Display for ErrorSpan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(range) = self.range {
-            let start = range.start_point();
-            let end = range.end_point();
-            // `QueryError`s and `Node`s report rows starting with 0
-            write!(
-                f,
-                "Parsing error between line {}, column {} and line {}, column {}",
-                start.row() + 1,
-                start.column(),
-                end.row() + 1,
-                end.column()
-            )
-        } else {
-            write!(f, "Parsing error: missing range",)
-        }
+        write!(f, "{}", self.primary_label())
     }
 }
 

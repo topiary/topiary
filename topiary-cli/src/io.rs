@@ -53,6 +53,15 @@ impl Display for QuerySource {
 }
 
 impl QuerySource {
+    fn filepath(&self) -> Option<&Path> {
+        match self {
+            QuerySource::Path(p) => Some(p.as_path()),
+            QuerySource::BuiltIn(_) => None,
+        }
+    }
+}
+
+impl QuerySource {
     async fn get_content(&self) -> CLIResult<String> {
         let contents = match self {
             Self::Path(query) => tokio::fs::read_to_string(query).await?,
@@ -170,8 +179,9 @@ impl InputFile<'_> {
     pub async fn to_language(&self) -> CLIResult<Language> {
         let grammar = self.language().grammar()?;
         let query_contents = self.query.get_content().await?;
-        let query =
-            TopiaryQuery::new(&grammar, &query_contents).context(FormatterError::Parsing)?;
+        let query = TopiaryQuery::new(&grammar, &query_contents)
+            .attach_filepath(self.query.filepath())
+            .context(FormatterError::Parsing)?;
 
         Ok(Language {
             name: self.language.name.clone(),
@@ -207,10 +217,11 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
 ) -> CLIResult<Language> {
     let config_language = config.get_language(name.as_ref())?;
     let grammar = config_language.grammar()?;
-    let query_content = to_query_from_language(config_language)?
-        .get_content()
-        .await?;
-    let query = TopiaryQuery::new(&grammar, &query_content).context(FormatterError::Parsing)?;
+    let query_source = to_query_from_language(config_language)?;
+    let query_content = query_source.get_content().await?;
+    let query = TopiaryQuery::new(&grammar, &query_content)
+        .attach_filepath(query_source.filepath())
+        .context(FormatterError::Parsing)?;
 
     Ok(Language {
         name: name.as_ref().to_string(),
