@@ -476,13 +476,50 @@ fn idempotence_check(
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
     use test_log::test;
 
     use crate::{
-        Language, Operation, SpanAttachment, TopiaryQuery, formatter, test_utils::pretty_assert_eq,
+        FormatterError, InjectionQuery, Language, Operation, SpanAttachment, TopiaryQuery,
+        collect_injections, formatter, formatter_str, parse, test_utils::pretty_assert_eq,
     };
+
+    fn language(name: &str, formatting_query: &str, injection_query: Option<&str>) -> Language {
+        let config = topiary_config::Configuration::default();
+        let config_language = config.get_language(name).unwrap();
+        let grammar = config_language.grammar().unwrap();
+
+        Language {
+            name: name.to_owned(),
+            formatting_query: TopiaryQuery::new(&grammar, formatting_query).unwrap(),
+            injection_query: injection_query
+                .map(|query_content| InjectionQuery::new(&grammar, query_content).unwrap()),
+            grammar,
+            indent: config_language.indent(),
+        }
+    }
+
+    fn ocamllex_language() -> Language {
+        language(
+            "ocamllex",
+            topiary_queries::ocamllex(),
+            Some(topiary_queries::ocamllex_injections()),
+        )
+    }
+
+    fn ocaml_language() -> Language {
+        language("ocaml", topiary_queries::ocaml(), None)
+    }
+
+    fn unstable_ocaml_language() -> Language {
+        language(
+            "ocaml",
+            r#"
+((value_name) @append_delimiter
+ (#delimiter! "x"))
+"#,
+            None,
+        )
+    }
 
     /// Attempt to parse invalid json, expecting a failure
     #[test(tokio::test)]
@@ -529,15 +566,11 @@ mod tests {
         let expected = "{ \"one\": {\"bar\"   \"baz\"}, \"two\": \"bar\" }\n";
 
         let mut output = Vec::new();
-        let query_content = fs::read_to_string(format!(
-            "../topiary-queries/queries/json/{}",
-            topiary_queries::FORMATTING_QUERY
-        ))
-        .unwrap();
+        let query_content = topiary_queries::json();
         let grammar = tree_sitter_json::LANGUAGE.into();
         let language = Language {
             name: "json".to_owned(),
-            formatting_query: TopiaryQuery::new(&grammar, &query_content).unwrap(),
+            formatting_query: TopiaryQuery::new(&grammar, query_content).unwrap(),
             grammar,
             indent: None,
             injection_query: None,
@@ -559,5 +592,105 @@ mod tests {
         log::debug!("{formatted}");
 
         pretty_assert_eq(expected, &formatted);
+    }
+
+    #[test(tokio::test)]
+    async fn collect_injections_returns_content_span() {
+        let input = r#"rule token = parse
+  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
+"#;
+        let language = ocamllex_language();
+        let tree = parse(input, &language.grammar, false).unwrap();
+        let spans =
+            collect_injections(&tree, input, language.injection_query.as_ref().unwrap()).unwrap();
+
+        assert_eq!(spans.len(), 1);
+        assert_eq!(spans[0].language, "ocaml");
+        assert_eq!(
+            &input[spans[0].start_byte..spans[0].end_byte],
+            r#"let values=[1;2;3] in List.map (fun x->x+1) values"#
+        );
+    }
+
+    #[test(tokio::test)]
+    async fn unresolved_injection_preserves_inner_source() {
+        let input = r#"rule token = parse
+  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
+"#;
+        let language = ocamllex_language();
+        let mut output = Vec::new();
+
+        formatter_str(
+            input,
+            &mut output,
+            &language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+            },
+            None,
+        )
+        .unwrap();
+
+        let formatted = String::from_utf8(output).unwrap();
+        pretty_assert_eq(
+            r#"rule token = parse
+  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }"#,
+            formatted.trim_end(),
+        );
+    }
+
+    #[test(tokio::test)]
+    async fn resolved_injection_rewrites_forced_leaf() {
+        let input = r#"rule token = parse
+  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
+"#;
+        let language = ocamllex_language();
+        let inner_language: &'static Language = Box::leak(Box::new(ocaml_language()));
+        let mut output = Vec::new();
+
+        formatter_str(
+            input,
+            &mut output,
+            &language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+            },
+            Some(&|name| (name == "ocaml").then_some(inner_language)),
+        )
+        .unwrap();
+
+        let formatted = String::from_utf8(output).unwrap();
+        pretty_assert_eq(
+            r#"rule token = parse
+  | "x" { let values = [1; 2; 3] in List.map (fun x -> x + 1) values }"#,
+            formatted.trim_end(),
+        );
+    }
+
+    #[test(tokio::test)]
+    async fn non_idempotent_injection_fails_outer_idempotence() {
+        let input = r#"rule token = parse
+  | "x" { value }
+"#;
+        let language = ocamllex_language();
+        let inner_language: &'static Language = Box::leak(Box::new(unstable_ocaml_language()));
+        let mut output = Vec::new();
+
+        let result = formatter_str(
+            input,
+            &mut output,
+            &language,
+            Operation::Format {
+                skip_idempotence: false,
+                tolerate_parsing_errors: false,
+            },
+            Some(&|name| (name == "ocaml").then_some(inner_language)),
+        );
+
+        assert!(
+            matches!(result, Err(ref report) if report.current_context() == &FormatterError::Idempotence)
+        );
     }
 }
