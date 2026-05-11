@@ -1,11 +1,10 @@
 use std::{
-    collections::HashMap,
     ffi::OsString,
     fmt::{self, Display},
     fs::File,
     io::{self, BufWriter, Read, Result, Seek, Write},
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 use nickel_lang_core::eval::value::NickelValue;
@@ -79,32 +78,6 @@ impl QuerySource {
             Self::BuiltIn(contents) => contents.to_owned(),
         };
         Ok(contents)
-    }
-}
-
-pub(crate) struct LanguageResolver {
-    config: Configuration,
-    cache: Mutex<HashMap<String, &'static Language>>,
-}
-
-impl LanguageResolver {
-    pub(crate) fn new(config: Configuration) -> Self {
-        Self {
-            config,
-            cache: Mutex::new(HashMap::new()),
-        }
-    }
-
-    pub(crate) fn resolve(&self, name: &str) -> Option<&'static Language> {
-        if let Some(language) = self.cache.lock().ok()?.get(name).copied() {
-            return Some(language);
-        }
-
-        let language = to_language_from_config_sync(&self.config, name).ok()?;
-        let language: &'static Language = Box::leak(Box::new(language));
-        self.cache.lock().ok()?.insert(name.to_owned(), language);
-
-        Some(language)
     }
 }
 
@@ -212,14 +185,14 @@ pub struct InputFile<'cfg> {
 }
 
 impl InputFile<'_> {
-    /// Convert our `InputFile` into language definition values that Topiary can consume
+    /// Convert our `InputFile` into a language definition values with blocking I/O.
     #[allow(clippy::result_large_err)]
-    pub async fn to_language(&self) -> CLIResult<Language> {
+    pub fn to_language_sync(&self) -> CLIResult<Language> {
         let grammar = self.language().grammar()?;
-        let query_contents = self.formatting_query.get_content().await?;
+        let query_contents = self.formatting_query.get_content_sync()?;
         let injection_query = match &self.injection_query {
             Some(source) => {
-                let contents = source.get_content().await?;
+                let contents = source.get_content_sync()?;
                 Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
             }
             None => None,
@@ -255,6 +228,11 @@ impl InputFile<'_> {
     pub fn formatting_query(&self) -> &QuerySource {
         &self.formatting_query
     }
+
+    /// Expose optional injection query path for input
+    pub fn injection_query(&self) -> Option<&QuerySource> {
+        self.injection_query.as_ref()
+    }
 }
 
 pub(crate) async fn to_language_from_config<T: AsRef<str>>(
@@ -285,7 +263,7 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
     })
 }
 
-fn to_language_from_config_sync<T: AsRef<str> + fmt::Display>(
+pub(crate) fn to_language_from_config_sync<T: AsRef<str> + fmt::Display>(
     config: &Configuration,
     name: T,
 ) -> CLIResult<Language> {
@@ -388,7 +366,9 @@ impl<'cfg, 'i> Inputs<'cfg> {
 }
 
 #[allow(clippy::result_large_err)]
-fn to_query_from_language(language: &topiary_config::language::Language) -> CLIResult<QuerySource> {
+pub(crate) fn to_query_from_language(
+    language: &topiary_config::language::Language,
+) -> CLIResult<QuerySource> {
     let query: QuerySource = match language.find_query_file() {
         Ok(p) => p.into(),
         // For some reason, Topiary could not find any
@@ -405,7 +385,7 @@ fn to_query_from_language(language: &topiary_config::language::Language) -> CLIR
     Ok(query)
 }
 
-fn to_injection_query_from_language(
+pub(crate) fn to_injection_query_from_language(
     language: &topiary_config::language::Language,
 ) -> Option<QuerySource> {
     language
@@ -599,24 +579,34 @@ pub(crate) async fn format_config(
 }
 
 // meant to be used in scenarios where multiple inputs are possible
-pub(crate) async fn process_inputs<F>(inputs: Inputs<'_>, process_fn: F) -> CLIResult<()>
+pub(crate) async fn process_inputs<F>(
+    inputs: Inputs<'_>,
+    process_fn: F,
+    cache: Arc<LanguageDefinitionCache>,
+) -> CLIResult<()>
 where
-    F: Fn(InputFile, Arc<Language>) -> CLIResult<()> + Send + Sync + 'static,
+    F: Fn(InputFile, Arc<Language>, Arc<LanguageDefinitionCache>) -> CLIResult<()>
+        + Send
+        + Sync
+        + 'static,
 {
-    let cache = LanguageDefinitionCache::new();
     let (_, mut results) = async_scoped::TokioScope::scope_and_block(|scope| {
         for input in inputs {
-            scope.spawn(async {
+            let cache = cache.clone();
+            let process_fn = &process_fn;
+            scope.spawn(async move {
                 // This happens when the input resolver cannot establish an input
                 // source, language or query file.
                 let input = input?;
                 let location = input.source().location();
-                let language = cache.fetch(&input).await?;
-                process_fn(input, language).map_err(|e| {
-                    if let TopiaryError::Lib(report) = e {
-                        return report.attach_filepath(location.to_path()).into();
-                    }
-                    e
+                tokio::task::block_in_place(|| {
+                    let language = cache.fetch_input(&input)?;
+                    process_fn(input, language, cache).map_err(|e| {
+                        if let TopiaryError::Lib(report) = e {
+                            return report.attach_filepath(location.to_path()).into();
+                        }
+                        e
+                    })
                 })
             });
         }

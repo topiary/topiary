@@ -1,4 +1,4 @@
-use std::io::BufReader;
+use std::{io::BufReader, sync::Arc};
 
 use topiary_core::{Language, Operation, formatter};
 
@@ -15,7 +15,7 @@ pub fn check_input(
     language: &Language,
     skip_idempotence: bool,
     tolerate_parsing_errors: bool,
-    resolve: Option<&dyn Fn(&str) -> Option<&Language>>,
+    resolve: Option<&dyn Fn(&str) -> Option<Arc<Language>>>,
 ) -> CLIResult<()> {
     let source_name = input.source().to_string();
 

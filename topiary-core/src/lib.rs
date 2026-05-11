@@ -10,7 +10,7 @@
 //! More details can be found on
 //! [GitHub](https://github.com/topiary/topiary).
 
-use std::io;
+use std::{io, sync::Arc};
 
 use pretty_assertions::StrComparison;
 use rootcause::{prelude::ResultExt, report};
@@ -236,7 +236,7 @@ pub fn formatter(
     output: &mut impl io::Write,
     language: &Language,
     operation: Operation,
-    resolve: Option<&dyn Fn(&str) -> Option<&Language>>,
+    resolve: Option<&dyn Fn(&str) -> Option<Arc<Language>>>,
 ) -> FormatterResult<()> {
     let content = read_input(input)
         .context_to()
@@ -255,7 +255,7 @@ pub fn formatter_str(
     output: &mut impl io::Write,
     language: &Language,
     operation: Operation,
-    resolve: Option<&dyn Fn(&str) -> Option<&Language>>,
+    resolve: Option<&dyn Fn(&str) -> Option<Arc<Language>>>,
 ) -> FormatterResult<()> {
     let tolerate_parsing_errors = match operation {
         Operation::Format {
@@ -283,7 +283,7 @@ pub fn formatter_tree(
     output: &mut impl io::Write,
     language: &Language,
     operation: Operation,
-    resolve: Option<&dyn Fn(&str) -> Option<&Language>>,
+    resolve: Option<&dyn Fn(&str) -> Option<Arc<Language>>>,
 ) -> FormatterResult<()> {
     match operation {
         Operation::Format {
@@ -355,7 +355,7 @@ fn rewrite_injected_leaves(
     atoms: &mut atom_collection::AtomCollection,
     input_content: &str,
     spans: Vec<InjectionSpan>,
-    resolve: Option<&dyn Fn(&str) -> Option<&Language>>,
+    resolve: Option<&dyn Fn(&str) -> Option<Arc<Language>>>,
     tolerate_parsing_errors: bool,
 ) {
     for span in spans {
@@ -379,7 +379,7 @@ fn rewrite_injected_leaves(
         if let Err(err) = formatter_str(
             inner_source,
             &mut formatted_inner,
-            inner_language,
+            &inner_language,
             Operation::Format {
                 skip_idempotence: true,
                 tolerate_parsing_errors,
@@ -435,7 +435,7 @@ fn idempotence_check(
     content: &str,
     language: &Language,
     tolerate_parsing_errors: bool,
-    resolve: Option<&dyn Fn(&str) -> Option<&Language>>,
+    resolve: Option<&dyn Fn(&str) -> Option<Arc<Language>>>,
 ) -> FormatterResult<()> {
     log::info!("Checking for idempotence ...");
 
@@ -476,6 +476,8 @@ fn idempotence_check(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use test_log::test;
 
     use crate::{
@@ -646,7 +648,7 @@ mod tests {
   | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
 "#;
         let language = ocamllex_language();
-        let inner_language: &'static Language = Box::leak(Box::new(ocaml_language()));
+        let inner_language: Arc<Language> = Arc::new(ocaml_language());
         let mut output = Vec::new();
 
         formatter_str(
@@ -657,7 +659,7 @@ mod tests {
                 skip_idempotence: true,
                 tolerate_parsing_errors: false,
             },
-            Some(&|name| (name == "ocaml").then_some(inner_language)),
+            Some(&|name| (name == "ocaml").then_some(inner_language.clone())),
         )
         .unwrap();
 
@@ -675,7 +677,7 @@ mod tests {
   | "x" { value }
 "#;
         let language = ocamllex_language();
-        let inner_language: &'static Language = Box::leak(Box::new(unstable_ocaml_language()));
+        let inner_language: Arc<Language> = Arc::new(unstable_ocaml_language());
         let mut output = Vec::new();
 
         let result = formatter_str(
@@ -686,7 +688,7 @@ mod tests {
                 skip_idempotence: false,
                 tolerate_parsing_errors: false,
             },
-            Some(&|name| (name == "ocaml").then_some(inner_language)),
+            Some(&|name| (name == "ocaml").then_some(inner_language.clone())),
         );
 
         assert!(
