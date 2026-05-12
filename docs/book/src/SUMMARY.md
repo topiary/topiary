@@ -41,6 +41,7 @@
 
 - [Language support](reference/language-support.md)
 - [Formatting pipeline](reference/formatting-pipeline.md)
+- [Language injections](reference/language-injections.md)
 - [Capture names](reference/capture-names/index.md)
   - [General advice](reference/capture-names/general.md)
   - [Horizontal spacing](reference/capture-names/horizontal-spacing.md)
