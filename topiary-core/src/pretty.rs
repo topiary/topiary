@@ -157,3 +157,49 @@ fn try_removing_spaces_after_newlines(s: &str, n: i32) -> String {
 
     result
 }
+
+#[test]
+fn test0() {
+    let a: Vec<Vec<u8>> = ["   a", "  b", "    c"]
+        .into_iter()
+        .map(|s| s.as_bytes().to_owned())
+        .collect::<Vec<_>>();
+    assert_eq!(common_prefix_len_all(&a), Some(2));
+    let b: Vec<&[u8]> = ["   a", "  b", "    c"]
+        .into_iter()
+        .map(|s| s.as_bytes())
+        .collect::<Vec<_>>();
+    // assert_eq!(common_prefix_len_all(&b), Some(2));
+    // `&&[u8]` is not an iterator
+    // the trait `Iterator` is not implemented for `&&[u8]`
+    // the following other types implement trait `IntoIterator`:
+    //   &[T; N]
+    //   &[T]
+    //   &mut [T; N]
+    //   &mut [T]
+    //   [T; N]
+    // required for `&&[u8]` to implement `IntoIterator`
+    // required by a bound in `common_prefix_len_all`
+}
+
+fn common_prefix_len_all<'a, TSS, TS, T>(a: &'a TSS) -> Option<usize>
+where
+    &'a TSS: IntoIterator<Item = TS>,
+    TS: IntoIterator<Item = T>,
+    T: PartialEq,
+{
+    a.into_iter()
+        .zip(a.into_iter().skip(1))
+        .map(|(a, b)| common_prefix_len(a, b))
+        .min()
+}
+
+fn common_prefix_len<T: PartialEq>(
+    a: impl IntoIterator<Item = T>,
+    b: impl IntoIterator<Item = T>,
+) -> usize {
+    a.into_iter()
+        .zip(b.into_iter())
+        .take_while(|(a, b)| a == b)
+        .count()
+}
