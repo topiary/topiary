@@ -134,9 +134,16 @@ impl InjectionQuery {
         grammar: &topiary_tree_sitter_facade::Language,
         query_content: &str,
     ) -> FormatterResult<InjectionQuery> {
-        let query = Query::new(grammar, query_content).map_err(|e| {
-            FormatterError::Query("Error parsing injection query file".into(), Some(e))
-        })?;
+        let query = Query::new(grammar, query_content)
+            .into_report()
+            .map_err(|e| {
+                let range = e.current_context().range;
+                e.attach_range(range)
+            })
+            .attach_source(query_content)
+            .context(FormatterError::Query(
+                "Error parsing injection query file".into(),
+            ))?;
 
         Ok(InjectionQuery {
             query,

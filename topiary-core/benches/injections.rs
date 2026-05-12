@@ -1,7 +1,9 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::{io, sync::Arc};
 use topiary_config::Configuration;
-use topiary_core::{InjectionQuery, Language, Operation, TopiaryQuery, formatter_str};
+use topiary_core::{
+    InjectionQuery, Language, LanguageResolver, Operation, TopiaryQuery, formatter_str,
+};
 
 const OCAMLLEX_FORMATTING_QUERY: &str =
     include_str!("../../topiary-queries/queries/ocamllex/formatting.scm");
@@ -49,11 +51,7 @@ rule token = parse
     )
 }
 
-fn format_ocamllex(
-    input: &str,
-    language: &Language,
-    resolve: Option<&dyn Fn(&str) -> Option<Arc<Language>>>,
-) {
+fn format_ocamllex(input: &str, language: &Language, resolve: Option<&LanguageResolver<'_>>) {
     let mut output = io::BufWriter::new(Vec::new());
     formatter_str(
         input,
@@ -98,7 +96,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 format_ocamllex(
                     input,
                     &injected,
-                    Some(&|name| (name == "ocaml").then_some(ocaml.clone())),
+                    Some(&|name| Ok((name == "ocaml").then_some(ocaml.clone()))),
                 )
             });
         });

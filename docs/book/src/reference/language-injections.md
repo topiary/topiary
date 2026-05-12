@@ -65,9 +65,11 @@ There is no host reparse after injected text is rewritten.
 
 ## Failure behaviour
 
-Injected formatting is best-effort. If an injected span cannot be
-formatted, Topiary logs a warning and preserves the original injected
-source text. The host formatter continues.
+Injected formatting is all-or-nothing. If an injection query matches,
+Topiary must resolve the injected language and format the captured span
+successfully. If the injected language cannot be resolved, its grammar
+or query files cannot be loaded, or the captured span cannot be
+formatted, formatting fails.
 
 Idempotence is still checked at the outer formatting level by default.
 Injected spans are formatted again during that second pass, so unstable
@@ -81,9 +83,9 @@ are cached by the existing language definition cache, so formatting many
 spans of the same injected language does not recompile the grammar or
 reload the same queries for every span.
 
-If the CLI cannot resolve the injected language at runtime, the span is
-preserved with a warning. This can happen when a language is missing
-from the runtime configuration or its query files cannot be found.
+If the CLI cannot resolve the injected language at runtime, formatting
+fails. This can happen when a language is missing from the runtime
+configuration or its query files cannot be found.
 
 ## Limitations
 

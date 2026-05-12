@@ -167,6 +167,9 @@ pub enum ScopeCondition {
 /// A convenience wrapper around `std::result::Result<T, FormatterError>`.
 pub type FormatterResult<T, E = FormatterError> = Result<T, rootcause::Report<E>>;
 
+/// Resolves an injected language name to a Topiary language definition.
+pub type LanguageResolver<'a> = dyn Fn(&str) -> FormatterResult<Option<Arc<Language>>> + 'a;
+
 /// Operations that can be performed by the formatter.
 #[derive(Clone, Copy, Debug)]
 pub enum Operation {
@@ -236,7 +239,7 @@ pub fn formatter(
     output: &mut impl io::Write,
     language: &Language,
     operation: Operation,
-    resolve: Option<&dyn Fn(&str) -> Option<Arc<Language>>>,
+    resolve: Option<&LanguageResolver<'_>>,
 ) -> FormatterResult<()> {
     let content = read_input(input)
         .context_to()
@@ -255,7 +258,7 @@ pub fn formatter_str(
     output: &mut impl io::Write,
     language: &Language,
     operation: Operation,
-    resolve: Option<&dyn Fn(&str) -> Option<Arc<Language>>>,
+    resolve: Option<&LanguageResolver<'_>>,
 ) -> FormatterResult<()> {
     let tolerate_parsing_errors = match operation {
         Operation::Format {
@@ -283,7 +286,7 @@ pub fn formatter_tree(
     output: &mut impl io::Write,
     language: &Language,
     operation: Operation,
-    resolve: Option<&dyn Fn(&str) -> Option<Arc<Language>>>,
+    resolve: Option<&LanguageResolver<'_>>,
 ) -> FormatterResult<()> {
     match operation {
         Operation::Format {
@@ -316,7 +319,7 @@ pub fn formatter_tree(
                 spans,
                 resolve,
                 tolerate_parsing_errors,
-            );
+            )?;
 
             // Various post-processing of whitespace
             atoms.post_process();
@@ -355,28 +358,23 @@ fn rewrite_injected_leaves(
     atoms: &mut atom_collection::AtomCollection,
     input_content: &str,
     spans: Vec<InjectionSpan>,
-    resolve: Option<&dyn Fn(&str) -> Option<Arc<Language>>>,
+    resolve: Option<&LanguageResolver<'_>>,
     tolerate_parsing_errors: bool,
-) {
+) -> FormatterResult<()> {
     for span in spans {
-        let Some(inner_source) = input_content.get(span.start_byte..span.end_byte) else {
-            log::warn!(
-                "Injected {} span is not on UTF-8 boundaries; skipping",
-                span.language
-            );
-            continue;
-        };
+        let inner_source = input_content
+            .get(span.start_byte..span.end_byte)
+            .ok_or_else(|| {
+                report!(FormatterError::Internal(format!(
+                    "Injected {} span is not on UTF-8 boundaries",
+                    span.language
+                )))
+            })?;
 
-        let Some(inner_language) = resolve.and_then(|resolve| resolve(&span.language)) else {
-            log::warn!(
-                "No language definition available for injected {}; skipping",
-                span.language
-            );
-            continue;
-        };
+        let inner_language = resolve_injected_language(resolve, &span.language)?;
 
         let mut formatted_inner = Vec::new();
-        if let Err(err) = formatter_str(
+        formatter_str(
             inner_source,
             &mut formatted_inner,
             &inner_language,
@@ -385,33 +383,50 @@ fn rewrite_injected_leaves(
                 tolerate_parsing_errors,
             },
             resolve,
-        ) {
-            log::warn!(
-                "Failed to format injected {} span: {}; skipping",
-                span.language,
-                err
-            );
-            continue;
-        }
+        )?;
 
-        let formatted_inner = match String::from_utf8(formatted_inner) {
-            Ok(formatted_inner) => formatted_inner.trim_end_matches('\n').to_owned(),
-            Err(err) => {
-                log::warn!(
-                    "Injected {} formatter produced invalid UTF-8: {}; skipping",
-                    span.language,
-                    err
-                );
-                continue;
-            }
-        };
+        let formatted_inner = String::from_utf8(formatted_inner)
+            .context_to()?
+            .trim_end_matches('\n')
+            .to_owned();
 
         if !atoms.rewrite_injected_leaf_content(span.node_id, formatted_inner) {
-            log::warn!(
-                "Could not find leaf for injected {} span; skipping",
+            return Err(report!(FormatterError::Internal(format!(
+                "Could not find leaf for injected {} span",
                 span.language
-            );
+            ))));
         }
+    }
+
+    Ok(())
+}
+
+fn resolve_injected_language(
+    resolve: Option<&LanguageResolver<'_>>,
+    language: &str,
+) -> FormatterResult<Arc<Language>> {
+    let Some(resolve) = resolve else {
+        return Err(report!(FormatterError::InjectionLanguageResolution {
+            language: language.to_owned(),
+        }));
+    };
+
+    match resolve(language) {
+        Ok(Some(language)) => Ok(language),
+        Ok(None) => Err(report!(FormatterError::InjectionLanguageResolution {
+            language: language.to_owned(),
+        })),
+        Err(err)
+            if matches!(
+                err.current_context(),
+                FormatterError::InjectionLanguageResolution { .. }
+            ) =>
+        {
+            Err(err)
+        }
+        Err(err) => Err(err.context(FormatterError::InjectionLanguageResolution {
+            language: language.to_owned(),
+        })),
     }
 }
 
@@ -435,7 +450,7 @@ fn idempotence_check(
     content: &str,
     language: &Language,
     tolerate_parsing_errors: bool,
-    resolve: Option<&dyn Fn(&str) -> Option<Arc<Language>>>,
+    resolve: Option<&LanguageResolver<'_>>,
 ) -> FormatterResult<()> {
     log::info!("Checking for idempotence ...");
 
@@ -615,14 +630,14 @@ mod tests {
     }
 
     #[test(tokio::test)]
-    async fn unresolved_injection_preserves_inner_source() {
+    async fn unresolved_injection_fails_formatting() {
         let input = r#"rule token = parse
   | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
 "#;
         let language = ocamllex_language();
         let mut output = Vec::new();
 
-        formatter_str(
+        let result = formatter_str(
             input,
             &mut output,
             &language,
@@ -631,15 +646,47 @@ mod tests {
                 tolerate_parsing_errors: false,
             },
             None,
-        )
-        .unwrap();
-
-        let formatted = String::from_utf8(output).unwrap();
-        pretty_assert_eq(
-            r#"rule token = parse
-  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }"#,
-            formatted.trim_end(),
         );
+
+        assert!(matches!(
+            result,
+            Err(ref report)
+                if matches!(
+                    report.current_context(),
+                    FormatterError::InjectionLanguageResolution { language } if language == "ocaml"
+                )
+        ));
+    }
+
+    #[test(tokio::test)]
+    async fn resolver_error_fails_formatting() {
+        let input = r#"rule token = parse
+  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
+"#;
+        let language = ocamllex_language();
+        let mut output = Vec::new();
+
+        let result = formatter_str(
+            input,
+            &mut output,
+            &language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+            },
+            Some(&|_| Err(rootcause::report!(FormatterError::Query(
+                "resolver failed while loading language".into()
+            )))),
+        );
+
+        assert!(matches!(
+            result,
+            Err(ref report)
+                if matches!(
+                    report.current_context(),
+                    FormatterError::InjectionLanguageResolution { language } if language == "ocaml"
+                )
+        ));
     }
 
     #[test(tokio::test)]
@@ -659,7 +706,7 @@ mod tests {
                 skip_idempotence: true,
                 tolerate_parsing_errors: false,
             },
-            Some(&|name| (name == "ocaml").then_some(inner_language.clone())),
+            Some(&|name| Ok((name == "ocaml").then_some(inner_language.clone()))),
         )
         .unwrap();
 
@@ -668,6 +715,31 @@ mod tests {
             r#"rule token = parse
   | "x" { let values = [1; 2; 3] in List.map (fun x -> x + 1) values }"#,
             formatted.trim_end(),
+        );
+    }
+
+    #[test(tokio::test)]
+    async fn invalid_injected_source_fails_formatting() {
+        let input = r#"rule token = parse
+  | "x" { let x = }
+"#;
+        let language = ocamllex_language();
+        let inner_language: Arc<Language> = Arc::new(ocaml_language());
+        let mut output = Vec::new();
+
+        let result = formatter_str(
+            input,
+            &mut output,
+            &language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+            },
+            Some(&|name| Ok((name == "ocaml").then_some(inner_language.clone()))),
+        );
+
+        assert!(
+            matches!(result, Err(ref report) if report.current_context() == &FormatterError::Parsing)
         );
     }
 
@@ -688,7 +760,7 @@ mod tests {
                 skip_idempotence: false,
                 tolerate_parsing_errors: false,
             },
-            Some(&|name| (name == "ocaml").then_some(inner_language.clone())),
+            Some(&|name| Ok((name == "ocaml").then_some(inner_language.clone()))),
         );
 
         assert!(

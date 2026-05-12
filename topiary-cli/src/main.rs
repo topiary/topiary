@@ -14,8 +14,11 @@ use std::{
 
 use error::Benign;
 use tabled::{Table, settings::Style};
-use topiary_config::source::Source;
-use topiary_core::{Operation, SpanAttachment, check_query_coverage, formatter};
+use topiary_config::{Configuration, source::Source};
+use topiary_core::{
+    FormatterError, FormatterResult, Language, Operation, SpanAttachment, check_query_coverage,
+    formatter,
+};
 
 use crate::{
     cli::Commands,
@@ -25,6 +28,21 @@ use crate::{
 };
 
 use miette::{NamedSource, Report};
+
+fn resolve_injected_language(
+    cache: &LanguageDefinitionCache,
+    config: &Configuration,
+    name: &str,
+) -> FormatterResult<Option<Arc<Language>>> {
+    cache
+        .fetch_from_config(config, name)
+        .map(Some)
+        .map_err(|_| {
+            rootcause::report!(FormatterError::InjectionLanguageResolution {
+                language: name.to_owned(),
+            })
+        })
+}
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -71,7 +89,7 @@ async fn run() -> CLIResult<()> {
                         &language,
                         skip_idempotence,
                         tolerate_parsing_errors,
-                        Some(&|name| cache.fetch_from_config(&config, name).ok()),
+                        Some(&|name| resolve_injected_language(&cache, &config, name)),
                     )
                 },
                 cache,
@@ -119,7 +137,7 @@ async fn run() -> CLIResult<()> {
                                 skip_idempotence,
                                 tolerate_parsing_errors,
                             },
-                            Some(&|name| cache.fetch_from_config(&config, name).ok()),
+                            Some(&|name| resolve_injected_language(&cache, &config, name)),
                         )?;
                     }
 

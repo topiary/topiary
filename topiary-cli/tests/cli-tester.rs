@@ -301,9 +301,10 @@ fn test_fmt_invalid() {
 
 #[test]
 #[cfg(all(feature = "ocamllex", feature = "ocaml"))]
-fn test_fmt_ocamllex_invalid_inner_ocaml_passthrough() {
+fn test_fmt_ocamllex_invalid_inner_ocaml_fails() {
+    use predicates::str::contains;
+
     let input = fs::read_to_string("tests/samples/input/ocamllex_invalid_inner.mll").unwrap();
-    let expected = fs::read_to_string("tests/samples/expected/ocamllex_invalid_inner.mll").unwrap();
 
     let mut topiary = cargo_bin_cmd!("topiary");
 
@@ -314,8 +315,35 @@ fn test_fmt_ocamllex_invalid_inner_ocaml_passthrough() {
         .arg("ocamllex")
         .write_stdin(input)
         .assert()
-        .success()
-        .stdout(expected);
+        .failure()
+        .stderr(contains("Parsing"));
+}
+
+#[test]
+#[cfg(all(feature = "ocamllex", feature = "ocaml"))]
+fn test_fmt_ocamllex_broken_inner_language_resolution_fails() {
+    use predicates::str::contains;
+
+    let tmp_dir = TempDir::new().unwrap();
+    let ocaml_dir = tmp_dir.path().join("ocaml");
+    fs::create_dir_all(&ocaml_dir).unwrap();
+    fs::write(
+        ocaml_dir.join("formatting.scm"),
+        "this is not a tree-sitter query",
+    )
+    .unwrap();
+
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", tmp_dir.path())
+        .arg("fmt")
+        .arg("--language")
+        .arg("ocamllex")
+        .write_stdin(r#"rule token = parse | "x" { let values=[1;2;3] in values }"#)
+        .assert()
+        .failure()
+        .stderr(contains(r#"Could not resolve injected language "ocaml""#));
 }
 
 #[test]
