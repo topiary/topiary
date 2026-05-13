@@ -14,6 +14,7 @@ mod native {
 
         #[inline]
         pub fn column(&self) -> u32 {
+            // we don't expect files to have more than 2^32 lines
             self.inner.column as u32
         }
 

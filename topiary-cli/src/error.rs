@@ -2,12 +2,12 @@ mod hooks;
 
 pub use hooks::{SpanFormatter, SpanHook};
 use rootcause::{
-    Report, ReportConversion,
     markers::{self, Local, Mutable, ObjectMarkerFor, SendSync},
-    report,
+    report, Report, ReportConversion,
 };
 use std::{error, fmt, io, process::ExitCode, result};
 
+use rootcause::Report;
 use similar::TextDiff;
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError};
 use topiary_core::FormatterError;
@@ -178,6 +178,7 @@ impl<C> Benign for Report<C>
 where
     C: ?Sized,
 {
+    // matches!(self, TopiaryError::Lib(r) if r.current_context() == &FormatterError::PatternDoesNotMatch)
     fn benign(&self) -> bool {
         iter_downcast_reports::<FormatterError>(self)
             .any(|fmt_err| *fmt_err == FormatterError::PatternDoesNotMatch)

@@ -16,9 +16,9 @@ use topiary_tree_sitter_facade::{
 use streaming_iterator::StreamingIterator;
 
 use crate::{
-    FormatterResult,
     atom_collection::{AtomCollection, QueryPredicates},
     error::{FormatterError, SpanAttachment},
+    FormatterResult,
 };
 
 /// Supported visualisation formats
@@ -66,6 +66,10 @@ impl TopiaryQuery {
     ) -> FormatterResult<TopiaryQuery, QueryError> {
         let query = Query::new(grammar, query_content)
             .into_report()
+            .map_err(|e| {
+                let range = e.current_context().range;
+                e.attach_range(range)
+            })
             .attach_source(query_content)?;
 
         Ok(TopiaryQuery {
@@ -235,9 +239,9 @@ impl CoverageData {
     }
 
     /// Returns an error if coverage is not 100%
-    pub fn get_result(&self) -> Result<(), FormatterError> {
+    pub fn get_result(&self) -> FormatterResult<()> {
         if !self.full_coverage() {
-            return Err(FormatterError::PatternDoesNotMatch);
+            return Err(FormatterError::PatternDoesNotMatch.into());
         }
         Ok(())
     }
@@ -447,7 +451,7 @@ pub fn parse(
 
     // Fail parsing if we don't get a complete syntax tree.
     if !tolerate_parsing_errors {
-        check_for_error_nodes(&tree.root_node())?;
+        check_for_error_nodes(&tree.root_node()).attach_source(content)?;
     }
 
     Ok(tree)
@@ -456,11 +460,9 @@ pub fn parse(
 // returns first error node encountered
 fn check_for_error_nodes(node: &Node) -> FormatterResult<()> {
     if node.is_error() {
-        let mut report = report!(FormatterError::Parsing).attach_range(node.range());
-        if let Some(lang) = node.language_name() {
-            report = report.attach_language(lang);
-        }
-        return Err(report);
+        return Err(report!(FormatterError::Parsing)
+            .attach_range(node.range())
+            .attach_language(node.language_name()));
     }
 
     for child in node.children(&mut node.walk()) {

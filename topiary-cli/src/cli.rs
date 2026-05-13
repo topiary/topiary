@@ -256,6 +256,7 @@ pub fn get_args() -> CLIResult<Cli> {
             files.dedup();
         }
 
+        // Make sure our FILE is not a directory
         Commands::Visualise {
             input: ExactlyOneInput {
                 file: Some(file), ..

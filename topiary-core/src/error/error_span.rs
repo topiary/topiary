@@ -14,12 +14,18 @@ use std::{
 };
 
 use miette::{LabeledSpan, MietteError, MietteSpanContents, SourceCode, SourceSpan, SpanContents};
-use rootcause::markers::ObjectMarkerFor;
+use rootcause::{
+    handlers::{
+        AttachmentFormattingPlacement, AttachmentFormattingStyle, AttachmentHandler,
+        FormattingFunction,
+    },
+    markers::ObjectMarkerFor,
+};
 use topiary_tree_sitter_facade::Range;
 
-/// ErrorSpan is meant to represent errors code that lives outside of the topiary
+/// ErrorSpan is meant to represent error codes that lives outside of the topiary
 /// call stack and is rendered with [`miette::Report`].
-/// Examples of files that generate  ErrorSpans (these are typically runtime objects):
+/// Examples of files that generate ErrorSpans (these are typically runtime objects):
 /// * configuration files (such as languages.ncl)
 /// * code that is being formatted
 /// * tree-sitter query files
@@ -96,9 +102,22 @@ impl ErrorSpan {
     }
 
     fn primary_label(&self) -> String {
-        self.primary_label
-            .clone()
-            .unwrap_or_else(|| "(ERROR) node".to_owned())
+        if let Some(label) = self.primary_label.clone() {
+            label
+        } else if let Some(range) = self.range {
+            let start = range.start_point();
+            let end = range.end_point();
+            // `QueryError`s and `Node`s report rows starting with 0
+            format!(
+                "Parsing error between line {}, column {} and line {}, column {}",
+                start.row() + 1,
+                start.column() + 1,
+                end.row() + 1,
+                end.column() + 1
+            )
+        } else {
+            "Parsing error: missing range".to_string()
+        }
     }
 }
 
@@ -131,21 +150,7 @@ impl SourceCode for ErrorSpan {
 
 impl std::fmt::Display for ErrorSpan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(range) = self.range {
-            let start = range.start_point();
-            let end = range.end_point();
-            // `QueryError`s and `Node`s report rows starting with 0
-            write!(
-                f,
-                "Parsing error between line {}, column {} and line {}, column {}",
-                start.row() + 1,
-                start.column(),
-                end.row() + 1,
-                end.column()
-            )
-        } else {
-            write!(f, "Parsing error: missing range",)
-        }
+        write!(f, "{}", self.primary_label())
     }
 }
 
@@ -155,9 +160,9 @@ impl std::error::Error for ErrorSpan {}
 /// that allow for rendering of the error location for use
 /// in libraries such as `miette`.
 pub trait SpanAttachment {
-    fn attach_filepath(self, filepath: &Path) -> Self;
-    fn attach_source(self, source: &str) -> Self;
-    fn attach_language(self, language: &'static str) -> Self;
+    fn attach_filepath<'a>(self, filepath: impl Into<Option<&'a Path>>) -> Self;
+    fn attach_source<'a>(self, source: impl Into<Option<&'a str>>) -> Self;
+    fn attach_language(self, language: impl Into<Option<&'static str>>) -> Self;
     fn attach_range(self, range: Range) -> Self;
     fn get_span(&mut self) -> Option<&mut ErrorSpan>;
 }
@@ -166,28 +171,37 @@ impl<C, T> SpanAttachment for rootcause::Report<C, rootcause::markers::Mutable, 
 where
     ErrorSpan: ObjectMarkerFor<T>,
 {
-    fn attach_filepath(mut self, filepath: &Path) -> Self {
+    fn attach_filepath<'a>(mut self, filepath: impl Into<Option<&'a Path>>) -> Self {
+        let Some(filepath) = filepath.into() else {
+            return self;
+        };
         if let Some(span) = self.get_span() {
             span.filepath = Some(filepath.to_owned());
             return self;
         }
-        self.attach(ErrorSpan::default().with_filepath(filepath))
+        self.attach_custom::<MietteHandler, _>(ErrorSpan::default().with_filepath(filepath))
     }
 
-    fn attach_source(mut self, source: &str) -> Self {
+    fn attach_source<'a>(mut self, source: impl Into<Option<&'a str>>) -> Self {
+        let Some(source) = source.into() else {
+            return self;
+        };
         if let Some(span) = self.get_span() {
             span.source = Some(source.to_owned());
             return self;
         }
-        self.attach(ErrorSpan::default().with_source(source))
+        self.attach_custom::<MietteHandler, _>(ErrorSpan::default().with_source(source))
     }
 
-    fn attach_language(mut self, language: &'static str) -> Self {
+    fn attach_language(mut self, language: impl Into<Option<&'static str>>) -> Self {
+        let Some(language) = language.into() else {
+            return self;
+        };
         if let Some(span) = self.get_span() {
             span.language = Some(language);
             return self;
         }
-        self.attach(ErrorSpan::default().with_language(language))
+        self.attach_custom::<MietteHandler, _>(ErrorSpan::default().with_language(language))
     }
 
     fn attach_range(mut self, range: Range) -> Self {
@@ -195,7 +209,7 @@ where
             span.set_range(range);
             return self;
         }
-        self.attach(ErrorSpan::default().with_range(range))
+        self.attach_custom::<MietteHandler, _>(ErrorSpan::default().with_range(range))
     }
 
     fn get_span(&mut self) -> Option<&mut ErrorSpan> {
@@ -211,21 +225,21 @@ impl<V, E> SpanAttachment for Result<V, E>
 where
     E: SpanAttachment,
 {
-    fn attach_filepath(self, filepath: &Path) -> Self {
+    fn attach_filepath<'a>(self, filepath: impl Into<Option<&'a Path>>) -> Self {
         match self {
             Ok(v) => Ok(v),
             Err(e) => Err(e.attach_filepath(filepath)),
         }
     }
 
-    fn attach_source(self, source: &str) -> Self {
+    fn attach_source<'a>(self, source: impl Into<Option<&'a str>>) -> Self {
         match self {
             Ok(v) => Ok(v),
             Err(e) => Err(e.attach_source(source)),
         }
     }
 
-    fn attach_language(self, language: &'static str) -> Self {
+    fn attach_language(self, language: impl Into<Option<&'static str>>) -> Self {
         match self {
             Ok(v) => Ok(v),
             Err(e) => Err(e.attach_language(language)),
@@ -244,5 +258,42 @@ where
             Ok(_) => None,
             Err(e) => e.get_span(),
         }
+    }
+}
+
+struct MietteHandler;
+
+// This allows the ErrorSpan
+impl AttachmentHandler<ErrorSpan> for MietteHandler {
+    fn preferred_formatting_style(
+        _value: &ErrorSpan,
+        report_formatting_function: FormattingFunction,
+    ) -> AttachmentFormattingStyle {
+        match report_formatting_function {
+            // for display printing we want the full verbosity level and
+            // put it in an appendix
+            FormattingFunction::Display => AttachmentFormattingStyle {
+                placement: AttachmentFormattingPlacement::Appendix {
+                    appendix_name: "Error Span",
+                },
+                function: FormattingFunction::Debug,
+                priority: 0,
+            },
+            // debug printing of the attachment is more compact so
+            // we put it inline but at the end
+            FormattingFunction::Debug => AttachmentFormattingStyle {
+                placement: AttachmentFormattingPlacement::Inline,
+                function: FormattingFunction::Debug,
+                priority: -10,
+            },
+        }
+    }
+
+    fn display(value: &ErrorSpan, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(formatter, "{}", miette::Report::new(value.clone()))
+    }
+
+    fn debug(value: &ErrorSpan, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(formatter, "{:?}", miette::Report::new(value.clone()))
     }
 }

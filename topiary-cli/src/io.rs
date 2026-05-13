@@ -8,10 +8,10 @@ use std::{
 };
 
 use nickel_lang_core::eval::value::NickelValue;
-use rootcause::{Report, prelude::ResultExt, report, report_collection::ReportCollection};
+use rootcause::prelude::ResultExt;
 use tempfile::tempfile;
 use topiary_config::Configuration;
-use topiary_core::{Language, Operation, SpanAttachment, TopiaryQuery, formatter};
+use topiary_core::{FormatterError, Language, Operation, SpanAttachment, TopiaryQuery, formatter};
 
 use crate::{
     cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
@@ -48,6 +48,15 @@ impl Display for QuerySource {
         match self {
             QuerySource::Path(p) => write!(f, "{}", p.display()),
             QuerySource::BuiltIn(_) => write!(f, "built-in query"),
+        }
+    }
+}
+
+impl QuerySource {
+    fn filepath(&self) -> Option<&Path> {
+        match self {
+            QuerySource::Path(p) => Some(p.as_path()),
+            QuerySource::BuiltIn(_) => None,
         }
     }
 }
@@ -169,7 +178,9 @@ impl InputFile<'_> {
     pub async fn to_language(&self) -> CLIResult<Language> {
         let grammar = self.language().grammar().preformat_context()?;
         let query_contents = self.query.get_content().await?;
-        let query = TopiaryQuery::new(&grammar, &query_contents).context_to()?;
+        let query = TopiaryQuery::new(&grammar, &query_contents)
+            .attach_filepath(self.query.filepath())
+            .context(FormatterError::Parsing)?;
 
         Ok(Language {
             name: self.language.name.clone(),
@@ -182,6 +193,10 @@ impl InputFile<'_> {
     /// Expose input source
     pub fn source(&self) -> &InputSource {
         &self.source
+    }
+
+    pub(crate) fn filepath(&self) -> Option<&Path> {
+        self.source().filepath()
     }
 
     /// Expose language for input
@@ -203,12 +218,13 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
     config: &Configuration,
     name: T,
 ) -> CLIResult<Language> {
-    let config_language = config.get_language(name.as_ref()).preformat_context()?;
-    let grammar = config_language.grammar().preformat_context()?;
-    let query_content = to_query_from_language(config_language)?
-        .get_content()
-        .await?;
-    let query = TopiaryQuery::new(&grammar, &query_content).context_to()?;
+    let config_language = config.get_language(name.as_ref())?;
+    let grammar = config_language.grammar()?;
+    let query_source = to_query_from_language(config_language)?;
+    let query_content = query_source.get_content().await?;
+    let query = TopiaryQuery::new(&grammar, &query_content)
+        .attach_filepath(query_source.filepath())
+        .context(FormatterError::Parsing)?;
 
     Ok(Language {
         name: name.as_ref().to_string(),
