@@ -41,12 +41,12 @@ fn resolve_injected_language(
                 language: name.to_owned(),
             }))
         }
-        Err(err) => Err(rootcause::report!(
-            FormatterError::InjectionLanguageResolution {
+        Err(err) => Err(
+            rootcause::report!(FormatterError::InjectionLanguageResolution {
                 language: name.to_owned(),
-            }
-        )
-        .attach(err.to_string())),
+            })
+            .attach(err.to_string()),
+        ),
     }
 }
 
@@ -270,10 +270,13 @@ async fn run() -> CLIResult<()> {
 
             let input_content = read_input(&mut buf_input)?;
 
-            let coverage_data =
-                check_query_coverage(&input_content, &language.formatting_query, &language.grammar)
-                    .attach_source(input_content.as_str())
-                    .attach_filepath(buf_input.get_ref().filepath())?;
+            let coverage_data = check_query_coverage(
+                &input_content,
+                &language.formatting_query,
+                &language.grammar,
+            )
+            .attach_source(input_content.as_str())
+            .attach_filepath(buf_input.get_ref().filepath())?;
             let coverage_res = coverage_data.get_result();
 
             let query_source = NamedSource::new(

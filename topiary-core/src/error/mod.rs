@@ -26,7 +26,9 @@ pub enum FormatterError {
     Internal(String),
 
     /// An injected language could not be resolved.
-    InjectionLanguageResolution { language: String },
+    InjectionLanguageResolution {
+        language: String,
+    },
 
     // Tree-sitter could not parse the input without errors.
     Parsing,

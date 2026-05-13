@@ -704,9 +704,11 @@ mod tests {
                 skip_idempotence: true,
                 tolerate_parsing_errors: false,
             },
-            Some(&|_| Err(rootcause::report!(FormatterError::Query(
-                "resolver failed while loading language".into()
-            )))),
+            Some(&|_| {
+                Err(rootcause::report!(FormatterError::Query(
+                    "resolver failed while loading language".into()
+                )))
+            }),
         );
 
         assert!(matches!(
