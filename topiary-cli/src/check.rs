@@ -1,9 +1,10 @@
 use std::io::BufReader;
 
+use rootcause::{bail, prelude::ResultExt};
 use topiary_core::{Language, Operation, formatter};
 
 use crate::{
-    error::{CLIError, CLIResult, TopiaryError},
+    error::{CLIResult, TopiaryError},
     io::{InputFile, read_input},
 };
 
@@ -19,7 +20,7 @@ pub fn check_input(
     let source_name = input.source().to_string();
 
     let mut buf_input = BufReader::new(input);
-    let original = read_input(&mut buf_input)?;
+    let original = read_input(&mut buf_input).context_to()?;
 
     let mut formatted_bytes: Vec<u8> = Vec::new();
     formatter(
@@ -30,19 +31,17 @@ pub fn check_input(
             skip_idempotence,
             tolerate_parsing_errors,
         },
-    )?;
+    )
+    .context_to()?;
 
     let formatted = String::from_utf8_lossy(&formatted_bytes).into_owned();
 
     if original != formatted {
-        return Err(TopiaryError::Bin(
-            format!("{source_name} is not formatted"),
-            Some(CLIError::CheckFailed {
-                source_name,
-                original,
-                formatted,
-            }),
-        ));
+        bail!(TopiaryError::CheckFailed {
+            source_name,
+            original,
+            formatted,
+        });
     }
 
     Ok(())

@@ -11,14 +11,18 @@ use std::{
     process::ExitCode,
 };
 
-use error::Benign;
+use crate::error::{Benign, SpanFormatter, SpanHook};
+use rootcause::{
+    hooks::{Hooks, builtin_hooks::report_formatter::DefaultReportFormatter},
+    prelude::ResultExt,
+};
 use tabled::{Table, settings::Style};
 use topiary_config::source::Source;
 use topiary_core::{Operation, SpanAttachment, check_query_coverage, formatter};
 
 use crate::{
     cli::Commands,
-    error::{CLIResult, print_error},
+    error::{CLIResult, ResultPreformatLocal, exit_code},
     io::{Inputs, OutputFile, process_inputs, read_input},
 };
 
@@ -26,11 +30,19 @@ use miette::{NamedSource, Report};
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    // Use ASCII-only formatting
+    Hooks::new()
+        .report_formatter(DefaultReportFormatter::UNICODE_COLORS)
+        .report_creation_hook(SpanHook)
+        .attachment_formatter::<ErrorSpan, _>(SpanFormatter)
+        .install()
+        .ok();
+
     if let Err(e) = run().await {
         if !e.benign() {
-            print_error(&e)
+            log::error!("{e}");
         }
-        return e.into();
+        return exit_code(e);
     }
 
     ExitCode::SUCCESS
@@ -41,7 +53,8 @@ async fn run() -> CLIResult<()> {
 
     let file_config = &args.global.configuration;
     let (config, nickel_config) =
-        topiary_config::Configuration::fetch(args.global.merge_configuration, file_config)?;
+        topiary_config::Configuration::fetch(args.global.merge_configuration, file_config)
+            .preformat_context()?;
 
     // Delegate by subcommand
     match args.command {
@@ -101,10 +114,11 @@ async fn run() -> CLIResult<()> {
                             skip_idempotence,
                             tolerate_parsing_errors,
                         },
-                    )?;
+                    )
+                    .context_to()?;
                 }
 
-                buf_output.into_inner()?.persist()?;
+                buf_output.into_inner().context_to()?.persist()?;
 
                 CLIResult::Ok(())
             })
@@ -115,14 +129,14 @@ async fn run() -> CLIResult<()> {
             let inputs = Inputs::new(&config, &inputs);
 
             process_inputs(inputs, |mut input, language| {
-                let input_content = read_input(&mut input)?;
+                let input_content = read_input(&mut input).context_to()?;
                 log::debug!(
                     "Checking {}, as {} for grammar correctness",
                     input.source(),
                     input.language().name,
                 );
 
-                topiary_core::parse(&input_content, &language.grammar, false)?;
+                topiary_core::parse(&input_content, &language.grammar, false).context_to()?;
 
                 Ok(())
             })
@@ -198,8 +212,8 @@ async fn run() -> CLIResult<()> {
         }
 
         Commands::Prefetch { force, language } => match language {
-            Some(l) => config.prefetch_language(l, force)?,
-            _ => config.prefetch_languages(force)?,
+            Some(l) => config.prefetch_language(l, force).preformat_context()?,
+            _ => config.prefetch_languages(force).preformat_context()?,
         },
 
         Commands::Coverage { input } => {
@@ -220,7 +234,7 @@ async fn run() -> CLIResult<()> {
             let mut buf_input = BufReader::new(input);
             let mut buf_output = BufWriter::new(output);
 
-            let input_content = read_input(&mut buf_input)?;
+            let input_content = read_input(&mut buf_input).context_to()?;
 
             let coverage_data =
                 check_query_coverage(&input_content, &language.query, &language.grammar)
@@ -237,9 +251,10 @@ async fn run() -> CLIResult<()> {
                 &mut buf_output,
                 "{:?}",
                 Report::new(coverage_data).with_source_code(query_source)
-            )?;
+            )
+            .context_to()?;
 
-            coverage_res?;
+            coverage_res.context_to()?;
         }
 
         Commands::Completion { shell } => {

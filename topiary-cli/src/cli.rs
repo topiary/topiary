@@ -2,6 +2,7 @@
 
 use clap::{ArgAction, ArgGroup, Args, CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, shells::Shell};
+use rootcause::report;
 use std::{io::stdout, path::PathBuf};
 
 use log::LevelFilter;
@@ -200,7 +201,6 @@ pub enum ConfigCommand {
 }
 
 /// Parse CLI arguments and normalise them for the caller
-#[allow(clippy::result_large_err)]
 pub fn get_args() -> CLIResult<Cli> {
     let mut args = Cli::parse();
 
@@ -262,22 +262,25 @@ pub fn get_args() -> CLIResult<Cli> {
                 file: Some(file), ..
             },
             ..
-        } if file.is_dir() => {
-            return Err(TopiaryError::Bin(
-                format!(
-                    "Cannot visualise directory \"{}\"; please provide a single file from disk or stdin.",
-                    file.display()
-                ),
-                None,
-            ));
         }
+            // Make sure our FILE is not a directory
+            if file.is_dir() => {
+                return Err(
+                    report!(TopiaryError::Other)
+                    .attach(
+                        format!(
+                        "Cannot visualise directory \"{}\"; please provide a single file from disk or stdin.",
+                        file.display()
+                        )
+                    )
+                );
+            }
 
         // Attempt to detect shell from environment, when omitted
         Commands::Completion { shell: None } => {
-            let detected_shell = Shell::from_env().ok_or(TopiaryError::Bin(
-                "Cannot detect shell from environment".into(),
-                None,
-            ))?;
+            let detected_shell = Shell::from_env().ok_or(
+                report!(TopiaryError::Other).attach("Cannot detect shell from environment"),
+            )?;
 
             args.command = Commands::Completion {
                 shell: Some(detected_shell),

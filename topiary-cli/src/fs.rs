@@ -1,3 +1,5 @@
+use rootcause::prelude::ResultExt;
+
 use crate::error::CLIResult;
 use std::{
     fs,
@@ -40,14 +42,17 @@ struct FileMeta {
 }
 
 impl FileMeta {
-    #[allow(clippy::result_large_err)]
     fn new<P: AsRef<Path>>(path: &P) -> CLIResult<Self> {
         // Stat a potential symlink
-        let lmeta = fs::symlink_metadata(path)?;
+        let lmeta = fs::symlink_metadata(path).context_to()?;
         let symlink = lmeta.is_symlink();
 
         // Follow the symlink, if necessary
-        let meta = if symlink { fs::metadata(path)? } else { lmeta };
+        let meta = if symlink {
+            fs::metadata(path).context_to()?
+        } else {
+            lmeta
+        };
 
         let filetype = {
             if meta.is_file() {
@@ -102,7 +107,6 @@ impl FileMeta {
 /// Given a vector of paths, recursively expand those that identify as directories, in place.
 /// Follow symlinks, if specified, and skip over files with multiple links. Ultimately, we'll
 /// finish with a vector of canonical paths to real files with a single link.
-#[allow(clippy::result_large_err)]
 pub fn traverse(files: &mut Vec<PathBuf>, follow_symlinks: bool) -> CLIResult<()> {
     let mut expanded = vec![];
 
@@ -131,7 +135,12 @@ pub fn traverse(files: &mut Vec<PathBuf>, follow_symlinks: bool) -> CLIResult<()
 
         if is_dir {
             // Descend into directory, symlink-aware as required
-            let mut subfiles = file.read_dir()?.flatten().map(|f| f.path()).collect();
+            let mut subfiles = file
+                .read_dir()
+                .context_to()?
+                .flatten()
+                .map(|f| f.path())
+                .collect();
             traverse(&mut subfiles, follow_symlinks)?;
             expanded.append(&mut subfiles);
         } else if meta.is_file() {

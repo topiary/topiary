@@ -15,7 +15,7 @@ use topiary_core::{FormatterError, Language, Operation, SpanAttachment, TopiaryQ
 
 use crate::{
     cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
-    error::{CLIError, CLIResult, TopiaryError, print_error},
+    error::{CLIResult, PreformatLocal, ResultPreformatLocal, TopiaryError},
     language::LanguageDefinitionCache,
 };
 
@@ -64,7 +64,7 @@ impl QuerySource {
 impl QuerySource {
     async fn get_content(&self) -> CLIResult<String> {
         let contents = match self {
-            Self::Path(query) => tokio::fs::read_to_string(query).await?,
+            Self::Path(query) => tokio::fs::read_to_string(query).await.context_to()?,
             Self::BuiltIn(contents) => contents.to_owned(),
         };
         Ok(contents)
@@ -175,9 +175,8 @@ pub struct InputFile<'cfg> {
 
 impl InputFile<'_> {
     /// Convert our `InputFile` into language definition values that Topiary can consume
-    #[allow(clippy::result_large_err)]
     pub async fn to_language(&self) -> CLIResult<Language> {
-        let grammar = self.language().grammar()?;
+        let grammar = self.language().grammar().preformat_context()?;
         let query_contents = self.query.get_content().await?;
         let query = TopiaryQuery::new(&grammar, &query_contents)
             .attach_filepath(self.query.filepath())
@@ -208,6 +207,10 @@ impl InputFile<'_> {
     /// Expose query path for input
     pub fn query(&self) -> &QuerySource {
         &self.query
+    }
+
+    pub(crate) fn filepath(&self) -> Option<&Path> {
+        self.source().filepath()
     }
 }
 
@@ -256,7 +259,6 @@ impl Read for InputFile<'_> {
 
 /// `Inputs` is an iterator of fully qualified `InputFile`s, each wrapped in `CLIResult`, which is
 /// populated by its constructor from any type that implements `Into<InputFrom>`
-#[allow(clippy::result_large_err)]
 pub struct Inputs<'cfg>(Vec<CLIResult<InputFile<'cfg>>>);
 
 impl<'cfg, 'i> Inputs<'cfg> {
@@ -267,7 +269,10 @@ impl<'cfg, 'i> Inputs<'cfg> {
         let inputs = match inputs.into() {
             InputFrom::Stdin(language_name, query) => {
                 vec![(|| {
-                    let language = config.get_language(&language_name)?;
+                    let language = config
+                        .get_language(&language_name)
+                        .map_err(|e| report!(e).preformat())
+                        .context(TopiaryError::Config)?;
                     let query_source: QuerySource = match query {
                         // The user specified a query file
                         Some(p) => p,
@@ -286,7 +291,7 @@ impl<'cfg, 'i> Inputs<'cfg> {
             InputFrom::Files(files) => files
                 .into_iter()
                 .map(|path| {
-                    let language = config.detect(&path)?;
+                    let language = config.detect(&path).preformat_context()?;
                     let query: QuerySource = to_query_from_language(language)?;
 
                     Ok(InputFile {
@@ -302,7 +307,6 @@ impl<'cfg, 'i> Inputs<'cfg> {
     }
 }
 
-#[allow(clippy::result_large_err)]
 fn to_query_from_language(language: &topiary_config::language::Language) -> CLIResult<QuerySource> {
     let query: QuerySource = match language.find_query_file() {
         Ok(p) => p.into(),
@@ -314,14 +318,13 @@ fn to_query_from_language(language: &topiary_config::language::Language) -> CLIR
             log::warn!(
                 "No query files found in any of the expected locations. Falling back to compile-time included files."
             );
-            to_query(&language.name).map_err(|_| e)?
+            to_query(&language.name).map_err(|_| e.preformat_context())?
         }
     };
     Ok(query)
 }
 
 impl<'cfg> Iterator for Inputs<'cfg> {
-    #[allow(clippy::result_large_err)]
     type Item = CLIResult<InputFile<'cfg>>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -346,28 +349,26 @@ pub enum OutputFile {
 }
 
 impl OutputFile {
-    #[allow(clippy::result_large_err)]
     pub fn new(path: &str) -> CLIResult<Self> {
         match path {
             "-" => Ok(Self::Stdout),
             file => Ok(Self::Disk {
-                staged: tempfile()?,
+                staged: tempfile().context_to()?,
                 output: file.into(),
             }),
         }
     }
 
     // This function must be called to persist the output to disk
-    #[allow(clippy::result_large_err)]
     pub fn persist(self) -> CLIResult<()> {
         if let Self::Disk { mut staged, output } = self {
             // Rewind to the beginning of the staged output
-            staged.flush()?;
-            staged.rewind()?;
+            staged.flush().context_to()?;
+            staged.rewind().context_to()?;
 
             // Open the actual output for writing and copy the staged contents
-            let mut writer = File::create(&output)?;
-            let bytes = io::copy(&mut staged, &mut writer)?;
+            let mut writer = File::create(&output).context_to()?;
+            let bytes = io::copy(&mut staged, &mut writer).context_to()?;
 
             log::debug!("Wrote {bytes} bytes to {}", &output.display());
         }
@@ -405,9 +406,8 @@ impl Write for OutputFile {
 // * stdin maps to stdout
 // * Files map to themselves (i.e., for in-place updates)
 impl TryFrom<&InputFile<'_>> for OutputFile {
-    type Error = TopiaryError;
+    type Error = Report<TopiaryError>;
 
-    #[allow(clippy::result_large_err)]
     fn try_from(input: &InputFile) -> CLIResult<Self> {
         match &input.source {
             InputSource::Stdin => Ok(Self::Stdout),
@@ -416,7 +416,6 @@ impl TryFrom<&InputFile<'_>> for OutputFile {
     }
 }
 
-#[allow(clippy::result_large_err)]
 fn to_query<T>(name: T) -> CLIResult<QuerySource>
 where
     T: AsRef<str> + fmt::Display,
@@ -461,10 +460,7 @@ where
         #[cfg(feature = "wit")]
         "wit" => Ok(topiary_queries::wit().into()),
 
-        name => Err(TopiaryError::Bin(
-            format!("The specified language is unsupported: {name}"),
-            Some(CLIError::UnsupportedLanguage(name.to_string())),
-        )),
+        name => Err(TopiaryError::UnsupportedLanguage(name.to_string()).into()),
     }
 }
 
@@ -486,7 +482,8 @@ pub(crate) async fn format_config(
             skip_idempotence: true,
             tolerate_parsing_errors: false,
         },
-    )?;
+    )
+    .context_to()?;
 
     Ok(())
 }
@@ -506,8 +503,8 @@ where
                 let location = input.source().location();
                 let language = cache.fetch(&input).await?;
                 process_fn(input, language).map_err(|e| {
-                    if let TopiaryError::Lib(report) = e {
-                        return report.attach_filepath(location.to_path()).into();
+                    if let Some(filepath) = location.to_path() {
+                        return e.attach_filepath(filepath);
                     }
                     e
                 })
@@ -517,21 +514,18 @@ where
 
     if results.len() == 1 {
         // If we just had one input, then handle errors as normal
-        return results.swap_remove(0)?;
+        return results.swap_remove(0).context_to()?;
     }
 
     // use `.count()` here to ensure eager evaluation of iterator
-    let errs = results
+    let errs: ReportCollection = results
         .into_iter()
-        .filter_map(|r| r.map_err(TopiaryError::from).flatten().err())
-        .inspect(|e| print_error(&e))
-        .count();
-    if errs > 0 {
+        .filter_map(|r| r.map_err(|e| report!(e).context_to()).flatten().err())
+        .collect();
+
+    if !errs.is_empty() {
         // For multiple inputs, bail out if any failed with a "multiple errors" failure
-        return Err(TopiaryError::Bin(
-            "Processing of some inputs failed; see warning logs for details".into(),
-            Some(CLIError::Multiple),
-        ));
+        return Err(errs.context(TopiaryError::Multiple));
     }
     Ok(())
 }
