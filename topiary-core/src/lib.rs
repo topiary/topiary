@@ -168,6 +168,19 @@ pub enum ScopeCondition {
 pub type FormatterResult<T, E = FormatterError> = Result<T, rootcause::Report<E>>;
 
 /// Resolves an injected language name to a Topiary language definition.
+///
+/// The input is the language name declared by an injection query's
+/// `#injection_language!` predicate.
+///
+/// Return `Ok(Some(language))` when the language is available. Return
+/// `Ok(None)` when the resolver ran successfully but does not know that
+/// language. Return `Err` when resolution failed, for example because a query
+/// file, configuration entry, or grammar could not be loaded.
+///
+/// If a formatting operation encounters a matched injection, both `Ok(None)`
+/// and `Err` are hard failures. Callers may pass no resolver only when
+/// formatting languages without injection queries, or when using non-formatting
+/// operations such as visualisation.
 pub type LanguageResolver<'a> = dyn Fn(&str) -> FormatterResult<Option<Arc<Language>>> + 'a;
 
 /// Operations that can be performed by the formatter.
@@ -195,6 +208,15 @@ pub enum Operation {
 /// # Errors
 ///
 /// If formatting fails for any reason, a `FormatterError` will be returned.
+///
+/// # Language injections
+///
+/// When formatting a language with an injection query, `resolve` must provide
+/// definitions for every injected language that can be matched in the input.
+/// Matched injections are all-or-nothing: if an injected language cannot be
+/// resolved or its captured span cannot be formatted, this function returns an
+/// error. Pass `None` only for languages without injection queries, or for
+/// operations that do not format.
 ///
 /// # Examples
 ///
@@ -253,6 +275,10 @@ pub fn formatter(
 /// # Errors
 ///
 /// If formatting fails for any reason, a `FormatterError` will be returned.
+///
+/// # Language injections
+///
+/// See [`formatter`] for the `resolve` argument's semantics.
 pub fn formatter_str(
     input: &str,
     output: &mut impl io::Write,
@@ -280,6 +306,10 @@ pub fn formatter_str(
 /// # Errors
 ///
 /// If formatting fails for any reason, a `FormatterError` will be returned.
+///
+/// # Language injections
+///
+/// See [`formatter`] for the `resolve` argument's semantics.
 pub fn formatter_tree(
     tree: topiary_tree_sitter_facade::Tree,
     input_content: &str,
