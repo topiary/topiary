@@ -22,7 +22,7 @@ use topiary_core::{
 
 use crate::{
     cli::Commands,
-    error::{CLIResult, print_error},
+    error::{CLIResult, TopiaryError, print_error},
     io::{Inputs, OutputFile, process_inputs, read_input},
     language::LanguageDefinitionCache,
 };
@@ -34,14 +34,20 @@ fn resolve_injected_language(
     config: &Configuration,
     name: &str,
 ) -> FormatterResult<Option<Arc<Language>>> {
-    cache
-        .fetch_from_config(config, name)
-        .map(Some)
-        .map_err(|_| {
-            rootcause::report!(FormatterError::InjectionLanguageResolution {
+    match cache.fetch_from_config(config, name) {
+        Ok(language) => Ok(Some(language)),
+        Err(TopiaryError::Lib(report)) => {
+            Err(report.context(FormatterError::InjectionLanguageResolution {
                 language: name.to_owned(),
-            })
-        })
+            }))
+        }
+        Err(err) => Err(rootcause::report!(
+            FormatterError::InjectionLanguageResolution {
+                language: name.to_owned(),
+            }
+        )
+        .attach(err.to_string())),
+    }
 }
 
 #[tokio::main]

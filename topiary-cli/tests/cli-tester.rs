@@ -322,7 +322,7 @@ fn test_fmt_ocamllex_invalid_inner_ocaml_fails() {
 #[test]
 #[cfg(all(feature = "ocamllex", feature = "ocaml"))]
 fn test_fmt_ocamllex_broken_inner_language_resolution_fails() {
-    use predicates::str::contains;
+    use predicates::{prelude::PredicateBooleanExt, str::contains};
 
     let tmp_dir = TempDir::new().unwrap();
     let ocaml_dir = tmp_dir.path().join("ocaml");
@@ -343,7 +343,12 @@ fn test_fmt_ocamllex_broken_inner_language_resolution_fails() {
         .write_stdin(r#"rule token = parse | "x" { let values=[1;2;3] in values }"#)
         .assert()
         .failure()
-        .stderr(contains(r#"Could not resolve injected language "ocaml""#));
+        .stderr(
+            contains(r#"Could not resolve injected language "ocaml""#)
+                .and(contains("Query error"))
+                .and(contains("ocaml/formatting.scm"))
+                .and(contains("this is not a tree-sitter query")),
+        );
 }
 
 #[test]
