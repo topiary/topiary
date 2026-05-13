@@ -14,7 +14,7 @@ use std::{
 use error::Benign;
 use tabled::{Table, settings::Style};
 use topiary_config::source::Source;
-use topiary_core::{Operation, check_query_coverage, formatter};
+use topiary_core::{Operation, SpanAttachment, check_query_coverage, formatter};
 
 use crate::{
     cli::Commands,
@@ -156,7 +156,7 @@ async fn run() -> CLIResult<()> {
                     output_format: format.into(),
                 },
             )
-            .map_err(|e| e.with_location(format!("{}", buf_input.get_ref().source())))?;
+            .attach_filepath(buf_input.get_ref().filepath())?;
         }
 
         Commands::Config {
@@ -224,7 +224,8 @@ async fn run() -> CLIResult<()> {
 
             let coverage_data =
                 check_query_coverage(&input_content, &language.query, &language.grammar)
-                    .map_err(|e| e.with_location(buf_input.get_ref().source().to_string()))?;
+                    .attach_source(input_content.as_str())
+                    .attach_filepath(buf_input.get_ref().filepath())?;
             let coverage_res = coverage_data.get_result();
 
             let query_source = NamedSource::new(

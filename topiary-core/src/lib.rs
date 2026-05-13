@@ -13,10 +13,11 @@
 use std::io;
 
 use pretty_assertions::StrComparison;
+use rootcause::{prelude::ResultExt, report};
 use tree_sitter::Position;
 
 pub use crate::{
-    error::{FormatterError, IoError},
+    error::{ErrorSpan, FormatterError, SpanAttachment},
     language::Language,
     tree_sitter::{
         CoverageData, SyntaxNode, TopiaryQuery, Visualisation, apply_query, check_query_coverage,
@@ -164,7 +165,7 @@ pub enum ScopeCondition {
 }
 
 /// A convenience wrapper around `std::result::Result<T, FormatterError>`.
-pub type FormatterResult<T> = std::result::Result<T, FormatterError>;
+pub type FormatterResult<T, E = FormatterError> = Result<T, rootcause::Report<E>>;
 
 /// Operations that can be performed by the formatter.
 #[derive(Clone, Copy, Debug)]
@@ -220,10 +221,10 @@ pub enum Operation {
 ///   Ok(()) => {
 ///     let formatted = String::from_utf8(output).expect("valid utf-8");
 ///   }
-///   Err(FormatterError::Query(message, _)) => {
-///     panic!("Error in query file: {message}");
-///   }
-///   Err(_) => {
+///   Err(r) => {
+///     if let FormatterError::Query(message) = r.current_context() {
+///         panic!("Error in query file: {message}");
+///     }
 ///     panic!("An error occurred");
 ///   }
 /// }
@@ -235,12 +236,9 @@ pub fn formatter(
     language: &Language,
     operation: Operation,
 ) -> FormatterResult<()> {
-    let content = read_input(input).map_err(|e| {
-        FormatterError::Io(IoError::Filesystem(
-            "Failed to read input contents".into(),
-            e,
-        ))
-    })?;
+    let content = read_input(input)
+        .context_to()
+        .attach("Failed to read input contents")?;
 
     formatter_str(&content, output, language, operation)
 }
@@ -311,15 +309,15 @@ pub fn formatter_tree(
                 idempotence_check(&rendered, language, tolerate_parsing_errors)?;
             }
 
-            write!(output, "{rendered}")?;
+            write!(output, "{rendered}").context_to()?;
         }
 
         Operation::Visualise { output_format } => {
             let root: SyntaxNode = tree.root_node().into();
 
             match output_format {
-                Visualisation::GraphViz => graphviz::write(output, &root)?,
-                Visualisation::Json => serde_json::to_writer(output, &root)?,
+                Visualisation::GraphViz => graphviz::write(output, &root).context_to()?,
+                Visualisation::Json => serde_json::to_writer(output, &root).context_to()?,
             };
         }
     };
@@ -362,18 +360,22 @@ fn idempotence_check(
         },
     ) {
         Ok(()) => {
-            let reformatted = String::from_utf8(output.into_inner()?)?;
+            let reformatted = output
+                .into_inner()
+                .context_to()
+                .map(String::from_utf8)?
+                .context_to()?;
 
             if content == reformatted {
                 Ok(())
             } else {
                 log::error!("Failed idempotence check");
                 log::error!("{}", StrComparison::new(content, &reformatted));
-                Err(FormatterError::Idempotence)
+                Err(report!(FormatterError::Idempotence))
             }
         }
-        Err(error @ FormatterError::Parsing { .. }) => {
-            Err(FormatterError::IdempotenceParsing(Box::new(error)))
+        Err(report) if matches!(report.current_context(), FormatterError::Parsing) => {
+            Err(report.context(FormatterError::IdempotenceParsing))
         }
         Err(error) => Err(error),
     }
@@ -386,8 +388,7 @@ mod tests {
     use test_log::test;
 
     use crate::{
-        Language, Operation, TopiaryQuery, error::FormatterError, formatter,
-        test_utils::pretty_assert_eq,
+        Language, Operation, SpanAttachment, TopiaryQuery, formatter, test_utils::pretty_assert_eq,
     };
 
     /// Attempt to parse invalid json, expecting a failure
@@ -404,7 +405,7 @@ mod tests {
             indent: None,
         };
 
-        match formatter(
+        let mut result = formatter(
             &mut input,
             &mut output,
             &language,
@@ -412,14 +413,18 @@ mod tests {
                 skip_idempotence: true,
                 tolerate_parsing_errors: false,
             },
-        ) {
-            // start end == 1
-            Err(FormatterError::Parsing(node))
-                if node.start_point().row() == 0 && node.end_point().row() == 0 => {}
-            result => {
-                panic!("Expected a parsing error on line 1, but got {result:?}");
-            }
+        );
+
+        if let Some(range) = result
+            .get_span()
+            .and_then(|s| s.range)
+            .inspect(|r| println!("{r:?}"))
+            && range.start_point().row() == 0
+            && range.end_point().row() == 0
+        {
+            return;
         }
+        panic!("Expected a parsing error on line 1, but got {result:?}");
     }
 
     #[test(tokio::test)]

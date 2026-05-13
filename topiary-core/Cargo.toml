@@ -24,6 +24,8 @@ tokio = { workspace = true, features = ["macros", "rt"] }
 topiary-tree-sitter-facade = { workspace = true }
 tree-sitter = { workspace = true }
 rayon = { workspace = true }
+thiserror = { workspace = true }
+rootcause = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 topiary-web-tree-sitter-sys.workspace = true

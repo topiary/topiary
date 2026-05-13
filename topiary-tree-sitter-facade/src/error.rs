@@ -1,5 +1,8 @@
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
+
+    use crate::{Point, Range};
+
     #[derive(Eq, PartialEq)]
     pub struct IncludedRangesError {
         pub(crate) inner: tree_sitter::IncludedRangesError,
@@ -33,6 +36,7 @@ mod native {
     #[derive(Eq, PartialEq)]
     pub struct QueryError {
         pub(crate) inner: tree_sitter::QueryError,
+        pub range: Range,
     }
 
     impl std::fmt::Debug for QueryError {
@@ -43,16 +47,21 @@ mod native {
 
     impl std::fmt::Display for QueryError {
         fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(fmt, "{:?}", self.inner)
+            write!(fmt, "{}", self.inner)
         }
     }
 
     impl std::error::Error for QueryError {}
 
-    impl From<tree_sitter::QueryError> for QueryError {
+    impl QueryError {
         #[inline]
-        fn from(inner: tree_sitter::QueryError) -> Self {
-            Self { inner }
+        pub(crate) fn new(source: &str, inner: tree_sitter::QueryError) -> Self {
+            let start_point = Point::new(inner.row as u32, inner.column as u32);
+            // [tree_sitter::QueryError] only provides the linewise start of
+            // the problematic query and thus we need the original source to find
+            // where the line ends
+            let range = Range::new_linewise(source, inner.offset as u32, &start_point);
+            Self { inner, range }
         }
     }
 

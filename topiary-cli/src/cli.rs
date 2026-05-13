@@ -256,22 +256,20 @@ pub fn get_args() -> CLIResult<Cli> {
             files.dedup();
         }
 
+        // Make sure our FILE is not a directory
         Commands::Visualise {
             input: ExactlyOneInput {
                 file: Some(file), ..
             },
             ..
-        } => {
-            // Make sure our FILE is not a directory
-            if file.is_dir() {
-                return Err(TopiaryError::Bin(
-                    format!(
-                        "Cannot visualise directory \"{}\"; please provide a single file from disk or stdin.",
-                        file.display()
-                    ),
-                    None,
-                ));
-            }
+        } if file.is_dir() => {
+            return Err(TopiaryError::Bin(
+                format!(
+                    "Cannot visualise directory \"{}\"; please provide a single file from disk or stdin.",
+                    file.display()
+                ),
+                None,
+            ));
         }
 
         // Attempt to detect shell from environment, when omitted
