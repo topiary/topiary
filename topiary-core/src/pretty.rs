@@ -2,7 +2,7 @@
 //! module is responsible for rendering the slice of Atoms back into a displayable
 //! format.
 
-use std::fmt::Write;
+use std::{cmp::Ordering, fmt::Write};
 
 use rootcause::prelude::ResultExt;
 
@@ -159,47 +159,89 @@ fn try_removing_spaces_after_newlines(s: &str, n: i32) -> String {
 }
 
 #[test]
-fn test0() {
-    let a: Vec<Vec<u8>> = ["   a", "  b", "    c"]
-        .into_iter()
-        .map(|s| s.as_bytes().to_owned())
-        .collect::<Vec<_>>();
-    assert_eq!(common_prefix_len_all(&a), Some(2));
-    let b: Vec<&[u8]> = ["   a", "  b", "    c"]
-        .into_iter()
-        .map(|s| s.as_bytes())
-        .collect::<Vec<_>>();
-    // assert_eq!(common_prefix_len_all(&b), Some(2));
-    // `&&[u8]` is not an iterator
-    // the trait `Iterator` is not implemented for `&&[u8]`
-    // the following other types implement trait `IntoIterator`:
-    //   &[T; N]
-    //   &[T]
-    //   &mut [T; N]
-    //   &mut [T]
-    //   [T; N]
-    // required for `&&[u8]` to implement `IntoIterator`
-    // required by a bound in `common_prefix_len_all`
+fn test0() -> Result<(), ()> {
+    // let content = "";
+    // let content = " \n a";
+    let content = "\t\n   a\n   b\n     c\n ";
+    let whitespace_prefixes = content
+        .split("\n")
+        .map(|s| s.strip_suffix("\r").unwrap_or(s)) // to do. remove this?
+        .map(str::chars)
+        .map(|s| s.take_while(|c| c.is_whitespace()));
+    let common_whitespace_prefix_len =
+        common_prefix_len_all(whitespace_prefixes.clone()).ok_or(())?;
+    let minimum_whitespace_prefix_len = whitespace_prefixes.map(Iterator::count).min().ok_or(())?;
+    match common_whitespace_prefix_len.cmp(&minimum_whitespace_prefix_len) {
+        Ordering::Less => println!("warning"), // to do
+        Ordering::Equal => (),
+        Ordering::Greater => panic!(
+            "the common whitespace prefix should be a substring of the shortest whitespace prefix."
+        ),
+    }
+    Ok(())
 }
 
-fn common_prefix_len_all<'a, TSS, TS, T>(a: &'a TSS) -> Option<usize>
+#[test]
+fn test_common_prefix_len_all() {
+    assert_eq!(
+        common_prefix_len_all(["012a", "01b", "0123c"].into_iter().map(str::bytes)),
+        Some(2)
+    );
+}
+
+#[test]
+fn test_common_whitespace_prefix_len_all0() {
+    assert_eq!(
+        common_whitespace_prefix_len_all(["012a", "01b", "0123c"]),
+        Some(0)
+    );
+}
+
+#[test]
+fn test_common_whitespace_prefix_len_all1() {
+    assert_eq!(
+        common_whitespace_prefix_len_all(["   a", "  b", "    c"]),
+        Some(2)
+    );
+}
+
+fn common_whitespace_prefix_len_all<'a, SS>(list_of_strings: SS) -> Option<usize>
 where
-    &'a TSS: IntoIterator<Item = TS>,
-    TS: IntoIterator<Item = T>,
-    T: PartialEq,
+    SS: IntoIterator<Item = &'a str>,
+    SS::IntoIter: Clone,
 {
-    a.into_iter()
-        .zip(a.into_iter().skip(1))
-        .map(|(a, b)| common_prefix_len(a, b))
+    common_prefix_len_all(
+        list_of_strings
+            .into_iter()
+            .map(str::chars)
+            .map(|s| s.take_while(|c| c.is_whitespace())),
+    )
+}
+
+// to do. if deemed appropriate, optimize `.map(Iterator::count).min()`
+// by exiting the counting early as soon as it surpasses the current minimimum.
+fn common_prefix_len_all<TSS>(list_of_lists: TSS) -> Option<usize>
+where
+    TSS: IntoIterator,
+    TSS::IntoIter: Clone,
+    TSS::Item: IntoIterator,
+    <TSS::Item as IntoIterator>::Item: PartialEq,
+{
+    let iter = list_of_lists.into_iter();
+    iter.clone()
+        .zip(iter.skip(1))
+        .map(|(a, b)| common_prefix(a, b))
+        .map(Iterator::count)
         .min()
 }
 
-fn common_prefix_len<T: PartialEq>(
-    a: impl IntoIterator<Item = T>,
-    b: impl IntoIterator<Item = T>,
-) -> usize {
-    a.into_iter()
-        .zip(b.into_iter())
-        .take_while(|(a, b)| a == b)
-        .count()
+fn common_prefix<T: PartialEq>(
+    list0: impl IntoIterator<Item = T>,
+    list1: impl IntoIterator<Item = T>,
+) -> impl Iterator<Item = T> {
+    list0
+        .into_iter()
+        .zip(list1.into_iter())
+        .take_while(|(element0, element1)| element0 == element1)
+        .map(|(a, _)| a)
 }
