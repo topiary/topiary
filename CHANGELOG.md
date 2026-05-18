@@ -59,6 +59,7 @@ This name should be decided amongst the team before the release.
 - [#1200](https://github.com/topiary/topiary/pull/1200) Build and deploy Topiary Docker images to ghcr.io.
 - [#1217](https://github.com/topiary/topiary/pull/1217) Add `--check` flag to `topiary fmt` for CI formatting verification.
 - [#1227](https://github.com/topiary/topiary/pull/1227) Add `@append_empty_input_softline` and `@prepend_empty_input_softline` captures, thanks to @BirdeeHub
+- [#1244](https://github.com/topiary/topiary/pull/1244) Add language injection support for injection languages known at query writing.
 
 ### Removed
 - [#1217](https://github.com/topiary/topiary/pull/1217) The `check` alias for the `check-grammar` subcommand, to avoid confusion with `topiary fmt --check`.
