@@ -222,7 +222,7 @@ pub fn collect_injections(
                     start_byte: node.start_byte() as usize,
                     end_byte: node.end_byte() as usize,
                     language: language_name.clone(),
-                    node_id: node.id() as usize,
+                    node_id: node.id(),
                 });
             }
         }
