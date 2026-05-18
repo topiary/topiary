@@ -346,7 +346,10 @@ fn test_fmt_ocamllex_broken_inner_language_resolution_fails() {
         .stderr(
             contains(r#"Could not resolve injected language "ocaml""#)
                 .and(contains("Query error"))
-                .and(contains("ocaml/formatting.scm"))
+                .and(contains(format!(
+                    "ocaml{}formatting.scm",
+                    std::path::MAIN_SEPARATOR
+                )))
                 .and(contains("this is not a tree-sitter query")),
         );
 }
