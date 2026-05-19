@@ -168,10 +168,11 @@ fn test0() -> Result<(), ()> {
         .map(|s| s.strip_suffix("\r").unwrap_or(s)) // to do. remove this?
         .map(str::chars)
         .map(|s| s.take_while(|c| c.is_whitespace()));
-    let common_whitespace_prefix_len =
-        common_prefix_len_all(whitespace_prefixes.clone()).ok_or(())?;
+    let common_whitespace_prefix = common_prefix_all(whitespace_prefixes.clone()).ok_or(())?;
+    let common_whitespace_prefix_len_chars = common_whitespace_prefix.count();
+    // let common_whitespace_prefix_len_utf8: usize = common_whitespace_prefix.map(char::len_utf8).sum();
     let minimum_whitespace_prefix_len = whitespace_prefixes.map(Iterator::count).min().ok_or(())?;
-    match common_whitespace_prefix_len.cmp(&minimum_whitespace_prefix_len) {
+    match common_whitespace_prefix_len_chars.cmp(&minimum_whitespace_prefix_len) {
         Ordering::Less => println!("warning"), // to do
         Ordering::Equal => (),
         Ordering::Greater => panic!(
@@ -182,17 +183,20 @@ fn test0() -> Result<(), ()> {
 }
 
 #[test]
-fn test_common_prefix_len_all() {
+fn test_common_prefix_len_all() -> Result<(), ()> {
     assert_eq!(
-        common_prefix_len_all(["012a", "01b", "0123c"].into_iter().map(str::bytes)),
-        Some(2)
+        common_prefix_all(["012a", "01b", "0123c"].into_iter().map(str::chars))
+            .ok_or(())?
+            .collect::<Vec<_>>(),
+        vec!['0', '1']
     );
+    Ok(())
 }
 
 #[test]
 fn test_common_whitespace_prefix_len_all0() {
     assert_eq!(
-        common_whitespace_prefix_len_all(["012a", "01b", "0123c"]),
+        common_whitespace_prefix_len(["012a", "01b", "0123c"]),
         Some(0)
     );
 }
@@ -200,39 +204,50 @@ fn test_common_whitespace_prefix_len_all0() {
 #[test]
 fn test_common_whitespace_prefix_len_all1() {
     assert_eq!(
-        common_whitespace_prefix_len_all(["   a", "  b", "    c"]),
+        common_whitespace_prefix_len(["   a", "  b", "    c"]),
         Some(2)
     );
 }
 
-fn common_whitespace_prefix_len_all<'a, SS>(list_of_strings: SS) -> Option<usize>
+fn common_whitespace_prefix_len<'a, SS>(list_of_strings: SS) -> Option<usize>
 where
     SS: IntoIterator<Item = &'a str>,
     SS::IntoIter: Clone,
 {
-    common_prefix_len_all(
-        list_of_strings
-            .into_iter()
-            .map(str::chars)
-            .map(|s| s.take_while(|c| c.is_whitespace())),
+    Some(
+        common_prefix_all(
+            list_of_strings
+                .into_iter()
+                .map(str::chars)
+                .map(|s| s.take_while(|c| c.is_whitespace())),
+        )?
+        .map(char::len_utf8)
+        .sum(),
     )
 }
 
-// to do. if deemed appropriate, optimize `.map(Iterator::count).min()`
-// by exiting the counting early as soon as it surpasses the current minimimum.
-fn common_prefix_len_all<TSS>(list_of_lists: TSS) -> Option<usize>
+fn common_prefix_all<'a, TSS>(
+    list_of_lists: TSS,
+) -> Option<impl Iterator<Item = <TSS::Item as IntoIterator>::Item>>
 where
-    TSS: IntoIterator,
-    TSS::IntoIter: Clone,
+    TSS: IntoIterator + 'a,
     TSS::Item: IntoIterator,
     <TSS::Item as IntoIterator>::Item: PartialEq,
 {
-    let iter = list_of_lists.into_iter();
-    iter.clone()
-        .zip(iter.skip(1))
-        .map(|(a, b)| common_prefix(a, b))
-        .map(Iterator::count)
-        .min()
+    list_of_lists.into_iter().fold(None, |accumulator, list| {
+        Some(match accumulator {
+            None => Box::new(list.into_iter()) as Box<dyn Iterator<Item = _>>,
+            Some(a) => Box::new(common_prefix(a, list)),
+        })
+    })
+}
+
+trait CloneableIterator: Iterator + Clone {
+    type Item;
+}
+
+impl<T: Iterator + Clone> CloneableIterator for T {
+    type Item = <T as Iterator>::Item;
 }
 
 fn common_prefix<T: PartialEq>(
