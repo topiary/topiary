@@ -35,10 +35,15 @@ criterion = { workspace = true, features = ["async_futures"] }
 env_logger = { workspace = true }
 test-log = { workspace = true }
 tokio-test = { workspace = true }
-topiary-queries.workspace = true
+topiary-config = { workspace = true, features = ["ocaml", "ocamllex"] }
+topiary-queries = { workspace = true, features = ["json", "ocaml", "ocamllex"] }
 tree-sitter-json.workspace = true
 tree-sitter-nickel.workspace = true
 
 [[bench]]
 name = "benchmark"
+harness = false
+
+[[bench]]
+name = "injections"
 harness = false

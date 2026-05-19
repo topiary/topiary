@@ -1,7 +1,7 @@
 //! This module defines all errors that might be propagated out of the library,
 //! including all of the trait implementations one might expect for Errors.
 
-use std::{error::Error, fmt, io, str};
+use std::{error::Error, fmt, io};
 
 use rootcause::{Report, ReportConversion, markers};
 
@@ -24,6 +24,11 @@ pub enum FormatterError {
 
     /// An internal error occurred. This is a bug. Please log an issue.
     Internal(String),
+
+    /// An injected language could not be resolved.
+    InjectionLanguageResolution {
+        language: String,
+    },
 
     // Tree-sitter could not parse the input without errors.
     Parsing,
@@ -72,6 +77,10 @@ impl fmt::Display for FormatterError {
             }
             Self::Internal(message) | Self::Query(message) => {
                 write!(f, "{message}")
+            }
+
+            Self::InjectionLanguageResolution { language, .. } => {
+                write!(f, "Could not resolve injected language \"{language}\"")
             }
         }
     }

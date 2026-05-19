@@ -9,20 +9,46 @@ mod visualisation;
 use std::{
     io::{BufReader, BufWriter, Write},
     process::ExitCode,
+    sync::Arc,
 };
 
 use error::Benign;
 use tabled::{Table, settings::Style};
-use topiary_config::source::Source;
-use topiary_core::{Operation, SpanAttachment, check_query_coverage, formatter};
+use topiary_config::{Configuration, source::Source};
+use topiary_core::{
+    FormatterError, FormatterResult, Language, Operation, SpanAttachment, check_query_coverage,
+    formatter,
+};
 
 use crate::{
     cli::Commands,
-    error::{CLIResult, print_error},
+    error::{CLIResult, TopiaryError, print_error},
     io::{Inputs, OutputFile, process_inputs, read_input},
+    language::LanguageDefinitionCache,
 };
 
 use miette::{NamedSource, Report};
+
+fn resolve_injected_language(
+    cache: &LanguageDefinitionCache,
+    config: &Configuration,
+    name: &str,
+) -> FormatterResult<Option<Arc<Language>>> {
+    match cache.fetch_from_config(config, name) {
+        Ok(language) => Ok(Some(language)),
+        Err(TopiaryError::Lib(report)) => {
+            Err(report.context(FormatterError::InjectionLanguageResolution {
+                language: name.to_owned(),
+            }))
+        }
+        Err(err) => Err(
+            rootcause::report!(FormatterError::InjectionLanguageResolution {
+                language: name.to_owned(),
+            })
+            .attach(err.to_string()),
+        ),
+    }
+}
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -52,16 +78,28 @@ async fn run() -> CLIResult<()> {
             inputs,
         } => {
             let inputs = Inputs::new(&config, &inputs);
-            process_inputs(inputs, move |input, language| {
-                log::info!(
-                    "Checking {}, as {} using {}",
-                    input.source(),
-                    input.language().name,
-                    input.query(),
-                );
+            let cache = Arc::new(LanguageDefinitionCache::new());
+            let config = config.clone();
+            process_inputs(
+                inputs,
+                move |input, language, cache| {
+                    log::info!(
+                        "Checking {}, as {} using {}",
+                        input.source(),
+                        input.language().name,
+                        input.formatting_query(),
+                    );
 
-                check::check_input(input, &language, skip_idempotence, tolerate_parsing_errors)
-            })
+                    check::check_input(
+                        input,
+                        &language,
+                        skip_idempotence,
+                        tolerate_parsing_errors,
+                        Some(&|name| resolve_injected_language(&cache, &config, name)),
+                    )
+                },
+                cache,
+            )
             .await?;
         }
         Commands::Format {
@@ -71,61 +109,72 @@ async fn run() -> CLIResult<()> {
             ..
         } => {
             let inputs = Inputs::new(&config, &inputs);
+            let cache = Arc::new(LanguageDefinitionCache::new());
+            let config = config.clone();
 
-            process_inputs(inputs, move |input, language| {
-                let output = OutputFile::try_from(&input)?;
+            process_inputs(
+                inputs,
+                move |input, language, cache| {
+                    let output = OutputFile::try_from(&input)?;
 
-                log::info!(
-                    "Formatting {}, as {} using {}, to {}",
-                    input.source(),
-                    input.language().name,
-                    input.query(),
-                    output
-                );
+                    log::info!(
+                        "Formatting {}, as {} using {}, to {}",
+                        input.source(),
+                        input.language().name,
+                        input.formatting_query(),
+                        output
+                    );
 
-                let mut buf_output = BufWriter::new(output);
+                    let mut buf_output = BufWriter::new(output);
 
-                {
-                    // NOTE This newly opened scope is important! `buf_input` takes
-                    // ownership of `input`, which -- upon reading -- contains an
-                    // open file handle. We need to close this file, by dropping
-                    // `buf_input`, before we attempt to persist our output.
-                    // Otherwise, we get an exclusive lock problem on Windows.
-                    let mut buf_input = BufReader::new(input);
+                    {
+                        // NOTE This newly opened scope is important! `buf_input` takes
+                        // ownership of `input`, which -- upon reading -- contains an
+                        // open file handle. We need to close this file, by dropping
+                        // `buf_input`, before we attempt to persist our output.
+                        // Otherwise, we get an exclusive lock problem on Windows.
+                        let mut buf_input = BufReader::new(input);
 
-                    formatter(
-                        &mut buf_input,
-                        &mut buf_output,
-                        &language,
-                        Operation::Format {
-                            skip_idempotence,
-                            tolerate_parsing_errors,
-                        },
-                    )?;
-                }
+                        formatter(
+                            &mut buf_input,
+                            &mut buf_output,
+                            &language,
+                            Operation::Format {
+                                skip_idempotence,
+                                tolerate_parsing_errors,
+                            },
+                            Some(&|name| resolve_injected_language(&cache, &config, name)),
+                        )?;
+                    }
 
-                buf_output.into_inner()?.persist()?;
+                    buf_output.into_inner()?.persist()?;
 
-                CLIResult::Ok(())
-            })
+                    CLIResult::Ok(())
+                },
+                cache,
+            )
             .await?;
         }
 
         Commands::CheckGrammar { inputs } => {
             let inputs = Inputs::new(&config, &inputs);
 
-            process_inputs(inputs, |mut input, language| {
-                let input_content = read_input(&mut input)?;
-                log::debug!(
-                    "Checking {}, as {} for grammar correctness",
-                    input.source(),
-                    input.language().name,
-                );
+            process_inputs(
+                inputs,
+                |mut input, language, _cache| {
+                    let input_content = read_input(&mut input)?;
+                    log::debug!(
+                        "Checking {}, as {} for grammar correctness",
+                        input.source(),
+                        input.language().name,
+                    );
 
-                topiary_core::parse(&input_content, &language.grammar, false)?;
+                    topiary_core::parse(&input_content, &language.grammar, false)?;
 
-                Ok(())
-            })
+                    Ok(())
+                },
+                Arc::new(LanguageDefinitionCache::new()),
+            )
             .await?;
         }
 
@@ -134,9 +183,8 @@ async fn run() -> CLIResult<()> {
             let input = Inputs::new(&config, &input).next().unwrap()?;
             let output = OutputFile::Stdout;
 
-            // We don't need a `LanguageDefinitionCache` when there's only one input,
-            // which saves us the thread-safety overhead
-            let language = input.to_language().await?;
+            let cache = LanguageDefinitionCache::new();
+            let language = tokio::task::block_in_place(|| cache.fetch_input(&input))?;
 
             log::info!(
                 "Visualising {}, as {}, to {}",
@@ -155,6 +203,7 @@ async fn run() -> CLIResult<()> {
                 Operation::Visualise {
                     output_format: format.into(),
                 },
+                None,
             )
             .attach_filepath(buf_input.get_ref().filepath())?;
         }
@@ -207,9 +256,8 @@ async fn run() -> CLIResult<()> {
             let input = Inputs::new(&config, &input).next().unwrap()?;
             let output = OutputFile::Stdout;
 
-            // We don't need a `LanguageDefinitionCache` when there's only one input,
-            // which saves us the thread-safety overhead
-            let language = input.to_language().await?;
+            let cache = LanguageDefinitionCache::new();
+            let language = tokio::task::block_in_place(|| cache.fetch_input(&input))?;
 
             log::info!(
                 "Checking query coverage of {}, as {}",
@@ -222,15 +270,18 @@ async fn run() -> CLIResult<()> {
 
             let input_content = read_input(&mut buf_input)?;
 
-            let coverage_data =
-                check_query_coverage(&input_content, &language.query, &language.grammar)
-                    .attach_source(input_content.as_str())
-                    .attach_filepath(buf_input.get_ref().filepath())?;
+            let coverage_data = check_query_coverage(
+                &input_content,
+                &language.formatting_query,
+                &language.grammar,
+            )
+            .attach_source(input_content.as_str())
+            .attach_filepath(buf_input.get_ref().filepath())?;
             let coverage_res = coverage_data.get_result();
 
             let query_source = NamedSource::new(
-                buf_input.get_ref().query.to_string(),
-                language.query.query_content,
+                buf_input.get_ref().formatting_query.to_string(),
+                language.formatting_query.query_content.clone(),
             )
             .with_language(&language.name);
             write!(
