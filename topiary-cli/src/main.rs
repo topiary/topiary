@@ -203,7 +203,7 @@ async fn run() -> CLIResult<()> {
                 Operation::Visualise {
                     output_format: format.into(),
                 },
-                None, // TODO(Erin): Language Injection
+                None,
             )
             .attach_filepath(buf_input.get_ref().filepath())?;
         }
