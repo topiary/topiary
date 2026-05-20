@@ -45,6 +45,7 @@ parallel = [ "dep:rayon" ]
 bash = []
 css = []
 json = []
+json5 = []
 nickel = []
 ocaml = []
 ocaml_interface = []
@@ -62,6 +63,7 @@ all = [
   "bash",
   "css",
   "json",
+  "json5",
   "nickel",
   "ocaml",
   "ocaml_interface",
