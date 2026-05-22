@@ -159,41 +159,6 @@ fn try_removing_spaces_after_newlines(s: &str, n: i32) -> String {
 }
 
 #[test]
-fn test0() -> Result<(), ()> {
-    // let content = "";
-    // let content = " \n a";
-    let content = "\t\n   a\n   b\n     c\n ";
-    let whitespace_prefixes = content
-        .split("\n")
-        .map(|s| s.strip_suffix("\r").unwrap_or(s)) // to do. remove this?
-        .map(str::chars)
-        .map(|s| s.take_while(|c| c.is_whitespace()));
-    let common_whitespace_prefix = common_prefix_all(whitespace_prefixes.clone()).ok_or(())?;
-    let common_whitespace_prefix_len_chars = common_whitespace_prefix.count();
-    // let common_whitespace_prefix_len_utf8: usize = common_whitespace_prefix.map(char::len_utf8).sum();
-    let minimum_whitespace_prefix_len = whitespace_prefixes.map(Iterator::count).min().ok_or(())?;
-    match common_whitespace_prefix_len_chars.cmp(&minimum_whitespace_prefix_len) {
-        Ordering::Less => println!("warning"), // to do
-        Ordering::Equal => (),
-        Ordering::Greater => panic!(
-            "the common whitespace prefix should be a substring of the shortest whitespace prefix."
-        ),
-    }
-    Ok(())
-}
-
-#[test]
-fn test_common_prefix_len_all() -> Result<(), ()> {
-    assert_eq!(
-        common_prefix_all(["012a", "01b", "0123c"].into_iter().map(str::chars))
-            .ok_or(())?
-            .collect::<Vec<_>>(),
-        vec!['0', '1']
-    );
-    Ok(())
-}
-
-#[test]
 fn test_common_whitespace_prefix_len_all0() {
     assert_eq!(
         common_whitespace_prefix_len(["012a", "01b", "0123c"]),
@@ -226,6 +191,74 @@ where
     )
 }
 
+#[test]
+fn test0() -> Result<(), ()> {
+    // let content = "";
+    // let content = " \n a";
+    let content = "\t\n   a\n   b\n     c\n "
+        .split("\n")
+        .map(|s| s.strip_suffix("\r").unwrap_or(s)); // to do. remove this?
+    let whitespace_prefixes = content
+        .clone()
+        .map(str::chars)
+        .map(|s| s.take_while(|c| c.is_whitespace()));
+    let common_whitespace_prefix = common_prefix1(whitespace_prefixes.clone()).ok_or(())?;
+    let minimum_whitespace_prefix_len = whitespace_prefixes.map(Iterator::count).min().ok_or(())?;
+    match common_whitespace_prefix.clone().count().cmp(&minimum_whitespace_prefix_len) {
+        Ordering::Less => println!("warning"), // to do
+        Ordering::Equal => (),
+        Ordering::Greater => panic!(
+            "the common whitespace prefix should be a substring of the shortest whitespace prefix."
+        ),
+    }
+    let common_whitespace_prefix_len_utf8: usize =
+        common_whitespace_prefix.map(char::len_utf8).sum();
+    let content = content.map(|line| &line[common_whitespace_prefix_len_utf8 ..]);
+    Ok(())
+}
+
+#[test]
+fn test_common_prefix1() {
+    assert_eq!(
+        common_prefix1(["012a", "01b", "0123c"].map(str::chars)).map(Iterator::collect::<String>),
+        Some("01".to_owned())
+    );
+}
+
+fn common_prefix1<TSS>(
+    list_of_lists: TSS,
+) -> Option<impl Iterator<Item = <TSS::Item as IntoIterator>::Item> + Clone>
+where
+    TSS: IntoIterator,
+    TSS::Item: IntoIterator,
+    <TSS::Item as IntoIterator>::IntoIter: Clone,
+    <TSS::Item as IntoIterator>::Item: PartialEq,
+{
+    let mut iters = list_of_lists
+        .into_iter()
+        .map(IntoIterator::into_iter)
+        .collect::<Vec<_>>();
+    if iters.is_empty() {
+        return None;
+    }
+    Some(std::iter::from_fn(move || {
+        let mut items = iters.iter_mut().map(Iterator::next);
+        let first = items.next().expect("`iters` should not be empty.")?;
+        items
+            .all(|item| item.as_ref() == Some(&first))
+            .then_some(first)
+    }))
+}
+
+#[test]
+fn test_common_prefix_all() {
+    assert_eq!(
+        common_prefix_all(["012a", "01b", "0123c"].map(str::chars))
+            .map(Iterator::collect::<String>),
+        Some("01".to_owned())
+    );
+}
+
 fn common_prefix_all<'a, TSS>(
     list_of_lists: TSS,
 ) -> Option<impl Iterator<Item = <TSS::Item as IntoIterator>::Item>>
@@ -240,14 +273,6 @@ where
             Some(a) => Box::new(common_prefix(a, list)),
         })
     })
-}
-
-trait CloneableIterator: Iterator + Clone {
-    type Item;
-}
-
-impl<T: Iterator + Clone> CloneableIterator for T {
-    type Item = <T as Iterator>::Item;
 }
 
 fn common_prefix<T: PartialEq>(
