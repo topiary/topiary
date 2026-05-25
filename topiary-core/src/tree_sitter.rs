@@ -178,15 +178,12 @@ pub struct InjectionSpan {
 /// Patterns missing an `#injection_language!` predicate are skipped (with a
 /// warning logged).
 ///
-/// # Errors
-///
-/// Returns an error only on internal tree-sitter failures; missing predicates
-/// or unmatched captures are logged, not raised.
+/// Missing predicates or unmatched captures are logged, not raised.
 pub fn collect_injections(
     tree: &Tree,
     input_content: &str,
     query: &InjectionQuery,
-) -> FormatterResult<Vec<InjectionSpan>> {
+) -> Vec<InjectionSpan> {
     let root = tree.root_node();
     let source = input_content.as_bytes();
     let capture_names = query.query.capture_names();
@@ -215,20 +212,21 @@ pub fn collect_injections(
             continue;
         };
 
-        for capture in query_match.captures() {
-            if capture.name(capture_names.as_slice()) == "injection.content" {
-                let node = capture.node();
-                spans.push(InjectionSpan {
-                    start_byte: node.start_byte() as usize,
-                    end_byte: node.end_byte() as usize,
-                    language: language_name.clone(),
-                    node_id: node.id(),
-                });
-            }
+        for capture in query_match
+            .captures()
+            .filter(|c| c.name(capture_names.as_slice()) == "injection.content")
+        {
+            let node = capture.node();
+            spans.push(InjectionSpan {
+                start_byte: node.start_byte() as usize,
+                end_byte: node.end_byte() as usize,
+                language: language_name.clone(),
+                node_id: node.id(),
+            });
         }
     }
 
-    Ok(spans)
+    spans
 }
 
 impl From<Point> for Position {

@@ -325,7 +325,7 @@ pub fn formatter_tree(
         } => {
             log::debug!("Discovering potentially injected languages");
             let spans = match &language.injection_query {
-                Some(injection_query) => collect_injections(&tree, input_content, injection_query)?,
+                Some(injection_query) => collect_injections(&tree, input_content, injection_query),
                 None => Vec::new(),
             };
 
@@ -648,7 +648,7 @@ mod tests {
         let language = ocamllex_language();
         let tree = parse(input, &language.grammar, false).unwrap();
         let spans =
-            collect_injections(&tree, input, language.injection_query.as_ref().unwrap()).unwrap();
+            collect_injections(&tree, input, language.injection_query.as_ref().unwrap());
 
         assert_eq!(spans.len(), 1);
         assert_eq!(spans[0].language, "ocaml");
