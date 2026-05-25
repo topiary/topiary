@@ -159,7 +159,7 @@ fn try_removing_spaces_after_newlines(s: &str, n: i32) -> String {
 }
 
 #[test]
-fn test_common_whitespace_prefix_len_all0() {
+fn test_common_whitespace_prefix_len0() {
     assert_eq!(
         common_whitespace_prefix_len(["012a", "01b", "0123c"]),
         Some(0)
@@ -167,7 +167,7 @@ fn test_common_whitespace_prefix_len_all0() {
 }
 
 #[test]
-fn test_common_whitespace_prefix_len_all1() {
+fn test_common_whitespace_prefix_len1() {
     assert_eq!(
         common_whitespace_prefix_len(["   a", "  b", "    c"]),
         Some(2)
@@ -202,9 +202,13 @@ fn test0() -> Result<(), ()> {
         .clone()
         .map(str::chars)
         .map(|s| s.take_while(|c| c.is_whitespace()));
-    let common_whitespace_prefix = common_prefix1(whitespace_prefixes.clone()).ok_or(())?;
+    let common_whitespace_prefix = common_prefix(whitespace_prefixes.clone()).ok_or(())?;
     let minimum_whitespace_prefix_len = whitespace_prefixes.map(Iterator::count).min().ok_or(())?;
-    match common_whitespace_prefix.clone().count().cmp(&minimum_whitespace_prefix_len) {
+    match common_whitespace_prefix
+        .clone()
+        .count()
+        .cmp(&minimum_whitespace_prefix_len)
+    {
         Ordering::Less => println!("warning"), // to do
         Ordering::Equal => (),
         Ordering::Greater => panic!(
@@ -213,19 +217,19 @@ fn test0() -> Result<(), ()> {
     }
     let common_whitespace_prefix_len_utf8: usize =
         common_whitespace_prefix.map(char::len_utf8).sum();
-    let content = content.map(|line| &line[common_whitespace_prefix_len_utf8 ..]);
+    let content = content.map(|line| &line[common_whitespace_prefix_len_utf8..]);
     Ok(())
 }
 
 #[test]
-fn test_common_prefix1() {
+fn test_common_prefix() {
     assert_eq!(
-        common_prefix1(["012a", "01b", "0123c"].map(str::chars)).map(Iterator::collect::<String>),
+        common_prefix(["012a", "01b", "0123c"].map(str::chars)).map(Iterator::collect::<String>),
         Some("01".to_owned())
     );
 }
 
-fn common_prefix1<TSS>(
+fn common_prefix<TSS>(
     list_of_lists: TSS,
 ) -> Option<impl Iterator<Item = <TSS::Item as IntoIterator>::Item> + Clone>
 where
@@ -270,12 +274,12 @@ where
     list_of_lists.into_iter().fold(None, |accumulator, list| {
         Some(match accumulator {
             None => Box::new(list.into_iter()) as Box<dyn Iterator<Item = _>>,
-            Some(a) => Box::new(common_prefix(a, list)),
+            Some(a) => Box::new(common_prefix1(a, list)),
         })
     })
 }
 
-fn common_prefix<T: PartialEq>(
+fn common_prefix1<T: PartialEq>(
     list0: impl IntoIterator<Item = T>,
     list1: impl IntoIterator<Item = T>,
 ) -> impl Iterator<Item = T> {
@@ -284,4 +288,29 @@ fn common_prefix<T: PartialEq>(
         .zip(list1.into_iter())
         .take_while(|(element0, element1)| element0 == element1)
         .map(|(a, _)| a)
+}
+
+fn common_prefix_len_all<TSS>(list_of_lists: TSS) -> Option<usize>
+where
+    TSS: IntoIterator + Clone,
+    TSS::Item: IntoIterator,
+    <TSS::Item as IntoIterator>::Item: PartialEq,
+{
+    list_of_lists
+        .clone()
+        .into_iter()
+        .zip(list_of_lists.into_iter().skip(1))
+        .map(|(list0, list1)| common_prefix_len(list0, list1))
+        .min()
+}
+
+fn common_prefix_len<T: PartialEq>(
+    list0: impl IntoIterator<Item = T>,
+    list1: impl IntoIterator<Item = T>,
+) -> usize {
+    list0
+        .into_iter()
+        .zip(list1.into_iter())
+        .take_while(|(element0, element1)| element0 == element1)
+        .count()
 }
