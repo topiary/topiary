@@ -6,7 +6,7 @@ use std::{cmp::Ordering, fmt::Write};
 
 use rootcause::prelude::ResultExt;
 
-use crate::{Atom, Capitalisation, FormatterError, FormatterResult};
+use crate::{Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent};
 
 /// Renders a slice of [`Atom`]s into formatted source code.
 ///
@@ -69,22 +69,26 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                     content.trim_end_matches('\n')
                 };
 
-                let mut content = if *multi_line_indent_all {
-                    let cursor = current_column(&buffer) as i32;
+                let mut content = match *multi_line_indent_all {
+                    MultiLineIndent::None => content.into(),
+                    MultiLineIndent::ShiftTogether => {
+                        let cursor = current_column(&buffer) as i32;
 
-                    // original_position is 1-based
-                    let original_column = original_position.column as i32 - 1;
+                        // original_position is 1-based
+                        let original_column = original_position.column as i32 - 1;
 
-                    let indenting = cursor - original_column;
+                        let indenting = cursor - original_column;
 
-                    // The following assumes spaces are used for indenting
-                    match indenting {
-                        0 => content.into(),
-                        n if n > 0 => add_spaces_after_newlines(content, indenting),
-                        _ => try_removing_spaces_after_newlines(content, -indenting),
+                        // The following assumes spaces are used for indenting
+                        match indenting {
+                            0 => content.into(),
+                            n if n > 0 => add_spaces_after_newlines(content, indenting),
+                            _ => try_removing_spaces_after_newlines(content, -indenting),
+                        }
                     }
-                } else {
-                    content.into()
+                    MultiLineIndent::MultiLineString => {
+                        render_multi_line_string(content, indent_level, indent)
+                    }
                 };
                 match capitalisation {
                     Capitalisation::UpperCase => {
@@ -159,55 +163,44 @@ fn try_removing_spaces_after_newlines(s: &str, n: i32) -> String {
 }
 
 #[test]
-fn test_common_whitespace_prefix_len0() {
-    assert_eq!(
-        common_whitespace_prefix_len(["012a", "01b", "0123c"]),
-        Some(0)
-    );
-}
-
-#[test]
-fn test_common_whitespace_prefix_len1() {
-    assert_eq!(
-        common_whitespace_prefix_len(["   a", "  b", "    c"]),
-        Some(2)
-    );
-}
-
-fn common_whitespace_prefix_len<'a, SS>(list_of_strings: SS) -> Option<usize>
-where
-    SS: IntoIterator<Item = &'a str>,
-    SS::IntoIter: Clone,
-{
-    Some(
-        common_prefix_all(
-            list_of_strings
-                .into_iter()
-                .map(str::chars)
-                .map(|s| s.take_while(|c| c.is_whitespace())),
-        )?
-        .map(char::len_utf8)
-        .sum(),
-    )
-}
-
-#[test]
-fn test0() -> Result<(), ()> {
+fn test0() {
+    let indent_level: usize = 1;
+    let indent = "  ";
     // let content = "";
     // let content = " \n a";
-    let content = "\t\n   a\n   b\n     c\n "
+    let content = "\t\n   a\n   b\n     c\n ";
+    assert_eq!(
+        render_multi_line_string(content, indent_level, indent),
+        "\n    a\n    b\n      c\n  "
+    );
+}
+
+fn render_multi_line_string(content: &str, indent_level: usize, indent: &str) -> String {
+    let content: Vec<&str> = content
         .split("\n")
-        .map(|s| s.strip_suffix("\r").unwrap_or(s)); // to do. remove this?
+        .map(|s| s.strip_suffix("\r").unwrap_or(s)) // to do. remove this?
+        .collect(); // because we need `DoubleEndedIterator`.
+    let mut content = content.iter().copied();
+    debug_assert!(if let Some(s) = content.next() {
+        s.chars().all(char::is_whitespace)
+    } else {
+        false
+    });
+    debug_assert!(if let Some(s) = content.next_back() {
+        s.chars().all(char::is_whitespace)
+    } else {
+        false
+    });
     let whitespace_prefixes = content
         .clone()
+        .filter(|s| s.chars().any(|c| !c.is_whitespace()))
         .map(str::chars)
         .map(|s| s.take_while(|c| c.is_whitespace()));
-    let common_whitespace_prefix = common_prefix(whitespace_prefixes.clone()).ok_or(())?;
-    let minimum_whitespace_prefix_len = whitespace_prefixes.map(Iterator::count).min().ok_or(())?;
+    let common_whitespace_prefix = common_prefix(whitespace_prefixes.clone()).unwrap();
     match common_whitespace_prefix
         .clone()
         .count()
-        .cmp(&minimum_whitespace_prefix_len)
+        .cmp(&whitespace_prefixes.map(Iterator::count).min().unwrap())
     {
         Ordering::Less => println!("warning"), // to do
         Ordering::Equal => (),
@@ -217,15 +210,34 @@ fn test0() -> Result<(), ()> {
     }
     let common_whitespace_prefix_len_utf8: usize =
         common_whitespace_prefix.map(char::len_utf8).sum();
-    let content = content.map(|line| &line[common_whitespace_prefix_len_utf8..]);
-    Ok(())
+    let content = content.map(|line| {
+        if common_whitespace_prefix_len_utf8 < line.len() {
+            &line[common_whitespace_prefix_len_utf8..]
+        } else {
+            ""
+        }
+    });
+
+    let mut buffer = String::new();
+    for line in content {
+        if line.chars().all(char::is_whitespace) {
+            write!(buffer, "\n").unwrap();
+        } else {
+            write!(buffer, "\n{}{}", indent.repeat(indent_level + 1), line).unwrap();
+        }
+    }
+    write!(buffer, "\n{}", indent.repeat(indent_level)).unwrap();
+    buffer
 }
 
 #[test]
 fn test_common_prefix() {
     assert_eq!(
-        common_prefix(["012a", "01b", "0123c"].map(str::chars)).map(Iterator::collect::<String>),
-        Some("01".to_owned())
+        common_prefix(["012a", "01b", "0123c"].map(str::chars))
+            .map(Iterator::collect::<String>)
+            .as_ref()
+            .map(String::as_str),
+        Some("01")
     );
 }
 
@@ -252,65 +264,4 @@ where
             .all(|item| item.as_ref() == Some(&first))
             .then_some(first)
     }))
-}
-
-#[test]
-fn test_common_prefix_all() {
-    assert_eq!(
-        common_prefix_all(["012a", "01b", "0123c"].map(str::chars))
-            .map(Iterator::collect::<String>),
-        Some("01".to_owned())
-    );
-}
-
-fn common_prefix_all<'a, TSS>(
-    list_of_lists: TSS,
-) -> Option<impl Iterator<Item = <TSS::Item as IntoIterator>::Item>>
-where
-    TSS: IntoIterator + 'a,
-    TSS::Item: IntoIterator,
-    <TSS::Item as IntoIterator>::Item: PartialEq,
-{
-    list_of_lists.into_iter().fold(None, |accumulator, list| {
-        Some(match accumulator {
-            None => Box::new(list.into_iter()) as Box<dyn Iterator<Item = _>>,
-            Some(a) => Box::new(common_prefix1(a, list)),
-        })
-    })
-}
-
-fn common_prefix1<T: PartialEq>(
-    list0: impl IntoIterator<Item = T>,
-    list1: impl IntoIterator<Item = T>,
-) -> impl Iterator<Item = T> {
-    list0
-        .into_iter()
-        .zip(list1.into_iter())
-        .take_while(|(element0, element1)| element0 == element1)
-        .map(|(a, _)| a)
-}
-
-fn common_prefix_len_all<TSS>(list_of_lists: TSS) -> Option<usize>
-where
-    TSS: IntoIterator + Clone,
-    TSS::Item: IntoIterator,
-    <TSS::Item as IntoIterator>::Item: PartialEq,
-{
-    list_of_lists
-        .clone()
-        .into_iter()
-        .zip(list_of_lists.into_iter().skip(1))
-        .map(|(list0, list1)| common_prefix_len(list0, list1))
-        .min()
-}
-
-fn common_prefix_len<T: PartialEq>(
-    list0: impl IntoIterator<Item = T>,
-    list1: impl IntoIterator<Item = T>,
-) -> usize {
-    list0
-        .into_iter()
-        .zip(list1.into_iter())
-        .take_while(|(element0, element1)| element0 == element1)
-        .count()
 }
