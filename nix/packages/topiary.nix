@@ -4,6 +4,8 @@
   craneLib,
   prefetchLanguagesFile,
   prefetchLanguagesNickelFile,
+  prefetchLanguages,
+  generateNcl,
 }:
 
 let
@@ -297,6 +299,45 @@ let
     '';
   };
 
+  # Topiary CLI wrapped with a `languages.ncl` generated from `nix/languages.nix`
+  # via `generateNcl`, with grammar sources prefetched and precompiled. The
+  # wrapper sets `TOPIARY_CONFIG_FILE` so the generated file is used as the
+  # default configuration; users can still override with `-C` on the CLI or by
+  # setting `TOPIARY_CONFIG_FILE` themselves.
+  topiary-with-nix-config =
+    let
+      languages = import ../languages.nix;
+      configFile = generateNcl {
+        name = "languages.ncl";
+        config = prefetchLanguages languages;
+        withDefaults = false;
+      };
+    in
+    pkgs.stdenv.mkDerivation {
+      pname = "topiary-with-nix-config";
+      inherit (topiary-cli) version;
+
+      dontUnpack = true;
+
+      nativeBuildInputs = [ pkgs.makeWrapper ];
+
+      installPhase = ''
+        runHook preInstall
+
+        mkdir -p $out/bin
+        makeWrapper ${topiary-cli}/bin/topiary $out/bin/topiary \
+          --set-default TOPIARY_CONFIG_FILE ${configFile}
+
+        runHook postInstall
+      '';
+
+      passthru = { inherit configFile; };
+
+      meta = topiary-cli.meta or { } // {
+        mainProgram = "topiary";
+      };
+    };
+
 in
 {
   inherit
@@ -315,6 +356,7 @@ in
     topiary-book
     topiary-manpages
     topiary-wrapped
+    topiary-with-nix-config
     ;
 
   default = topiary-cli;

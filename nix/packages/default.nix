@@ -4,6 +4,8 @@
   craneLib,
   prefetchLanguagesFile,
   prefetchLanguagesNickelFile,
+  prefetchLanguages,
+  generateNcl,
 }:
 
 let
@@ -15,6 +17,8 @@ let
       craneLib
       prefetchLanguagesFile
       prefetchLanguagesNickelFile
+      prefetchLanguages
+      generateNcl
       ;
   };
 in
