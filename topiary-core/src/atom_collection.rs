@@ -1,3 +1,4 @@
+use rustc_hash::FxHashMap;
 use std::{
     collections::{HashMap, HashSet},
     mem,
@@ -62,9 +63,9 @@ pub struct AtomCollection {
     /// Used to generate unique IDs
     counter: usize,
     /// Cache of the first leaf for each node
-    first_leaf_cache: HashMap<usize, usize>,
+    first_leaf_cache: FxHashMap<usize, usize>,
     /// Cache of the last leaf for each node
-    last_leaf_cache: HashMap<usize, usize>,
+    last_leaf_cache: FxHashMap<usize, usize>,
 }
 
 impl AtomCollection {
@@ -84,8 +85,8 @@ impl AtomCollection {
             line_break_before: HashSet::new(),
             line_break_after: HashSet::new(),
             counter: 0,
-            first_leaf_cache: HashMap::new(),
-            last_leaf_cache: HashMap::new(),
+            first_leaf_cache: FxHashMap::default(),
+            last_leaf_cache: FxHashMap::default(),
         }
     }
 
@@ -114,8 +115,8 @@ impl AtomCollection {
             line_break_before: line_break_nodes.before,
             line_break_after: line_break_nodes.after,
             counter: 0,
-            first_leaf_cache: HashMap::new(),
-            last_leaf_cache: HashMap::new(),
+            first_leaf_cache: FxHashMap::default(),
+            last_leaf_cache: FxHashMap::default(),
         };
 
         atoms.collect_leaves_inner(root, source, &Vec::new(), 0)?;
@@ -613,10 +614,7 @@ impl AtomCollection {
         let atom = self.wrap(atom, predicates);
         let target_node_id = self.first_leaf(node);
 
-        log::debug!(
-            "Prepending {atom:?} to node ID {}",
-            target_node_id
-        );
+        log::debug!("Prepending {atom:?} to node ID {}", target_node_id);
 
         self.prepend.entry(target_node_id).or_default().push(atom);
     }
@@ -633,10 +631,7 @@ impl AtomCollection {
         let atom = self.wrap(atom, predicates);
         let target_node_id = self.last_leaf(node);
 
-        log::debug!(
-            "Appending {atom:?} to node ID {}",
-            target_node_id
-        );
+        log::debug!("Appending {atom:?} to node ID {}", target_node_id);
 
         self.append.entry(target_node_id).or_default().push(atom);
     }
@@ -1082,7 +1077,9 @@ impl AtomCollection {
         let mut path = Vec::new();
         let mut current_node = std::borrow::Cow::Borrowed(node);
 
-        while current_node.child_count() != 0 && !self.specified_leaf_nodes.contains(&current_node.id()) {
+        while current_node.child_count() != 0
+            && !self.specified_leaf_nodes.contains(&current_node.id())
+        {
             if let Some(id) = self.first_leaf_cache.get(&current_node.id()) {
                 let leaf_id = *id;
                 for path_id in path {
@@ -1124,7 +1121,9 @@ impl AtomCollection {
         let mut path = Vec::new();
         let mut current_node = std::borrow::Cow::Borrowed(node);
 
-        while current_node.child_count() != 0 && !self.specified_leaf_nodes.contains(&current_node.id()) {
+        while current_node.child_count() != 0
+            && !self.specified_leaf_nodes.contains(&current_node.id())
+        {
             if let Some(id) = self.last_leaf_cache.get(&current_node.id()) {
                 let leaf_id = *id;
                 for path_id in path {
@@ -1133,7 +1132,9 @@ impl AtomCollection {
                 return leaf_id;
             }
             path.push(current_node.id());
-            current_node = std::borrow::Cow::Owned(current_node.child(current_node.child_count() - 1).unwrap());
+            current_node = std::borrow::Cow::Owned(
+                current_node.child(current_node.child_count() - 1).unwrap(),
+            );
         }
 
         let leaf_id = current_node.id();
