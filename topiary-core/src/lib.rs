@@ -49,10 +49,18 @@ pub enum Capitalisation {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AbsoluteIndentation {
+    Comment,
+    StringWithSignificantClosingPosition,
+    StringWithInsignificantClosingPosition,
+    String {lastLineBreakSignificant: bool, closePositionSignificant: bool},
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MultiLineIndent {
     None,
-    ShiftTogether,
-    MultiLineString
+    RelativeIndentation,
+    AbsoluteIndentation(AbsoluteIndentation),
 }
 
 /// An atom represents a small piece of the output. We turn Tree-sitter nodes
