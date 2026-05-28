@@ -71,7 +71,7 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
 
                 let mut content = match *multi_line_indent_all {
                     MultiLineIndent::None => content.into(),
-                    MultiLineIndent::ShiftTogether => {
+                    MultiLineIndent::RelativeIndentation => {
                         let cursor = current_column(&buffer) as i32;
 
                         // original_position is 1-based
@@ -86,7 +86,7 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                             _ => try_removing_spaces_after_newlines(content, -indenting),
                         }
                     }
-                    MultiLineIndent::MultiLineString => {
+                    MultiLineIndent::AbsoluteIndentation => {
                         render_multi_line_string(content, indent_level, indent)
                     }
                 };
