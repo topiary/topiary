@@ -1,5 +1,5 @@
+use rustc_hash::FxHashMap;
 use std::{
-    borrow::Cow,
     collections::{HashMap, HashSet},
     mem,
     ops::Deref,
@@ -62,6 +62,10 @@ pub struct AtomCollection {
     line_break_after: HashSet<usize>,
     /// Used to generate unique IDs
     counter: usize,
+    /// Cache of the first leaf for each node
+    first_leaf_cache: FxHashMap<usize, usize>,
+    /// Cache of the last leaf for each node
+    last_leaf_cache: FxHashMap<usize, usize>,
 }
 
 impl AtomCollection {
@@ -81,6 +85,8 @@ impl AtomCollection {
             line_break_before: HashSet::new(),
             line_break_after: HashSet::new(),
             counter: 0,
+            first_leaf_cache: FxHashMap::default(),
+            last_leaf_cache: FxHashMap::default(),
         }
     }
 
@@ -109,6 +115,8 @@ impl AtomCollection {
             line_break_before: line_break_nodes.before,
             line_break_after: line_break_nodes.after,
             counter: 0,
+            first_leaf_cache: FxHashMap::default(),
+            last_leaf_cache: FxHashMap::default(),
         };
 
         atoms.collect_leaves_inner(root, source, &Vec::new(), 0)?;
@@ -604,15 +612,11 @@ impl AtomCollection {
     fn prepend(&mut self, atom: Atom, node: &Node, predicates: &QueryPredicates) {
         let atom = self.expand_multiline(atom, node);
         let atom = self.wrap(atom, predicates);
-        // TODO: Pre-populate these
-        let target_node = self.first_leaf(node);
+        let target_node_id = self.first_leaf(node);
 
-        log::debug!(
-            "Prepending {atom:?} to node {}",
-            target_node.display_one_based()
-        );
+        log::debug!("Prepending {atom:?} to node ID {}", target_node_id);
 
-        self.prepend.entry(target_node.id()).or_default().push(atom);
+        self.prepend.entry(target_node_id).or_default().push(atom);
     }
 
     /// Append an atom to the last leaf node in the subtree of a given node.
@@ -625,14 +629,11 @@ impl AtomCollection {
     fn append(&mut self, atom: Atom, node: &Node, predicates: &QueryPredicates) {
         let atom = self.expand_multiline(atom, node);
         let atom = self.wrap(atom, predicates);
-        let target_node = self.last_leaf(node);
+        let target_node_id = self.last_leaf(node);
 
-        log::debug!(
-            "Appending {atom:?} to node {}",
-            target_node.display_one_based()
-        );
+        log::debug!("Appending {atom:?} to node ID {}", target_node_id);
 
-        self.append.entry(target_node.id()).or_default().push(atom);
+        self.append.entry(target_node_id).or_default().push(atom);
     }
 
     /// Expands a softline atom to a hardline, space or empty atom depending on
@@ -1067,13 +1068,35 @@ impl AtomCollection {
     ///
     /// # Returns
     ///
-    /// A `Cow` enum that wraps a borrowed node.
-    fn first_leaf<'tree, 'node: 'tree>(&self, node: &'node Node<'tree>) -> Cow<'node, Node<'tree>> {
-        let mut node = Cow::Borrowed(node);
-        while node.child_count() != 0 && !self.specified_leaf_nodes.contains(&node.id()) {
-            node = Cow::Owned(node.child(0).unwrap());
+    /// The ID of the first leaf node.
+    fn first_leaf(&mut self, node: &Node) -> usize {
+        if let Some(id) = self.first_leaf_cache.get(&node.id()) {
+            return *id;
         }
-        node
+
+        let mut path = Vec::new();
+        let mut current_node = std::borrow::Cow::Borrowed(node);
+
+        while current_node.child_count() != 0
+            && !self.specified_leaf_nodes.contains(&current_node.id())
+        {
+            if let Some(id) = self.first_leaf_cache.get(&current_node.id()) {
+                let leaf_id = *id;
+                for path_id in path {
+                    self.first_leaf_cache.insert(path_id, leaf_id);
+                }
+                return leaf_id;
+            }
+            path.push(current_node.id());
+            current_node = std::borrow::Cow::Owned(current_node.child(0).unwrap());
+        }
+
+        let leaf_id = current_node.id();
+        for path_id in path {
+            self.first_leaf_cache.insert(path_id, leaf_id);
+        }
+        self.first_leaf_cache.insert(leaf_id, leaf_id);
+        leaf_id
     }
 
     /// Returns the last leaf node of a given node's subtree.
@@ -1089,13 +1112,37 @@ impl AtomCollection {
     ///
     /// # Returns
     ///
-    /// A `Cow` enum that wraps a borrowed node.
-    fn last_leaf<'tree, 'node: 'tree>(&self, node: &'node Node<'tree>) -> Cow<'node, Node<'tree>> {
-        let mut node = Cow::Borrowed(node);
-        while node.child_count() != 0 && !self.specified_leaf_nodes.contains(&node.id()) {
-            node = Cow::Owned(node.child(node.child_count() - 1).unwrap());
+    /// The ID of the last leaf node.
+    fn last_leaf(&mut self, node: &Node) -> usize {
+        if let Some(id) = self.last_leaf_cache.get(&node.id()) {
+            return *id;
         }
-        node
+
+        let mut path = Vec::new();
+        let mut current_node = std::borrow::Cow::Borrowed(node);
+
+        while current_node.child_count() != 0
+            && !self.specified_leaf_nodes.contains(&current_node.id())
+        {
+            if let Some(id) = self.last_leaf_cache.get(&current_node.id()) {
+                let leaf_id = *id;
+                for path_id in path {
+                    self.last_leaf_cache.insert(path_id, leaf_id);
+                }
+                return leaf_id;
+            }
+            path.push(current_node.id());
+            current_node = std::borrow::Cow::Owned(
+                current_node.child(current_node.child_count() - 1).unwrap(),
+            );
+        }
+
+        let leaf_id = current_node.id();
+        for path_id in path {
+            self.last_leaf_cache.insert(path_id, leaf_id);
+        }
+        self.last_leaf_cache.insert(leaf_id, leaf_id);
+        leaf_id
     }
 }
 

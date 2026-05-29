@@ -26,6 +26,7 @@ tree-sitter = { workspace = true }
 rayon = { workspace = true }
 thiserror = { workspace = true }
 rootcause = { workspace = true }
+rustc-hash = "2.1.2"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 topiary-web-tree-sitter-sys.workspace = true
