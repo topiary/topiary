@@ -25,7 +25,8 @@ fn setup() -> (String, Language) {
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("format_nickel", |b| {
         let (input, language) = setup();
-        b.iter(|| {
+        // https://criterion-rs.github.io/book/user_guide/timing_loops.html#iter_with_large_drop
+        b.iter_with_large_drop(|| {
             let mut input = input.as_bytes();
             let mut output = io::BufWriter::new(Vec::new());
             formatter(
@@ -37,7 +38,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     tolerate_parsing_errors: false,
                 },
             )
-            .unwrap()
+            .unwrap();
         });
     });
 }
