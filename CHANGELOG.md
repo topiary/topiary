@@ -49,7 +49,8 @@ This name should be decided amongst the team before the release.
 - [#1174](https://github.com/topiary/topiary/pull/1174) Split out the Topiary Playground into its own repository.
 - [#1191](https://github.com/topiary/topiary/pull/1191) Split out the Topiary website into its own repository.
 - [#1226](https://github.com/topiary/topiary/pull/1226) Query files moved from `queries/<lang>.scm` to `queries/<lang>/formatting.scm` in preparation for language injection support. The old flat layout is still supported as a fallback.
-- [#1226](https://github.com/topiary/topiary/pull/1232) Rework `topiary_core::ErrorSpan` to handle `QueryError`s as well as `Node` errors by introducing `rootcause::Report`
+- [#1232](https://github.com/topiary/topiary/pull/1232) Rework `topiary_core::ErrorSpan` to handle `QueryError`s as well as `Node` errors by introducing `rootcause::Report`
+- [#1249](https://github.com/topiary/topiary/pull/1249) Remove async calls and setup from `format_nickel` benchmark
 
 ### Fixed
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
