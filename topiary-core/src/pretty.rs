@@ -6,7 +6,9 @@ use std::{cmp::Ordering, fmt::Write};
 
 use rootcause::prelude::ResultExt;
 
-use crate::{Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent};
+use crate::{
+    AbsoluteIndentation, Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent,
+};
 
 /// Renders a slice of [`Atom`]s into formatted source code.
 ///
@@ -86,8 +88,13 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                             _ => try_removing_spaces_after_newlines(content, -indenting),
                         }
                     }
-                    MultiLineIndent::AbsoluteIndentation => {
-                        render_multi_line_string(content, indent_level, indent)
+                    MultiLineIndent::AbsoluteIndentation(absolute_indentation) => {
+                        render_absolute_indentation(
+                            absolute_indentation,
+                            content,
+                            indent_level,
+                            indent,
+                        )
                     }
                 };
                 match capitalisation {
@@ -163,70 +170,208 @@ fn try_removing_spaces_after_newlines(s: &str, n: i32) -> String {
 }
 
 #[test]
-fn test0() {
-    let indent_level: usize = 1;
-    let indent = "  ";
+fn test_render_absolute_indentation0() {
     // let content = "";
     // let content = " \n a";
-    let content = "\t\n   a\n   b\n     c\n ";
+    let content = "\t
+    a
+   b
+     c
+ ";
     assert_eq!(
-        render_multi_line_string(content, indent_level, indent),
-        "\n    a\n    b\n      c\n  "
+        render_absolute_indentation(
+            AbsoluteIndentation::StringWithInsignificantClosingColumn {
+                last_line_break_significant: false,
+                allow_non_empty_first_line: false,
+            },
+            content,
+            1,
+            "  "
+        ),
+        "
+     a
+    b
+      c
+  "
     );
 }
 
-fn render_multi_line_string(content: &str, indent_level: usize, indent: &str) -> String {
-    let content: Vec<&str> = content
+#[test]
+#[ignore]
+fn test_render_absolute_indentation_single_line0() {
+    let content = " ";
+    assert_eq!(
+        render_absolute_indentation(
+            AbsoluteIndentation::StringWithSignificantClosingColumn,
+            content,
+            1,
+            "  "
+        ),
+        " "
+    );
+}
+
+#[test]
+fn test_render_absolute_indentation_single_line1() {
+    let content = " ";
+    assert_eq!(
+        render_absolute_indentation(
+            AbsoluteIndentation::StringWithInsignificantClosingColumn {
+                last_line_break_significant: false,
+                allow_non_empty_first_line: false,
+            },
+            content,
+            1,
+            "  "
+        ),
+        " "
+    );
+}
+
+#[test]
+fn test_render_absolute_indentation_single_line2() {
+    let content = " ";
+    assert_eq!(
+        render_absolute_indentation(
+            AbsoluteIndentation::StringWithInsignificantClosingColumn {
+                last_line_break_significant: false,
+                allow_non_empty_first_line: true,
+            },
+            content,
+            1,
+            "  "
+        ),
+        ""
+    );
+}
+
+#[test]
+fn test_render_absolute_indentation_single_line3() {
+    let content = " ";
+    assert_eq!(
+        render_absolute_indentation(
+            AbsoluteIndentation::StringWithInsignificantClosingColumn {
+                last_line_break_significant: true,
+                allow_non_empty_first_line: false,
+            },
+            content,
+            1,
+            "  "
+        ),
+        " "
+    );
+}
+
+#[test]
+fn test_render_absolute_indentation_single_line4() {
+    let content = " ";
+    assert_eq!(
+        render_absolute_indentation(
+            AbsoluteIndentation::StringWithInsignificantClosingColumn {
+                last_line_break_significant: true,
+                allow_non_empty_first_line: true,
+            },
+            content,
+            1,
+            "  "
+        ),
+        ""
+    );
+}
+
+#[test]
+fn test_render_absolute_indentation1() {
+    let content = "x
+    a
+   b
+     c
+ ";
+    assert_eq!(
+        render_absolute_indentation(
+            AbsoluteIndentation::StringWithInsignificantClosingColumn {
+                last_line_break_significant: false,
+                allow_non_empty_first_line: false,
+            },
+            content,
+            1,
+            "  "
+        ),
+        "x
+    a
+   b
+     c
+ "
+    );
+}
+
+fn render_absolute_indentation(
+    absolute_indentation: AbsoluteIndentation,
+    content_input: &str,
+    indent_level: usize,
+    indent: &str,
+) -> String {
+    let content_collected: Vec<&str> = content_input
         .split("\n")
         .map(|s| s.strip_suffix("\r").unwrap_or(s)) // to do. remove this?
         .collect(); // because we need `DoubleEndedIterator`.
-    let mut content = content.iter().copied();
-    debug_assert!(if let Some(s) = content.next() {
-        s.chars().all(char::is_whitespace)
-    } else {
-        false
-    });
-    debug_assert!(if let Some(s) = content.next_back() {
-        s.chars().all(char::is_whitespace)
-    } else {
-        false
-    });
-    let whitespace_prefixes = content
-        .clone()
-        .filter(|s| s.chars().any(|c| !c.is_whitespace()))
-        .map(str::chars)
-        .map(|s| s.take_while(|c| c.is_whitespace()));
-    let common_whitespace_prefix = common_prefix(whitespace_prefixes.clone()).unwrap();
-    match common_whitespace_prefix
-        .clone()
-        .count()
-        .cmp(&whitespace_prefixes.map(Iterator::count).min().unwrap())
-    {
-        Ordering::Less => println!("warning"), // to do
-        Ordering::Equal => (),
-        Ordering::Greater => panic!(
-            "the common whitespace prefix should be a substring of the shortest whitespace prefix."
-        ),
-    }
-    let common_whitespace_prefix_len_utf8: usize =
-        common_whitespace_prefix.map(char::len_utf8).sum();
-    let content = content.map(|line| {
-        if common_whitespace_prefix_len_utf8 < line.len() {
-            &line[common_whitespace_prefix_len_utf8..]
-        } else {
-            ""
-        }
-    });
-
+    let mut content = content_collected.iter().copied();
     let mut buffer = String::new();
-    for line in content {
-        if line.chars().all(char::is_whitespace) {
-            write!(buffer, "\n").unwrap();
-        } else {
-            write!(buffer, "\n{}{}", indent.repeat(indent_level + 1), line).unwrap();
-        }
+
+    let first_line_trimmed = content
+        .next()
+        .expect("impossible because `split` does not produce empty iterators.")
+        .trim_end();
+    let AbsoluteIndentation::StringWithInsignificantClosingColumn {
+        last_line_break_significant: _,
+        allow_non_empty_first_line,
+    } = absolute_indentation
+    else {
+        todo!()
+    };
+    if allow_non_empty_first_line {
+        write!(buffer, "{first_line_trimmed}").unwrap();
+    } else if first_line_trimmed != "" || content_collected.len() == 1 {
+        return content_input.to_owned(); // can we save the `to_owned` by changing the return type to `&str`?
     }
-    write!(buffer, "\n{}", indent.repeat(indent_level)).unwrap();
+    // content.clone().next_back().expect().chars().all(char::is_whitespace);
+    // s.chars().all(char::is_whitespace)
+    if content.clone().count() != 0 {
+        let whitespace_prefixes = content
+            .clone()
+            .filter(|s| s.chars().any(|c| !c.is_whitespace()))
+            .map(str::chars)
+            .map(|s| s.take_while(|c| c.is_whitespace()));
+        let common_whitespace_prefix = common_prefix(whitespace_prefixes.clone()).unwrap();
+        match common_whitespace_prefix
+            .clone()
+            .count()
+            .cmp(&whitespace_prefixes.map(Iterator::count).min().unwrap())
+        {
+            Ordering::Less => println!("warning"), // to do
+            Ordering::Equal => (),
+            Ordering::Greater => panic!(
+                "the common whitespace prefix should be a substring of the shortest whitespace prefix."
+            ),
+        }
+        let common_whitespace_prefix_len_utf8: usize =
+            common_whitespace_prefix.map(char::len_utf8).sum();
+        let content = content.map(|line| {
+            if common_whitespace_prefix_len_utf8 < line.len() {
+                &line[common_whitespace_prefix_len_utf8..]
+            } else {
+                ""
+            }
+        });
+
+        for line in content {
+            if line.chars().all(char::is_whitespace) {
+                write!(buffer, "\n").unwrap();
+            } else {
+                write!(buffer, "\n{}{}", indent.repeat(indent_level + 1), line).unwrap();
+            }
+        }
+        write!(buffer, "\n{}", indent.repeat(indent_level)).unwrap();
+    }
     buffer
 }
 
