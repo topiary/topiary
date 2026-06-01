@@ -9,7 +9,7 @@ use rootcause::prelude::ResultExt;
 use topiary_tree_sitter_facade::Node;
 
 use crate::{
-    Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent, ScopeCondition, ScopeInformation, tree_sitter::NodeExt
+    AbsoluteIndentation, Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent, ScopeCondition, ScopeInformation, tree_sitter::NodeExt
 };
 
 /// A struct that holds sets of node IDs that have line breaks before or after them.
@@ -466,7 +466,7 @@ impl AtomCollection {
                     } = a
                         && *id == node.id()
                     {
-                        *multi_line_indent_all = MultiLineIndent::AbsoluteIndentation;
+                        *multi_line_indent_all = MultiLineIndent::AbsoluteIndentation(AbsoluteIndentation::StringWithInsignificantClosingColumn {last_line_break_significant: false, allow_non_empty_first_line: false,});
                         // *multi_line_indent_all = MultiLineIndent::RelativeIndentation;
                     }
                 }

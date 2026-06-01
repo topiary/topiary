@@ -48,15 +48,13 @@ pub enum Capitalisation {
     Pass,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum AbsoluteIndentation {
-    Comment,
-    StringWithSignificantClosingPosition,
-    StringWithInsignificantClosingPosition,
-    String {lastLineBreakSignificant: bool, closePositionSignificant: bool},
+    StringWithSignificantClosingColumn,
+    StringWithInsignificantClosingColumn {last_line_break_significant: bool, allow_non_empty_first_line: bool,},
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum MultiLineIndent {
     None,
     RelativeIndentation,
