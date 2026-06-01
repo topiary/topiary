@@ -68,9 +68,14 @@ async fn main() -> ExitCode {
 async fn run() -> CLIResult<()> {
     let args = cli::get_args()?;
 
+    let query_dir = args.global.query_dir.clone();
+
     let file_config = &args.global.configuration;
-    let (config, nickel_config) =
-        topiary_config::Configuration::fetch(args.global.merge_configuration, file_config)?;
+    let (config, nickel_config) = topiary_config::Configuration::fetch(
+        args.global.merge_configuration,
+        file_config,
+        query_dir,
+    )?;
 
     // Delegate by subcommand
     match args.command {

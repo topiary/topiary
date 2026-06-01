@@ -41,6 +41,10 @@ pub struct GlobalArgs {
     )]
     pub configuration: Option<PathBuf>,
 
+    /// Override the directory where queries are found
+    #[arg(long, display_order = 101, global = true)]
+    pub query_dir: Option<PathBuf>,
+
     /// Enable merging for configuration files
     #[arg(alias = "merge", short = 'M', long, display_order = 101, global = true)]
     pub merge_configuration: bool,

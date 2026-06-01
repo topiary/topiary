@@ -88,7 +88,6 @@ fn test_fmt_stdin() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("fmt")
         .arg("--language")
         .arg("json")
@@ -105,7 +104,6 @@ fn test_fmt_stdin_query() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("fmt")
         .arg("--language")
         .arg("json")
@@ -127,8 +125,6 @@ fn test_fmt_stdin_query_fallback() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
-        // run in topiary-cli/tests directory so that it couldn't find the
-        // default TOPIARY_LANGUAGE_DIR
         .current_dir("tests")
         .arg("fmt")
         .arg("--language")
@@ -149,7 +145,6 @@ fn test_fmt_files() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("fmt")
         .arg(json.path())
         .arg(toml.path())
@@ -170,8 +165,6 @@ fn test_fmt_files_query_fallback() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
-        // run in topiary-cli/tests directory so that it couldn't find the
-        // default TOPIARY_LANGUAGE_DIR
         .current_dir("tests")
         .arg("fmt")
         .arg(json.path())
@@ -192,7 +185,6 @@ fn test_fmt_dir() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("fmt")
         .arg(json.path().parent().unwrap())
         .assert()
@@ -208,7 +200,6 @@ fn test_check_stdin_clean() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("fmt")
         .arg("--check")
         .arg("--language")
@@ -225,7 +216,6 @@ fn test_check_stdin_dirty() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("fmt")
         .arg("--check")
         .arg("--language")
@@ -245,7 +235,6 @@ fn test_check_file_dirty_no_modify() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("fmt")
         .arg("--check")
         .arg(json.path())
@@ -265,7 +254,6 @@ fn test_check_file_clean() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("fmt")
         .arg("--check")
         .arg(json.path())
@@ -281,7 +269,6 @@ fn test_fmt_invalid() {
 
     // Can't specify --language with input files
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("fmt")
         .arg("--language")
         .arg("json")
@@ -291,7 +278,6 @@ fn test_fmt_invalid() {
 
     // Can't specify --query without --language
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../whatever")
         .arg("fmt")
         .arg("--query")
         .arg("/path/to/query")
@@ -369,7 +355,6 @@ fn test_vis() {
     let is_graph = starts_with("graph {").and(ends_with("}\n"));
 
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("vis")
         .arg("--language")
         .arg("json")
@@ -387,7 +372,6 @@ fn test_vis_invalid() {
 
     // Can't specify --language with input file
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("vis")
         .arg("--language")
         .arg("json")
@@ -397,7 +381,6 @@ fn test_vis_invalid() {
 
     // Can't specify --query without --language
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("vis")
         .arg("--query")
         .arg("/path/to/query")
@@ -406,7 +389,6 @@ fn test_vis_invalid() {
 
     // Can't specify multiple input files
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("vis")
         .arg("/path/to/some/input")
         .arg("/path/to/another/input")
@@ -418,12 +400,7 @@ fn test_vis_invalid() {
 fn test_cfg() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
-    topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
-        .arg("cfg")
-        .assert()
-        .success()
-        .stdout(IsToml);
+    topiary.arg("cfg").assert().success().stdout(IsToml);
 }
 
 struct IsToml;

@@ -63,7 +63,6 @@ mod test_fmt {
         // Run Topiary against the staged input file
         let mut topiary = cargo_bin_cmd!("topiary");
         let output = topiary
-            .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
             .arg("fmt")
             .arg(&staged)
             .output()
@@ -123,12 +122,7 @@ mod test_fmt {
 
                 // Run topiary on the input file in the temp dir
                 let mut topiary = cargo_bin_cmd!("topiary");
-                topiary
-                    .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
-                    .arg("fmt")
-                    .arg(&input_file)
-                    .assert()
-                    .success();
+                topiary.arg("fmt").arg(&input_file).assert().success();
 
                 // Read the file after formatting
                 let formatted = fs::read_to_string(input_file).unwrap();
@@ -155,7 +149,6 @@ mod test_check {
         // The input file is unformatted, so --check should fail
         let mut topiary = cargo_bin_cmd!("topiary");
         topiary
-            .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
             .arg("fmt")
             .arg("--check")
             .arg(&input)
@@ -165,7 +158,6 @@ mod test_check {
         // The expected file is already formatted, so --check should succeed
         let mut topiary = cargo_bin_cmd!("topiary");
         topiary
-            .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
             .arg("fmt")
             .arg("--check")
             .arg(&expected)
@@ -207,7 +199,6 @@ mod test_coverage {
         // Run `topiary coverage` against the input file
         let mut topiary = cargo_bin_cmd!("topiary");
         let output = topiary
-            .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
             .arg("coverage")
             .arg(&input)
             .output()
@@ -263,12 +254,7 @@ fn formatted_query_tester() {
 
             // Run topiary on the input file in the temp dir
             let mut topiary = cargo_bin_cmd!("topiary");
-            topiary
-                .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
-                .arg("fmt")
-                .arg(&input_file)
-                .assert()
-                .success();
+            topiary.arg("fmt").arg(&input_file).assert().success();
 
             // Read the file after formatting
             let formatted = fs::read_to_string(input_file).unwrap();

@@ -241,12 +241,12 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
 ) -> CLIResult<Language> {
     let config_language = config.get_language(name.as_ref())?;
     let grammar = config_language.grammar()?;
-    let query_source = to_query_from_language(config_language)?;
+    let query_source = to_query_from_config(config, &config_language.name)?;
     let query_content = query_source.get_content().await?;
     let formatting_query = TopiaryQuery::new(&grammar, &query_content)
         .attach_filepath(query_source.filepath())
         .context(FormatterError::Parsing)?;
-    let injection_query = match to_injection_query_from_language(config_language) {
+    let injection_query = match to_injection_query_from_config(config, &config_language.name) {
         Some(source) => {
             let contents = source.get_content().await?;
             Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
@@ -269,12 +269,12 @@ pub(crate) fn to_language_from_config_sync<T: AsRef<str> + fmt::Display>(
 ) -> CLIResult<Language> {
     let config_language = config.get_language(name.as_ref())?;
     let grammar = config_language.grammar()?;
-    let query_source = to_query_from_language(config_language)?;
+    let query_source = to_query_from_config(config, &config_language.name)?;
     let query_content = query_source.get_content_sync()?;
     let formatting_query = TopiaryQuery::new(&grammar, &query_content)
         .attach_filepath(query_source.filepath())
         .context(FormatterError::Parsing)?;
-    let injection_query = match to_injection_query_from_language(config_language) {
+    let injection_query = match to_injection_query_from_config(config, &config_language.name) {
         Some(source) => {
             let contents = source.get_content_sync()?;
             Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
@@ -332,9 +332,9 @@ impl<'cfg, 'i> Inputs<'cfg> {
                         // The user specified a query file
                         Some(p) => p,
                         // The user did not specify a file, try the default locations
-                        None => to_query_from_language(language)?,
+                        None => to_query_from_config(config, &language.name)?,
                     };
-                    let injection_query = to_injection_query_from_language(language);
+                    let injection_query = to_injection_query_from_config(config, &language.name);
                     Ok(InputFile {
                         source: InputSource::Stdin,
                         language,
@@ -348,8 +348,8 @@ impl<'cfg, 'i> Inputs<'cfg> {
                 .into_iter()
                 .map(|path| {
                     let language = config.detect(&path)?;
-                    let query: QuerySource = to_query_from_language(language)?;
-                    let injection_query = to_injection_query_from_language(language);
+                    let query: QuerySource = to_query_from_config(config, &language.name)?;
+                    let injection_query = to_injection_query_from_config(config, &language.name);
 
                     Ok(InputFile {
                         source: InputSource::Disk(path.into(), None),
@@ -366,10 +366,11 @@ impl<'cfg, 'i> Inputs<'cfg> {
 }
 
 #[allow(clippy::result_large_err)]
-pub(crate) fn to_query_from_language(
-    language: &topiary_config::language::Language,
+pub(crate) fn to_query_from_config(
+    config: &Configuration,
+    language_name: &str,
 ) -> CLIResult<QuerySource> {
-    let query: QuerySource = match language.find_query_file() {
+    let query: QuerySource = match config.find_query_file(language_name) {
         Ok(p) => p.into(),
         // For some reason, Topiary could not find any
         // matching file in a default location. As a final attempt, try the
@@ -379,19 +380,20 @@ pub(crate) fn to_query_from_language(
             log::warn!(
                 "No query files found in any of the expected locations. Falling back to compile-time included files."
             );
-            to_query(&language.name).map_err(|_| e)?
+            to_query(language_name).map_err(|_| e)?
         }
     };
     Ok(query)
 }
 
-pub(crate) fn to_injection_query_from_language(
-    language: &topiary_config::language::Language,
+pub(crate) fn to_injection_query_from_config(
+    config: &Configuration,
+    language_name: &str,
 ) -> Option<QuerySource> {
-    language
-        .find_injections_file()
+    config
+        .find_injections_file(language_name)
         .map(Into::into)
-        .or_else(|| to_injection_query(&language.name))
+        .or_else(|| to_injection_query(language_name))
 }
 
 fn to_injection_query<T>(name: T) -> Option<QuerySource>

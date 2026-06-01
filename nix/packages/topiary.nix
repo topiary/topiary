@@ -123,15 +123,7 @@ let
           cp -r topiary-queries/queries/* $out/share/queries
         '';
 
-        # Set TOPIARY_LANGUAGE_DIR to the Nix store
-        # for the build
-        TOPIARY_LANGUAGE_DIR = "${placeholder "out"}/share/queries";
-
-        # Set TOPIARY_LANGUAGE_DIR to the working directory
-        # in a development shell
-        shellHook = ''
-          export TOPIARY_LANGUAGE_DIR=$PWD/queries
-        '';
+        # No longer using TOPIARY_LANGUAGE_DIR
 
         meta.mainProgram = "topiary";
       }
