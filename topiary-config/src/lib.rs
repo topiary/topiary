@@ -41,6 +41,8 @@ pub struct Configuration {
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
 struct SerdeConfiguration {
     languages: HashMap<String, LanguageConfiguration>,
+    #[serde(default)]
+    query_dir: Option<PathBuf>,
 }
 
 impl Configuration {
@@ -106,6 +108,19 @@ impl Configuration {
             .iter()
             .find(|language| language.name == name.as_ref())
             .ok_or(TopiaryConfigError::UnknownLanguage(name.to_string()))
+    }
+
+    /// Ensures that a language is configured.
+    ///
+    /// # Errors
+    ///
+    /// If the provided language name cannot be found in the `Configuration`, this
+    /// function returns a `TopiaryConfigError`
+    pub fn ensure_language<T>(&self, name: T) -> TopiaryConfigResult<()>
+    where
+        T: AsRef<str> + fmt::Display,
+    {
+        self.get_language(name).map(|_| ())
     }
 
     /// Gets the query directory configured for this Configuration
@@ -295,19 +310,10 @@ impl Configuration {
         let term = program.eval_full_for_export()?;
 
         let serde_config = SerdeConfiguration::deserialize(term.clone())?;
-        let languages = serde_config
-            .languages
-            .into_iter()
-            .map(|(name, config)| Language::new(name, config))
-            .collect();
+        let mut config: Configuration = serde_config.into();
+        config.query_dir = query_dir.or(config.query_dir);
 
-        Ok((
-            Self {
-                languages,
-                query_dir,
-            },
-            term,
-        ))
+        Ok((config, term))
     }
 
     #[allow(clippy::result_large_err)]
@@ -326,19 +332,10 @@ impl Configuration {
         let term = program.eval_full_for_export()?;
 
         let serde_config = SerdeConfiguration::deserialize(term.clone())?;
-        let languages = serde_config
-            .languages
-            .into_iter()
-            .map(|(name, config)| Language::new(name, config))
-            .collect();
+        let mut config: Configuration = serde_config.into();
+        config.query_dir = query_dir.or(config.query_dir);
 
-        Ok((
-            Self {
-                languages,
-                query_dir,
-            },
-            term,
-        ))
+        Ok((config, term))
     }
 }
 
@@ -360,16 +357,7 @@ impl Default for Configuration {
         let serde_config = SerdeConfiguration::deserialize(term)
             .expect("Evaluating the builtin configuration should be safe");
 
-        let languages = serde_config
-            .languages
-            .into_iter()
-            .map(|(name, config)| Language::new(name, config))
-            .collect();
-
-        Self {
-            languages,
-            query_dir: None,
-        }
+        serde_config.into()
     }
 }
 
@@ -398,4 +386,19 @@ impl PartialEq for Configuration {
 pub(crate) fn project_dirs() -> directories::ProjectDirs {
     directories::ProjectDirs::from("", "", "topiary")
         .expect("Could not access the OS's Home directory")
+}
+
+impl From<SerdeConfiguration> for Configuration {
+    fn from(value: SerdeConfiguration) -> Self {
+        let languages = value
+            .languages
+            .into_iter()
+            .map(|(name, config)| Language::new(name, config))
+            .collect();
+
+        Self {
+            languages,
+            query_dir: value.query_dir,
+        }
+    }
 }

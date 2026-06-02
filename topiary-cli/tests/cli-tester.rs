@@ -295,8 +295,9 @@ fn test_fmt_ocamllex_invalid_inner_ocaml_fails() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
         .arg("fmt")
+        .arg("--query-dir")
+        .arg("../topiary-queries/queries")
         .arg("--language")
         .arg("ocamllex")
         .write_stdin(input)
@@ -322,8 +323,9 @@ fn test_fmt_ocamllex_broken_inner_language_resolution_fails() {
     let mut topiary = cargo_bin_cmd!("topiary");
 
     topiary
-        .env("TOPIARY_LANGUAGE_DIR", tmp_dir.path())
         .arg("fmt")
+        .arg("--query-dir")
+        .arg(tmp_dir.path())
         .arg("--language")
         .arg("ocamllex")
         .write_stdin(r#"rule token = parse | "x" { let values=[1;2;3] in values }"#)
