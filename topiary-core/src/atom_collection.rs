@@ -466,7 +466,7 @@ impl AtomCollection {
                     } = a
                         && *id == node.id()
                     {
-                        *multi_line_indent_all = MultiLineIndent::AbsoluteIndentation(AbsoluteIndentation::StringWithInsignificantClosingColumn {last_line_break_significant: false, allow_non_empty_first_line: false,});
+                        *multi_line_indent_all = MultiLineIndent::AbsoluteIndentation(AbsoluteIndentation::ClosingColumnInsignificant {last_line_break_significant: false, allow_non_empty_first_line: false,});
                         // *multi_line_indent_all = MultiLineIndent::RelativeIndentation;
                     }
                 }

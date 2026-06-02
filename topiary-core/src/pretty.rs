@@ -171,20 +171,17 @@ fn try_removing_spaces_after_newlines(s: &str, n: i32) -> String {
 
 #[test]
 fn test_render_absolute_indentation0() {
-    // let content = "";
-    // let content = " \n a";
-    let content = "\t
-    a
-   b
-     c
- ";
     assert_eq!(
         render_absolute_indentation(
-            AbsoluteIndentation::StringWithInsignificantClosingColumn {
+            AbsoluteIndentation::ClosingColumnInsignificant {
                 last_line_break_significant: false,
                 allow_non_empty_first_line: false,
             },
-            content,
+            "\t
+    a
+   b
+     c
+ ",
             1,
             "  "
         ),
@@ -202,7 +199,7 @@ fn test_render_absolute_indentation_single_line0() {
     let content = " ";
     assert_eq!(
         render_absolute_indentation(
-            AbsoluteIndentation::StringWithSignificantClosingColumn,
+            AbsoluteIndentation::ClosingColumnSignificant,
             content,
             1,
             "  "
@@ -216,7 +213,7 @@ fn test_render_absolute_indentation_single_line1() {
     let content = " ";
     assert_eq!(
         render_absolute_indentation(
-            AbsoluteIndentation::StringWithInsignificantClosingColumn {
+            AbsoluteIndentation::ClosingColumnInsignificant {
                 last_line_break_significant: false,
                 allow_non_empty_first_line: false,
             },
@@ -233,7 +230,7 @@ fn test_render_absolute_indentation_single_line2() {
     let content = " ";
     assert_eq!(
         render_absolute_indentation(
-            AbsoluteIndentation::StringWithInsignificantClosingColumn {
+            AbsoluteIndentation::ClosingColumnInsignificant {
                 last_line_break_significant: false,
                 allow_non_empty_first_line: true,
             },
@@ -250,7 +247,7 @@ fn test_render_absolute_indentation_single_line3() {
     let content = " ";
     assert_eq!(
         render_absolute_indentation(
-            AbsoluteIndentation::StringWithInsignificantClosingColumn {
+            AbsoluteIndentation::ClosingColumnInsignificant {
                 last_line_break_significant: true,
                 allow_non_empty_first_line: false,
             },
@@ -267,7 +264,7 @@ fn test_render_absolute_indentation_single_line4() {
     let content = " ";
     assert_eq!(
         render_absolute_indentation(
-            AbsoluteIndentation::StringWithInsignificantClosingColumn {
+            AbsoluteIndentation::ClosingColumnInsignificant {
                 last_line_break_significant: true,
                 allow_non_empty_first_line: true,
             },
@@ -288,7 +285,7 @@ fn test_render_absolute_indentation1() {
  ";
     assert_eq!(
         render_absolute_indentation(
-            AbsoluteIndentation::StringWithInsignificantClosingColumn {
+            AbsoluteIndentation::ClosingColumnInsignificant {
                 last_line_break_significant: false,
                 allow_non_empty_first_line: false,
             },
@@ -321,7 +318,9 @@ fn render_absolute_indentation(
         .next()
         .expect("`split` should not produce empty iterators.")
         .trim_end();
-    let AbsoluteIndentation::StringWithInsignificantClosingColumn {
+    // to do. `peek` and `next` it if whitespace only.
+    // to do. we probably need to *intercalate* `'\n'`.
+    let AbsoluteIndentation::ClosingColumnInsignificant {
         last_line_break_significant,
         allow_non_empty_first_line,
     } = absolute_indentation
@@ -336,10 +335,12 @@ fn render_absolute_indentation(
         })
         .to_owned(); // can we save the `to_owned` by changing the return type to `&str`?
     };
-    if allow_non_empty_first_line {
-        write!(buffer, "{first_line_trimmed}").unwrap();
-    } else if first_line_trimmed != "" {
-        return content_input.to_owned(); // can we save the `to_owned` by changing the return type to `&str`?
+    if first_line_trimmed != "" {
+        if allow_non_empty_first_line {
+            write!(buffer, "{first_line_trimmed}").unwrap();
+        } else {
+            return content_input.to_owned(); // can we save the `to_owned` by changing the return type to `&str`?
+        }
     }
     let last_line_is_whitespace = last_line.chars().all(char::is_whitespace);
     if last_line_is_whitespace {
