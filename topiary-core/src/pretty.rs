@@ -319,34 +319,47 @@ fn render_absolute_indentation(
 
     let first_line_trimmed = content
         .next()
-        .expect("impossible because `split` does not produce empty iterators.")
+        .expect("`split` should not produce empty iterators.")
         .trim_end();
     let AbsoluteIndentation::StringWithInsignificantClosingColumn {
-        last_line_break_significant: _,
+        last_line_break_significant,
         allow_non_empty_first_line,
     } = absolute_indentation
     else {
         todo!()
     };
+    let Some(last_line) = content.clone().next_back() else {
+        return (if allow_non_empty_first_line {
+            first_line_trimmed
+        } else {
+            content_input
+        })
+        .to_owned(); // can we save the `to_owned` by changing the return type to `&str`?
+    };
     if allow_non_empty_first_line {
         write!(buffer, "{first_line_trimmed}").unwrap();
-    } else if first_line_trimmed != "" || content_collected.len() == 1 {
+    } else if first_line_trimmed != "" {
         return content_input.to_owned(); // can we save the `to_owned` by changing the return type to `&str`?
     }
-    // content.clone().next_back().expect().chars().all(char::is_whitespace);
-    // s.chars().all(char::is_whitespace)
-    if content.clone().count() != 0 {
+    let last_line_is_whitespace = last_line.chars().all(char::is_whitespace);
+    if last_line_is_whitespace {
+        content.next_back().expect(
+            "`next_back()` should still be `Some(last_line)` because it just was for a `clone()`.",
+        );
+    }
+    if content.clone().next().is_some() {
         let whitespace_prefixes = content
             .clone()
             .filter(|s| s.chars().any(|c| !c.is_whitespace()))
             .map(str::chars)
             .map(|s| s.take_while(|c| c.is_whitespace()));
-        let common_whitespace_prefix = common_prefix(whitespace_prefixes.clone()).unwrap();
-        match common_whitespace_prefix
-            .clone()
-            .count()
-            .cmp(&whitespace_prefixes.map(Iterator::count).min().unwrap())
-        {
+        let common_whitespace_prefix = common_prefix(whitespace_prefixes.clone())
+            .expect("`next().is_some()` should still hold because it just did for a `clone()`.");
+        match common_whitespace_prefix.clone().count().cmp(
+            &whitespace_prefixes.map(Iterator::count).min().expect(
+                "`next().is_some()` should still hold because it just did for a `clone()`.",
+            ),
+        ) {
             Ordering::Less => println!("warning"), // to do
             Ordering::Equal => (),
             Ordering::Greater => panic!(
@@ -370,6 +383,8 @@ fn render_absolute_indentation(
                 write!(buffer, "\n{}{}", indent.repeat(indent_level + 1), line).unwrap();
             }
         }
+    }
+    if last_line_is_whitespace || !last_line_break_significant {
         write!(buffer, "\n{}", indent.repeat(indent_level)).unwrap();
     }
     buffer
