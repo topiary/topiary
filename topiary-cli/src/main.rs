@@ -36,6 +36,9 @@ fn resolve_injected_language(
 ) -> FormatterResult<Option<Arc<Language>>> {
     match cache.fetch_from_config(config, name) {
         Ok(language) => Ok(Some(language)),
+        Err(TopiaryError::Config(topiary_config::error::TopiaryConfigError::UnknownLanguage(
+            _,
+        ))) => Ok(None),
         Err(TopiaryError::Lib(report)) => {
             Err(report.context(FormatterError::InjectionLanguageResolution {
                 language: name.to_owned(),

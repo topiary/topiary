@@ -53,6 +53,7 @@ feature flag (either `experimental`, for all of them, or by their
 individual name). Once included, they can be accessed in Topiary in the
 usual way.
 
+- [Markdown]
 - [Rust]
 
 # Topiary cultivars
@@ -82,6 +83,7 @@ channel][discord].
 [gdscript-formatter]: https://gdquest.com/library/gdscript_formatter
 [gdscript]: https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/index.html
 [json]: https://www.json.org
+[markdown]: https://commonmark.org
 [nickel]: https://nickel-lang.org
 [nushell]: https://nushell.sh
 [ocaml]: https://ocaml.org

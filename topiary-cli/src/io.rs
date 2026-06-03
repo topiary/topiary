@@ -399,6 +399,9 @@ where
     T: AsRef<str>,
 {
     match name.as_ref() {
+        #[cfg(feature = "markdown")]
+        "markdown" => Some(topiary_queries::markdown_injections().into()),
+
         #[cfg(feature = "ocamllex")]
         "ocamllex" => Some(topiary_queries::ocamllex_injections().into()),
 
@@ -516,6 +519,9 @@ where
 
         #[cfg(feature = "json")]
         "json" => Ok(topiary_queries::json().into()),
+
+        #[cfg(feature = "markdown")]
+        "markdown" => Ok(topiary_queries::markdown().into()),
 
         #[cfg(feature = "nickel")]
         "nickel" => Ok(topiary_queries::nickel().into()),

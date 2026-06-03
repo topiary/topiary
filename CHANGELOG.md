@@ -51,6 +51,7 @@ This name should be decided amongst the team before the release.
 - [#1226](https://github.com/topiary/topiary/pull/1226) Query files moved from `queries/<lang>.scm` to `queries/<lang>/formatting.scm` in preparation for language injection support. The old flat layout is still supported as a fallback.
 - [#1232](https://github.com/topiary/topiary/pull/1232) Rework `topiary_core::ErrorSpan` to handle `QueryError`s as well as `Node` errors by introducing `rootcause::Report`
 - [#1249](https://github.com/topiary/topiary/pull/1249) Remove async calls and setup from `format_nickel` benchmark
+- [#1254](https://github.com/topiary/topiary/pull/1254) Topiary now gracefully skips formatting for unknown or unsupported injected languages instead of returning a fatal error, allowing files with unconfigured code blocks (like Markdown) to format successfully.
 
 ### Fixed
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
@@ -61,6 +62,7 @@ This name should be decided amongst the team before the release.
 - [#1217](https://github.com/topiary/topiary/pull/1217) Add `--check` flag to `topiary fmt` for CI formatting verification.
 - [#1227](https://github.com/topiary/topiary/pull/1227) Add `@append_empty_input_softline` and `@prepend_empty_input_softline` captures, thanks to @BirdeeHub
 - [#1244](https://github.com/topiary/topiary/pull/1244) Add language injection support for injection languages known at query writing.
+- [#1254](https://github.com/topiary/topiary/pull/1254) Add Markdown formatting support with dynamic language injections for fenced code blocks (via the `@injection.language` capture).
 
 ### Removed
 - [#1217](https://github.com/topiary/topiary/pull/1217) The `check` alias for the `check-grammar` subcommand, to avoid confusion with `topiary fmt --check`.

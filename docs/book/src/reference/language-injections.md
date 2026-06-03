@@ -39,9 +39,18 @@ identifier to use for that captured content.
 Patterns without `#injection_language!` are skipped with a warning.
 Patterns without `@injection.content` do not inject anything.
 
-Dynamic language selection, such as taking the language name from a
-Markdown code fence, is not supported yet. It is future work for
-broader multi-language document support.
+Dynamic language selection is also supported. For example, taking the language name from a Markdown code fence can be done using the `@injection.language` capture:
+
+```scheme
+(fenced_code_block
+  (info_string
+    (language) @injection.language
+  )
+  (code_fence_content) @injection.content
+)
+```
+
+Topiary will check for `#injection_language!` first, and if absent, it will fall back to using the text of the `@injection.language` captured node.
 
 ## Formatting model
 
@@ -65,11 +74,9 @@ There is no host reparse after injected text is rewritten.
 
 ## Failure behaviour
 
-Injected formatting is all-or-nothing. If an injection query matches,
-Topiary must resolve the injected language and format the captured span
-successfully. If the injected language cannot be resolved, its grammar
-or query files cannot be loaded, or the captured span cannot be
-formatted, formatting fails.
+Injected formatting is largely robust. If an injection query matches,
+Topiary will attempt to resolve the injected language and format the captured span.
+If the injected language cannot be resolved (for instance, if the language is not configured or unsupported), Topiary will log a warning and gracefully skip formatting that specific injected span, leaving the original text unchanged. However, if the language *is* resolved but the captured span cannot be successfully formatted due to syntax errors and `tolerate_parsing_errors` is false, formatting of the file may fail.
 
 Idempotence is still checked at the outer formatting level by default.
 Injected spans are formatted again during that second pass, so unstable
