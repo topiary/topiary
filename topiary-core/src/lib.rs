@@ -647,8 +647,7 @@ mod tests {
 "#;
         let language = ocamllex_language();
         let tree = parse(input, &language.grammar, false).unwrap();
-        let spans =
-            collect_injections(&tree, input, language.injection_query.as_ref().unwrap());
+        let spans = collect_injections(&tree, input, language.injection_query.as_ref().unwrap());
 
         assert_eq!(spans.len(), 1);
         assert_eq!(spans[0].language, "ocaml");
