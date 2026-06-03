@@ -393,7 +393,7 @@ fn rewrite_injected_leaves(
 ) -> FormatterResult<()> {
     for span in spans {
         let inner_source = input_content
-            .get(span.start_byte..span.end_byte)
+            .get(span.byte_range.clone())
             .ok_or_report()
             .context(FormatterError::Internal(
                 "Injected span is not on UTF-8 boundaries".into(),
@@ -652,7 +652,7 @@ mod tests {
         assert_eq!(spans.len(), 1);
         assert_eq!(spans[0].language, "ocaml");
         assert_eq!(
-            &input[spans[0].start_byte..spans[0].end_byte],
+            &input[spans[0].byte_range.clone()],
             r#"let values=[1;2;3] in List.map (fun x->x+1) values"#
         );
     }

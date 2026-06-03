@@ -156,10 +156,7 @@ impl InjectionQuery {
 /// language, as determined by an [`InjectionQuery`].
 #[derive(Clone, Debug)]
 pub struct InjectionSpan {
-    /// Start byte (inclusive) within the host source.
-    pub start_byte: usize,
-    /// End byte (exclusive) within the host source.
-    pub end_byte: usize,
+    pub byte_range: std::ops::Range<usize>,
     /// The injected language name, taken from the `#injection_language!`
     /// predicate of the matching pattern.
     pub language: String,
@@ -218,8 +215,7 @@ pub fn collect_injections(
         {
             let node = capture.node();
             spans.push(InjectionSpan {
-                start_byte: node.start_byte() as usize,
-                end_byte: node.end_byte() as usize,
+                byte_range: node.start_byte() as usize..node.end_byte() as usize,
                 language: language_name.clone(),
                 node_id: node.id(),
             });
