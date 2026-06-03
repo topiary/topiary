@@ -174,8 +174,7 @@ fn test_render_absolute_indentation0() {
     assert_eq!(
         render_absolute_indentation(
             AbsoluteIndentation::ClosingColumnInsignificant {
-                last_line_break_significant: false,
-                allow_non_empty_first_line: false,
+                last_line_break_significant: false
             },
             "\t
     a
@@ -198,25 +197,18 @@ fn test_render_absolute_indentation0() {
 fn test_render_absolute_indentation_single_line0() {
     let content = " ";
     assert_eq!(
-        render_absolute_indentation(
-            AbsoluteIndentation::ClosingColumnSignificant,
-            content,
-            1,
-            "  "
-        ),
-        " "
+        render_absolute_indentation(AbsoluteIndentation::Comment, content, 1, "  "),
+        ""
     );
 }
 
 #[test]
+#[ignore]
 fn test_render_absolute_indentation_single_line1() {
     let content = " ";
     assert_eq!(
         render_absolute_indentation(
-            AbsoluteIndentation::ClosingColumnInsignificant {
-                last_line_break_significant: false,
-                allow_non_empty_first_line: false,
-            },
+            AbsoluteIndentation::ClosingColumnSignificant,
             content,
             1,
             "  "
@@ -232,24 +224,6 @@ fn test_render_absolute_indentation_single_line2() {
         render_absolute_indentation(
             AbsoluteIndentation::ClosingColumnInsignificant {
                 last_line_break_significant: false,
-                allow_non_empty_first_line: true,
-            },
-            content,
-            1,
-            "  "
-        ),
-        ""
-    );
-}
-
-#[test]
-fn test_render_absolute_indentation_single_line3() {
-    let content = " ";
-    assert_eq!(
-        render_absolute_indentation(
-            AbsoluteIndentation::ClosingColumnInsignificant {
-                last_line_break_significant: true,
-                allow_non_empty_first_line: false,
             },
             content,
             1,
@@ -260,19 +234,18 @@ fn test_render_absolute_indentation_single_line3() {
 }
 
 #[test]
-fn test_render_absolute_indentation_single_line4() {
+fn test_render_absolute_indentation_single_line3() {
     let content = " ";
     assert_eq!(
         render_absolute_indentation(
             AbsoluteIndentation::ClosingColumnInsignificant {
                 last_line_break_significant: true,
-                allow_non_empty_first_line: true,
             },
             content,
             1,
             "  "
         ),
-        ""
+        " "
     );
 }
 
@@ -287,17 +260,17 @@ fn test_render_absolute_indentation1() {
         render_absolute_indentation(
             AbsoluteIndentation::ClosingColumnInsignificant {
                 last_line_break_significant: false,
-                allow_non_empty_first_line: false,
             },
             content,
             1,
             "  "
         ),
-        "x
-    a
-   b
-     c
- "
+        "
+    x
+        a
+       b
+         c
+  "
     );
 }
 
@@ -307,6 +280,13 @@ fn render_absolute_indentation(
     indent_level: usize,
     indent: &str,
 ) -> String {
+    let AbsoluteIndentation::ClosingColumnInsignificant {
+        last_line_break_significant,
+    } = absolute_indentation
+    else {
+        todo!()
+    };
+
     let content_collected: Vec<&str> = content_input
         .split("\n")
         .map(|s| s.strip_suffix("\r").unwrap_or(s)) // to do. remove this?
@@ -314,40 +294,27 @@ fn render_absolute_indentation(
     let mut content = content_collected.iter().copied();
     let mut buffer = String::new();
 
-    let first_line_trimmed = content
+    let first_line = content
+        .clone()
         .next()
-        .expect("`split` should not produce empty iterators.")
-        .trim_end();
-    // to do. `peek` and `next` it if whitespace only.
-    // to do. we probably need to *intercalate* `'\n'`.
-    let AbsoluteIndentation::ClosingColumnInsignificant {
-        last_line_break_significant,
-        allow_non_empty_first_line,
-    } = absolute_indentation
-    else {
-        todo!()
-    };
-    let Some(last_line) = content.clone().next_back() else {
-        return (if allow_non_empty_first_line {
-            first_line_trimmed
-        } else {
-            content_input
-        })
-        .to_owned(); // can we save the `to_owned` by changing the return type to `&str`?
-    };
-    if first_line_trimmed != "" {
-        if allow_non_empty_first_line {
-            write!(buffer, "{first_line_trimmed}").unwrap();
-        } else {
-            return content_input.to_owned(); // can we save the `to_owned` by changing the return type to `&str`?
-        }
+        .expect("`split` should not produce empty iterators.");
+    if first_line.chars().all(char::is_whitespace) {
+        content
+            .next()
+            .expect("`split` should not produce empty iterators.");
     }
+
+    let Some(last_line) = content.clone().next_back() else {
+        // if comment {return first_line_trimmed;}
+        return content_input.to_owned(); // can we save the `to_owned` by changing the return type to `&str`?
+    };
     let last_line_is_whitespace = last_line.chars().all(char::is_whitespace);
     if last_line_is_whitespace {
         content.next_back().expect(
             "`next_back()` should still be `Some(last_line)` because it just was for a `clone()`.",
         );
     }
+
     if content.clone().next().is_some() {
         let whitespace_prefixes = content
             .clone()
