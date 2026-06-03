@@ -180,7 +180,7 @@ fn test_render_absolute_indentation0() {
     a
    b
      c
- ",
+            ",
             1,
             "  "
         ),
@@ -195,9 +195,8 @@ fn test_render_absolute_indentation0() {
 #[test]
 #[ignore]
 fn test_render_absolute_indentation_single_line0() {
-    let content = " ";
     assert_eq!(
-        render_absolute_indentation(AbsoluteIndentation::Comment, content, 1, "  "),
+        render_absolute_indentation(AbsoluteIndentation::Comment, " ", 1, "  "),
         ""
     );
 }
@@ -205,27 +204,20 @@ fn test_render_absolute_indentation_single_line0() {
 #[test]
 #[ignore]
 fn test_render_absolute_indentation_single_line1() {
-    let content = " ";
     assert_eq!(
-        render_absolute_indentation(
-            AbsoluteIndentation::ClosingColumnSignificant,
-            content,
-            1,
-            "  "
-        ),
+        render_absolute_indentation(AbsoluteIndentation::ClosingColumnSignificant, " ", 1, "  "),
         " "
     );
 }
 
 #[test]
 fn test_render_absolute_indentation_single_line2() {
-    let content = " ";
     assert_eq!(
         render_absolute_indentation(
             AbsoluteIndentation::ClosingColumnInsignificant {
                 last_line_break_significant: false,
             },
-            content,
+            " ",
             1,
             "  "
         ),
@@ -235,13 +227,12 @@ fn test_render_absolute_indentation_single_line2() {
 
 #[test]
 fn test_render_absolute_indentation_single_line3() {
-    let content = " ";
     assert_eq!(
         render_absolute_indentation(
             AbsoluteIndentation::ClosingColumnInsignificant {
                 last_line_break_significant: true,
             },
-            content,
+            " ",
             1,
             "  "
         ),
@@ -251,17 +242,16 @@ fn test_render_absolute_indentation_single_line3() {
 
 #[test]
 fn test_render_absolute_indentation1() {
-    let content = "x
-    a
-   b
-     c
- ";
     assert_eq!(
         render_absolute_indentation(
             AbsoluteIndentation::ClosingColumnInsignificant {
                 last_line_break_significant: false,
             },
-            content,
+            "x
+    a
+   b
+     c
+            ",
             1,
             "  "
         ),
@@ -274,6 +264,62 @@ fn test_render_absolute_indentation1() {
     );
 }
 
+#[test]
+fn test_render_absolute_indentation2() {
+    assert_eq!(
+        render_absolute_indentation(
+            AbsoluteIndentation::ClosingColumnInsignificant {
+                last_line_break_significant: false,
+            },
+            "a",
+            1,
+            "  "
+        ),
+        "a",
+    );
+}
+
+#[test]
+fn test_render_absolute_indentation_last_break_significant() {
+    assert_eq!(
+        render_absolute_indentation(
+            AbsoluteIndentation::ClosingColumnInsignificant {
+                last_line_break_significant: true,
+            },
+            "x
+y",
+            1,
+            "  "
+        ),
+        "
+    x
+    y"
+    );
+}
+
+#[test]
+fn test_render_absolute_indentation_trailing_whitespace_line() {
+    assert_eq!(
+        render_absolute_indentation(
+            AbsoluteIndentation::ClosingColumnInsignificant {
+                last_line_break_significant: true,
+            },
+            "a
+            ",
+            1,
+            "  "
+        ),
+        "
+    a
+  "
+    );
+}
+
+/// formats multi line source code constructs like multi line strings.
+///
+/// `absolute_indentation` contains configuration. at this stage we assume that it is a `ClosingColumnInsignificant` constructor.
+/// `content_input` is the source code inbetween the delimiters of the multi line construct like `''` in the example of nix multi line strings or `"""` in the example of c# multi line strings.
+/// the returned `String` differs only in white space from `content_input`.
 fn render_absolute_indentation(
     absolute_indentation: AbsoluteIndentation,
     content_input: &str,
@@ -291,6 +337,11 @@ fn render_absolute_indentation(
         .split("\n")
         .map(|s| s.strip_suffix("\r").unwrap_or(s)) // to do. remove this?
         .collect(); // because we need `DoubleEndedIterator`.
+
+    if content_collected.len() == 1 {
+        return content_input.to_owned();
+    }
+
     let mut content = content_collected.iter().copied();
     let mut buffer = String::new();
 
@@ -305,7 +356,6 @@ fn render_absolute_indentation(
     }
 
     let Some(last_line) = content.clone().next_back() else {
-        // if comment {return first_line_trimmed;}
         return content_input.to_owned(); // can we save the `to_owned` by changing the return type to `&str`?
     };
     let last_line_is_whitespace = last_line.chars().all(char::is_whitespace);
@@ -315,41 +365,43 @@ fn render_absolute_indentation(
         );
     }
 
-    if content.clone().next().is_some() {
-        let whitespace_prefixes = content
-            .clone()
-            .filter(|s| s.chars().any(|c| !c.is_whitespace()))
-            .map(str::chars)
-            .map(|s| s.take_while(|c| c.is_whitespace()));
-        let common_whitespace_prefix = common_prefix(whitespace_prefixes.clone())
-            .expect("`next().is_some()` should still hold because it just did for a `clone()`.");
-        match common_whitespace_prefix.clone().count().cmp(
-            &whitespace_prefixes.map(Iterator::count).min().expect(
-                "`next().is_some()` should still hold because it just did for a `clone()`.",
-            ),
-        ) {
-            Ordering::Less => println!("warning"), // to do
-            Ordering::Equal => (),
-            Ordering::Greater => panic!(
-                "the common whitespace prefix should be a substring of the shortest whitespace prefix."
-            ),
-        }
-        let common_whitespace_prefix_len_utf8: usize =
-            common_whitespace_prefix.map(char::len_utf8).sum();
-        let content = content.map(|line| {
-            if common_whitespace_prefix_len_utf8 < line.len() {
-                &line[common_whitespace_prefix_len_utf8..]
-            } else {
-                ""
-            }
-        });
+    if content.clone().next().is_none() {
+        return "".to_owned();
+    }
 
-        for line in content {
-            if line.chars().all(char::is_whitespace) {
-                write!(buffer, "\n").unwrap();
-            } else {
-                write!(buffer, "\n{}{}", indent.repeat(indent_level + 1), line).unwrap();
-            }
+    let whitespace_prefixes = content
+        .clone()
+        .filter(|s| s.chars().any(|c| !c.is_whitespace()))
+        .map(str::chars)
+        .map(|s| s.take_while(|c| c.is_whitespace()));
+    let common_whitespace_prefix = common_prefix(whitespace_prefixes.clone())
+        .expect("`next().is_none()` should still not hold because it just did for a `clone()`.");
+    match common_whitespace_prefix.clone().count().cmp(
+        &whitespace_prefixes.map(Iterator::count).min().expect(
+            "`next().is_none()` should still not hold because it just did for a `clone()`.",
+        ),
+    ) {
+        Ordering::Less => println!("warning"), // to do
+        Ordering::Equal => (),
+        Ordering::Greater => panic!(
+            "the common whitespace prefix should be a substring of the shortest whitespace prefix."
+        ),
+    }
+    let common_whitespace_prefix_len_utf8: usize =
+        common_whitespace_prefix.map(char::len_utf8).sum();
+    let content = content.map(|line| {
+        if common_whitespace_prefix_len_utf8 < line.len() {
+            &line[common_whitespace_prefix_len_utf8..]
+        } else {
+            ""
+        }
+    });
+
+    for line in content {
+        if line.chars().all(char::is_whitespace) {
+            write!(buffer, "\n").unwrap();
+        } else {
+            write!(buffer, "\n{}{}", indent.repeat(indent_level + 1), line).unwrap();
         }
     }
     if last_line_is_whitespace || !last_line_break_significant {
