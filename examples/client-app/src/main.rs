@@ -25,9 +25,10 @@ async fn main() {
     // Create Language struct
     let language: Language = Language {
         name: "json".to_owned(),
-        query: TopiaryQuery::new(&grammar, query).unwrap(),
+        formatting_query: TopiaryQuery::new(&grammar, query).unwrap(),
         grammar,
         indent: None,
+        injection_query: None,
     };
 
     // Format the input JSON using the language configuration
@@ -39,6 +40,7 @@ async fn main() {
             skip_idempotence: false,
             tolerate_parsing_errors: false,
         },
+        None,
     )
     .unwrap();
 

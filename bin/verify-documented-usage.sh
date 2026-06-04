@@ -45,7 +45,7 @@ main() {
   # NOTE "index" is for the top-level usage documentation.
   # Each element in this array should correspond with a Markdown file in
   # docs/book/src/cli/usage
-  local -a subcommands=(index format visualise config completion coverage prefetch)
+  local -a subcommands=(index format visualise config completion coverage prefetch check-grammar)
 
   local _diff
   local _subcommand

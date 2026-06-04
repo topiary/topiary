@@ -266,13 +266,8 @@ pub fn get_args() -> CLIResult<Cli> {
             // Make sure our FILE is not a directory
             if file.is_dir() => {
                 return Err(
-                    report!(TopiaryError::Other)
-                    .attach(
-                        format!(
-                        "Cannot visualise directory \"{}\"; please provide a single file from disk or stdin.",
-                        file.display()
-                        )
-                    )
+                    report!( "Cannot visualise directory \"{}\"", file.display())
+                        .attach("please provide a single file from disk or stdin.")
                 );
             }
 

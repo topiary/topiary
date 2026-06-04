@@ -44,15 +44,11 @@ struct FileMeta {
 impl FileMeta {
     fn new<P: AsRef<Path>>(path: &P) -> CLIResult<Self> {
         // Stat a potential symlink
-        let lmeta = fs::symlink_metadata(path).context_to()?;
+        let lmeta = fs::symlink_metadata(path)?;
         let symlink = lmeta.is_symlink();
 
         // Follow the symlink, if necessary
-        let meta = if symlink {
-            fs::metadata(path).context_to()?
-        } else {
-            lmeta
-        };
+        let meta = if symlink { fs::metadata(path)? } else { lmeta };
 
         let filetype = {
             if meta.is_file() {
@@ -135,12 +131,7 @@ pub fn traverse(files: &mut Vec<PathBuf>, follow_symlinks: bool) -> CLIResult<()
 
         if is_dir {
             // Descend into directory, symlink-aware as required
-            let mut subfiles = file
-                .read_dir()
-                .context_to()?
-                .flatten()
-                .map(|f| f.path())
-                .collect();
+            let mut subfiles = file.read_dir()?.flatten().map(|f| f.path()).collect();
             traverse(&mut subfiles, follow_symlinks)?;
             expanded.append(&mut subfiles);
         } else if meta.is_file() {

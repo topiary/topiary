@@ -1,20 +1,21 @@
 mod hooks;
 
-pub use hooks::{SpanFormatter, SpanHook};
+pub use hooks::SpanHook;
 use rootcause::{
-    markers::{self, Local, Mutable, ObjectMarkerFor, SendSync},
-    report, Report, ReportConversion,
+    Report, ReportConversion,
+    markers::{self, Dynamic, Local, Mutable, ObjectMarkerFor, SendSync},
+    preformatted::PreformattedContext,
+    report,
 };
 use std::{error, fmt, io, process::ExitCode, result};
 
-use rootcause::Report;
 use similar::TextDiff;
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError};
 use topiary_core::FormatterError;
 use topiary_tree_sitter_facade::QueryError;
 
 /// A convenience wrapper around `std::result::Result<T, TopiaryError>`.
-pub type CLIResult<C, T = SendSync> = result::Result<C, Report<TopiaryError, Mutable, T>>;
+pub type CLIResult<C, T = SendSync> = result::Result<C, Report<Dynamic, Mutable, T>>;
 
 /// The errors that can be raised by either the Topiary CLI, or passed through by the formatter
 /// library code. This acts as a supertype of `FormatterError`, with additional members to denote
@@ -270,18 +271,15 @@ impl PreformatLocal<TopiaryError> for TopiaryConfigFetchingError {
     }
 }
 
-pub(crate) trait ResultPreformatLocal<T, C> {
-    fn preformat_context(self) -> Result<T, Report<C>>;
+pub(crate) trait ResultPreformat<T, C> {
+    fn preformat_context(self) -> Result<T, Report<PreformattedContext>>;
 }
 
-impl<T, C, C2> ResultPreformatLocal<T, C2> for Result<T, C>
-where
-    C: PreformatLocal<C2>,
-{
-    fn preformat_context(self) -> Result<T, Report<C2>> {
+impl<T, C> ResultPreformat<T, C> for Result<T, C> {
+    fn preformat_context(self) -> Result<T, Report<PreformattedContext>> {
         match self {
             Ok(t) => Ok(t),
-            Err(e) => Err(e.preformat_context()),
+            Err(e) => Err(report!(e).preformat_context()),
         }
     }
 }

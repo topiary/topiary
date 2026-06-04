@@ -70,7 +70,7 @@ impl TopiaryQuery {
                 let range = e.current_context().range;
                 e.attach_range(range)
             })
-            .attach_source(query_content)?;
+            .attach_source(Some(query_content))?;
 
         Ok(TopiaryQuery {
             query,
@@ -103,6 +103,126 @@ impl TopiaryQuery {
     pub fn pattern_position(&self, _pattern_index: usize) -> Position {
         unimplemented!()
     }
+}
+
+/// A pre-compiled query that identifies regions of a parsed source which
+/// should be formatted as a different ("injected") language.
+///
+/// An injection query captures the embedded source text with
+/// `@injection.content`, and declares the inner language via a
+/// `(#injection_language! "name")` predicate on the same pattern. For example,
+/// to mark every `(ocaml)` node within an `ocamllex` source as OCaml:
+///
+/// ```scheme
+/// ((ocaml) @injection.content
+///  (#injection_language! "ocaml"))
+/// ```
+#[derive(Debug)]
+pub struct InjectionQuery {
+    pub query: Query,
+    pub query_content: String,
+}
+
+impl InjectionQuery {
+    /// Compile `query_content` against `grammar` as an injection query.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FormatterError::Query`] if tree-sitter fails to parse the
+    /// query.
+    pub fn new(
+        grammar: &topiary_tree_sitter_facade::Language,
+        query_content: &str,
+    ) -> FormatterResult<InjectionQuery> {
+        let query = Query::new(grammar, query_content)
+            .into_report()
+            .map_err(|e| {
+                let range = e.current_context().range;
+                e.attach_range(range)
+            })
+            .attach_source(Some(query_content))
+            .context(FormatterError::Query(
+                "Error parsing injection query file".into(),
+            ))?;
+
+        Ok(InjectionQuery {
+            query,
+            query_content: query_content.to_owned(),
+        })
+    }
+}
+
+/// A region of host source text that should be formatted as a different
+/// language, as determined by an [`InjectionQuery`].
+#[derive(Clone, Debug)]
+pub struct InjectionSpan {
+    pub byte_range: std::ops::Range<usize>,
+    /// The injected language name, taken from the `#injection_language!`
+    /// predicate of the matching pattern.
+    pub language: String,
+    /// Tree-sitter id of the captured node. Valid only against the same
+    /// [`Tree`] from which these spans were collected: tree-sitter does not
+    /// guarantee node-id stability across edit-and-reparse, but within a
+    /// single parse IDs are stable. Used to locate and rewrite the
+    /// corresponding `Atom::Leaf` after the host has been atomised.
+    pub node_id: usize,
+}
+
+/// Run an [`InjectionQuery`] against a parsed `tree`, returning every
+/// `@injection.content` capture paired with the language declared by its
+/// pattern's `#injection_language!` predicate.
+///
+/// Patterns missing an `#injection_language!` predicate are skipped (with a
+/// warning logged).
+///
+/// Missing predicates or unmatched captures are logged, not raised.
+pub fn collect_injections(
+    tree: &Tree,
+    input_content: &str,
+    query: &InjectionQuery,
+) -> Vec<InjectionSpan> {
+    let root = tree.root_node();
+    let source = input_content.as_bytes();
+    let capture_names = query.query.capture_names();
+
+    let mut cursor = QueryCursor::new();
+    let mut spans = Vec::new();
+
+    let mut matches = query.query.matches(&root, source, &mut cursor);
+    #[allow(clippy::while_let_on_iterator)] // Not a normal iterator
+    while let Some(query_match) = matches.next() {
+        let language_name = query
+            .query
+            .general_predicates(query_match.pattern_index())
+            .into_iter()
+            .find_map(|p| {
+                (&*p.operator() == "injection_language!")
+                    .then(|| p.args().into_iter().next())
+                    .flatten()
+            });
+
+        let Some(language_name) = language_name else {
+            log::warn!(
+                "Injection query pattern {} has no #injection_language! predicate; skipping",
+                query_match.pattern_index()
+            );
+            continue;
+        };
+
+        for capture in query_match
+            .captures()
+            .filter(|c| c.name(capture_names.as_slice()) == "injection.content")
+        {
+            let node = capture.node();
+            spans.push(InjectionSpan {
+                byte_range: node.start_byte() as usize..node.end_byte() as usize,
+                language: language_name.clone(),
+                node_id: node.id(),
+            });
+        }
+    }
+
+    spans
 }
 
 impl From<Point> for Position {
@@ -322,6 +442,15 @@ pub fn apply_query_tree(
     input_content: &str,
     query: &TopiaryQuery,
 ) -> FormatterResult<AtomCollection> {
+    apply_query_tree_with_forced_leaves(tree, input_content, query, std::iter::empty())
+}
+
+pub(crate) fn apply_query_tree_with_forced_leaves(
+    tree: Tree,
+    input_content: &str,
+    query: &TopiaryQuery,
+    forced_leaf_nodes: impl Iterator<Item = usize>,
+) -> FormatterResult<AtomCollection> {
     let root = tree.root_node();
     let source = input_content.as_bytes();
 
@@ -343,7 +472,9 @@ pub fn apply_query_tree(
 
     // Find the ids of all tree-sitter nodes that were identified as a leaf
     // We want to avoid recursing into them in the collect_leaves function.
-    let specified_leaf_nodes: HashSet<usize> = collect_leaf_ids(&matches, capture_names.clone());
+    let mut specified_leaf_nodes: HashSet<usize> =
+        collect_leaf_ids(&matches, capture_names.clone());
+    specified_leaf_nodes.extend(forced_leaf_nodes);
 
     // The Flattening: collects all terminal nodes of the tree-sitter tree in a Vec
     let mut atoms = AtomCollection::collect_leaves(&root, source, specified_leaf_nodes)?;
@@ -451,7 +582,7 @@ pub fn parse(
 
     // Fail parsing if we don't get a complete syntax tree.
     if !tolerate_parsing_errors {
-        check_for_error_nodes(&tree.root_node()).attach_source(content)?;
+        check_for_error_nodes(&tree.root_node()).attach_source(Some(content))?;
     }
 
     Ok(tree)

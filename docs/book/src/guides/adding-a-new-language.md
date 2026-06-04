@@ -193,6 +193,31 @@ fn to_query<T>(name: T) -> CLIResult<QuerySource>
 This will allow your query file to by considered as the default fallback
 query, when no other file can be found at runtime for your language.
 
+## Optional: add language injections
+
+If the new language embeds source code from another Topiary language,
+add an `injections.scm` file next to `formatting.scm`:
+
+```sh
+touch topiary-queries/queries/clang/injections.scm
+```
+
+An injection query captures host syntax that should be formatted by the
+inner language:
+
+```scheme
+(
+  (embedded_code) @injection.content
+  (#injection_language! "inner_language")
+)
+```
+
+The host language's `formatting.scm` retains control of the layout around the
+captured node. The captured content is formatted independently by the
+inner language and then rendered as a host leaf. See
+[Language injections](../reference/language-injections.md) for the
+full behaviour and limitations.
+
 ## Iterate
 
 Once the above steps have been completed, Topiary will be able to use
