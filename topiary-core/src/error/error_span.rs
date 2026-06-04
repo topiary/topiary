@@ -19,7 +19,7 @@ use rootcause::{
         AttachmentFormattingPlacement, AttachmentFormattingStyle, AttachmentHandler,
         FormattingFunction,
     },
-    markers::ObjectMarkerFor,
+    markers::{ObjectMarkerFor, SendSync},
 };
 use topiary_tree_sitter_facade::Range;
 
@@ -167,9 +167,9 @@ pub trait SpanAttachment {
     fn get_span(&mut self) -> Option<&mut ErrorSpan>;
 }
 
-impl<C, T> SpanAttachment for rootcause::Report<C, rootcause::markers::Mutable, T>
+impl<C: ?Sized> SpanAttachment for rootcause::Report<C, rootcause::markers::Mutable, SendSync>
 where
-    ErrorSpan: ObjectMarkerFor<T>,
+    ErrorSpan: ObjectMarkerFor<SendSync>,
 {
     fn attach_filepath(mut self, filepath: Option<&Path>) -> Self {
         let Some(filepath) = filepath else {

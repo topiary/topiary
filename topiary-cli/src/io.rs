@@ -24,7 +24,7 @@ use topiary_core::{
 
 use crate::{
     cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
-    error::{CLIResult, PreformatLocal, ResultPreformat, ResultPreformatLocal, TopiaryError},
+    error::{CLIResult, PreformatLocal, ResultPreformat, TopiaryError},
     language::LanguageDefinitionCache,
 };
 
@@ -473,14 +473,14 @@ impl fmt::Display for OutputFile {
 }
 
 impl Write for OutputFile {
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
             Self::Stdout => io::stdout().lock().write(buf),
             Self::Disk { staged, .. } => staged.write(buf),
         }
     }
 
-    fn flush(&mut self) -> Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         match self {
             Self::Stdout => io::stdout().lock().flush(),
             Self::Disk { staged, .. } => staged.flush(),
@@ -575,17 +575,13 @@ pub(crate) async fn format_config(
 }
 
 // meant to be used in scenarios where multiple inputs are possible
-pub(crate) async fn process_inputs<F, T>(
+pub(crate) async fn process_inputs<F>(
     inputs: Inputs<'_>,
     process_fn: F,
     cache: Arc<LanguageDefinitionCache>,
 ) -> CLIResult<()>
 where
-    F: Fn(
-            InputFile,
-            Arc<Language>,
-            Arc<LanguageDefinitionCache>,
-        ) -> Result<(), Report<Dynamic, Mutable, SendSync>>
+    F: Fn(InputFile, Arc<Language>, Arc<LanguageDefinitionCache>) -> Result<(), Report>
         + Send
         + Sync
         + 'static,
@@ -602,7 +598,8 @@ where
                 let location = input.source().location();
                 tokio::task::block_in_place(|| {
                     let language = cache.fetch_input(&input)?;
-                    process_fn(input, language, cache).attach_filepath(location.to_path())
+                    process_fn(input, language, cache)
+                        .map_err(|e| e.attach_filepath(location.to_path()))
                 })
             });
         }
@@ -616,12 +613,15 @@ where
     // use `.count()` here to ensure eager evaluation of iterator
     let errs: ReportCollection = results
         .into_iter()
-        .filter_map(|r| r.map_err(|e| report!(e).context_to()).flatten().err())
+        .filter_map(|r| {
+            let e = r.map_err(|e| report!(e).into_dynamic());
+            e.flatten().err()
+        })
         .collect();
 
     if !errs.is_empty() {
         // For multiple inputs, bail out if any failed with a "multiple errors" failure
-        return Err(errs.context(TopiaryError::Multiple).into_dynamic());
+        return Err(errs.context(TopiaryError::Multiple).into());
     }
     Ok(())
 }

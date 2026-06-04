@@ -22,12 +22,12 @@ use topiary_core::{
 
 use crate::{
     cli::Commands,
-    error::{CLIResult, ResultPreformat, TopiaryError, print_error},
+    error::{CLIResult, ResultPreformat, TopiaryError, exit_code},
     io::{Inputs, OutputFile, process_inputs, read_input},
     language::LanguageDefinitionCache,
 };
 
-use miette::{NamedSource, Report};
+use miette::NamedSource;
 
 fn resolve_injected_language(
     cache: &LanguageDefinitionCache,
@@ -36,17 +36,9 @@ fn resolve_injected_language(
 ) -> FormatterResult<Option<Arc<Language>>> {
     match cache.fetch_from_config(config, name) {
         Ok(language) => Ok(Some(language)),
-        Err(TopiaryError::Lib(report)) => {
-            Err(report.context(FormatterError::InjectionLanguageResolution {
-                language: name.to_owned(),
-            }))
-        }
-        Err(err) => Err(
-            rootcause::report!(FormatterError::InjectionLanguageResolution {
-                language: name.to_owned(),
-            })
-            .attach(err.to_string()),
-        ),
+        Err(report) => Err(report.context(FormatterError::InjectionLanguageResolution {
+            language: name.to_owned(),
+        })),
     }
 }
 
@@ -56,7 +48,7 @@ async fn main() -> ExitCode {
         if !e.benign() {
             eprintln!("{e}");
         }
-        return e.into();
+        return exit_code(e);
     }
 
     ExitCode::SUCCESS
@@ -288,7 +280,7 @@ async fn run() -> CLIResult<()> {
             write!(
                 &mut buf_output,
                 "{:?}",
-                Report::new(coverage_data).with_source_code(query_source)
+                miette::Report::new(coverage_data).with_source_code(query_source)
             )?;
 
             coverage_res?;

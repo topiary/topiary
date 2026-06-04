@@ -275,11 +275,11 @@ pub(crate) trait ResultPreformat<T, C> {
     fn preformat_context(self) -> Result<T, Report<PreformattedContext>>;
 }
 
-impl<T, C> ResultPreformat<T, C> for Result<T, C> {
+impl<T, C: 'static> ResultPreformat<T, C> for Result<T, C> {
     fn preformat_context(self) -> Result<T, Report<PreformattedContext>> {
         match self {
             Ok(t) => Ok(t),
-            Err(e) => Err(report!(e).preformat_context()),
+            Err(e) => Err(report!(e).preformat()),
         }
     }
 }
