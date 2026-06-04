@@ -39,14 +39,9 @@ let (a = 1, b = 2,) {};
 // Functions
 // ================================================================================
 function line(point1, point2, width = 1,) =
-
   let (angle = 90 - atan((point2[1] - point1[1]) / (point2[0] - point1[0])))
-
   let (offset_x = 0.5 * width * cos(angle), offset_y = 0.5 * width * sin(angle))
-
   let (offset1 = [ -offset_x, offset_y], offset2 = [offset_x, -offset_y])
-
-  // [P1a, P2a, P2b, P1b]
   [point1 + offset1, point2 + offset1, point2 + offset2, point1 + offset2];
 
 eager = (function(z) identity)(4);
@@ -190,7 +185,7 @@ function affine3d_rot_from_to(from, to) =
   let (
     from = unit(point3d(from)),
     to = unit(point3d(to))
-  ) approx(from, to) ? affine3d_identity()
+  )approx(from, to) ? affine3d_identity()
   : from.z == 0 && to.z == 0 ? affine3d_zrot(v_theta(point2d(to)) - v_theta(point2d(from)))
   : let (u = vector_axis(from, to),
     ang = vector_angle(from, to),
