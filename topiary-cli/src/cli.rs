@@ -274,7 +274,7 @@ pub fn get_args() -> CLIResult<Cli> {
         // Attempt to detect shell from environment, when omitted
         Commands::Completion { shell: None } => {
             let detected_shell = Shell::from_env().ok_or(
-                report!(TopiaryError::Other).attach("Cannot detect shell from environment"),
+                report!("Cannot detect shell from environment"),
             )?;
 
             args.command = Commands::Completion {

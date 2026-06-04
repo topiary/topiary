@@ -24,7 +24,7 @@ use topiary_core::{
 
 use crate::{
     cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
-    error::{CLIResult, PreformatLocal, ResultPreformat, TopiaryError},
+    error::{CLIResult, ResultPreformat, TopiaryError},
     language::LanguageDefinitionCache,
 };
 
@@ -384,7 +384,7 @@ pub(crate) fn to_query_from_language(
             log::warn!(
                 "No query files found in any of the expected locations. Falling back to compile-time included files."
             );
-            to_query(&language.name).map_err(|_| e.preformat_context())?
+            to_query(&language.name).preformat_context()?
         }
     };
     Ok(query)
@@ -613,10 +613,7 @@ where
     // use `.count()` here to ensure eager evaluation of iterator
     let errs: ReportCollection = results
         .into_iter()
-        .filter_map(|r| {
-            let e = r.map_err(|e| report!(e).into_dynamic());
-            e.flatten().err()
-        })
+        .filter_map(|r| r.map_err(|e| report!(e).into_dynamic()).flatten().err())
         .collect();
 
     if !errs.is_empty() {
