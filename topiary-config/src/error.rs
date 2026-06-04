@@ -114,6 +114,17 @@ impl From<nickel_lang_core::error::Error> for TopiaryConfigError {
     }
 }
 
+impl From<nickel_lang_core::program::BuilderError> for TopiaryConfigError {
+    fn from(e: nickel_lang_core::program::BuilderError) -> Self {
+        match e {
+            nickel_lang_core::program::BuilderError::Io { error, .. } => Self::Io(error),
+            nickel_lang_core::program::BuilderError::NoInputs => {
+                Self::Io(io::Error::other("ProgramBuilder: no inputs were added"))
+            }
+        }
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 impl From<TopiaryConfigFetchingError> for TopiaryConfigError {
     fn from(e: TopiaryConfigFetchingError) -> Self {
