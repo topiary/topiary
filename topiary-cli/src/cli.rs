@@ -8,7 +8,7 @@ use std::{io::stdout, path::PathBuf};
 use log::LevelFilter;
 
 use crate::{
-    error::{CLIResult, TopiaryError},
+    error::CLIResult,
     fs, visualisation,
 };
 

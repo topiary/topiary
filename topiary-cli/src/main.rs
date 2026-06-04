@@ -22,7 +22,7 @@ use topiary_core::{
 
 use crate::{
     cli::Commands,
-    error::{CLIResult, ResultPreformat, TopiaryError, exit_code},
+    error::{CLIResult, ResultPreformat, exit_code},
     io::{Inputs, OutputFile, process_inputs, read_input},
     language::LanguageDefinitionCache,
 };

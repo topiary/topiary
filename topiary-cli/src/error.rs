@@ -1,18 +1,15 @@
 mod hooks;
 
-pub use hooks::SpanHook;
 use rootcause::{
     Report, ReportConversion,
-    markers::{self, Dynamic, Local, Mutable, ObjectMarkerFor, SendSync},
+    markers::{Dynamic, Mutable, ObjectMarkerFor, SendSync},
     preformatted::PreformattedContext,
     report,
 };
 use std::{error, fmt, io, process::ExitCode, result};
 
 use similar::TextDiff;
-use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError};
 use topiary_core::FormatterError;
-use topiary_tree_sitter_facade::QueryError;
 
 /// A convenience wrapper around `std::result::Result<T, TopiaryError>`.
 pub type CLIResult<C, T = SendSync> = result::Result<C, Report<Dynamic, Mutable, T>>;

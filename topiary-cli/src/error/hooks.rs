@@ -1,13 +1,7 @@
-use std::fmt;
 
 use rootcause::{
-    handlers::{AttachmentFormattingPlacement, AttachmentFormattingStyle, FormattingFunction},
-    hooks::{
-        attachment_formatter::{AttachmentFormatterHook, AttachmentParent},
-        report_creation::ReportCreationHook,
-    },
+    hooks::report_creation::ReportCreationHook,
     markers::{Dynamic, Local, ObjectMarkerFor, SendSync},
-    report_attachment::ReportAttachmentRef,
     ReportMut,
 };
 use topiary_core::ErrorSpan;

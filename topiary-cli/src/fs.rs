@@ -1,4 +1,3 @@
-use rootcause::prelude::ResultExt;
 
 use crate::error::CLIResult;
 use std::{
