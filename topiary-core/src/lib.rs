@@ -13,7 +13,7 @@
 use std::{io, sync::Arc};
 
 use pretty_assertions::StrComparison;
-use rootcause::{option_ext::OptionExt, prelude::ResultExt, report};
+use rootcause::{prelude::ResultExt, report};
 use tree_sitter::Position;
 
 pub use crate::{
@@ -343,13 +343,7 @@ pub fn formatter_tree(
                 injection_leaf_nodes,
             )?;
 
-            rewrite_injected_leaves(
-                &mut atoms,
-                input_content,
-                spans,
-                resolve,
-                tolerate_parsing_errors,
-            )?;
+            rewrite_injected_leaves(&mut atoms, spans, resolve, tolerate_parsing_errors)?;
 
             // Various post-processing of whitespace
             atoms.post_process();
@@ -386,20 +380,11 @@ pub fn formatter_tree(
 
 fn rewrite_injected_leaves(
     atoms: &mut atom_collection::AtomCollection,
-    input_content: &str,
     spans: Vec<InjectionSpan>,
     resolve: Option<&LanguageResolver<'_>>,
     tolerate_parsing_errors: bool,
 ) -> FormatterResult<()> {
     for span in spans {
-        let inner_source = input_content
-            .get(span.byte_range.clone())
-            .ok_or_report()
-            .context(FormatterError::Internal(
-                "Injected span is not on UTF-8 boundaries".into(),
-            ))
-            .attach_language(Some(span.language.as_str()))?;
-
         // If the injected language is unsupported, skip formatting this injection
         // by continuing the loop. This leaves the original, unformatted text intact.
         let Some(inner_language) = resolve_injected_language(resolve, &span.language)? else {
@@ -412,7 +397,7 @@ fn rewrite_injected_leaves(
 
         let mut formatted_inner = Vec::new();
         formatter_str(
-            inner_source,
+            span.byte_range,
             &mut formatted_inner,
             &inner_language,
             Operation::Format {
@@ -661,7 +646,7 @@ mod tests {
         assert_eq!(spans.len(), 1);
         assert_eq!(spans[0].language, "ocaml");
         assert_eq!(
-            &input[spans[0].byte_range.clone()],
+            spans[0].byte_range,
             r#"let values=[1;2;3] in List.map (fun x->x+1) values"#
         );
     }

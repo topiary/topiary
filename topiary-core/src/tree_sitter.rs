@@ -155,8 +155,8 @@ impl InjectionQuery {
 /// A region of host source text that should be formatted as a different
 /// language, as determined by an [`InjectionQuery`].
 #[derive(Clone, Debug)]
-pub struct InjectionSpan {
-    pub byte_range: std::ops::Range<usize>,
+pub struct InjectionSpan<'a> {
+    pub byte_range: &'a str,
     /// The injected language name, taken from the `#injection_language!`
     /// predicate of the matching pattern.
     pub language: String,
@@ -176,11 +176,11 @@ pub struct InjectionSpan {
 /// warning logged).
 ///
 /// Missing predicates or unmatched captures are logged, not raised.
-pub fn collect_injections(
+pub fn collect_injections<'a>(
     tree: &Tree,
-    input_content: &str,
+    input_content: &'a str,
     query: &InjectionQuery,
-) -> Vec<InjectionSpan> {
+) -> Vec<InjectionSpan<'a>> {
     let root = tree.root_node();
     let source = input_content.as_bytes();
     let capture_names = query.query.capture_names();
@@ -225,7 +225,9 @@ pub fn collect_injections(
         {
             let node = capture.node();
             spans.push(InjectionSpan {
-                byte_range: node.start_byte() as usize..node.end_byte() as usize,
+                byte_range: input_content
+                    .get(node.start_byte() as usize..node.end_byte() as usize)
+                    .expect("`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range."),
                 language: language_name.clone(),
                 node_id: node.id(),
             });
