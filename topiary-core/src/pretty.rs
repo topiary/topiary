@@ -181,63 +181,196 @@ fn test_render_absolute_indentation0() {
    b
      c
             ",
-            1,
-            "  "
+            3,
+            "    ",
         ),
         "
      a
     b
       c
-  "
+  ",
     );
 }
 
 #[test]
 #[ignore]
-fn test_render_absolute_indentation_single_line0() {
-    assert_eq!(
-        render_absolute_indentation(AbsoluteIndentation::Comment, " ", 1, "  "),
-        ""
-    );
+fn test_render_absolute_indentation_1_line0() {
+    for line in ["", " ", " a"] {
+        assert_eq!(
+            render_absolute_indentation(AbsoluteIndentation::Comment, line, 3, "    "),
+            line.trim_end()
+        );
+    }
 }
 
 #[test]
 #[ignore]
-fn test_render_absolute_indentation_single_line1() {
-    assert_eq!(
-        render_absolute_indentation(AbsoluteIndentation::ClosingColumnSignificant, " ", 1, "  "),
-        " "
-    );
+fn test_render_absolute_indentation_1_line1() {
+    for line in ["", " ", " a"] {
+        assert_eq!(
+            render_absolute_indentation(
+                AbsoluteIndentation::ClosingColumnSignificant,
+                line,
+                3,
+                "    ",
+            ),
+            line,
+        );
+    }
 }
 
 #[test]
-fn test_render_absolute_indentation_single_line2() {
-    assert_eq!(
-        render_absolute_indentation(
-            AbsoluteIndentation::ClosingColumnInsignificant {
-                last_line_break_significant: false,
-            },
-            " ",
-            1,
-            "  "
-        ),
-        " "
-    );
+fn test_render_absolute_indentation_1_line2() {
+    for line in ["", " ", " a"] {
+        assert_eq!(
+            render_absolute_indentation(
+                AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                },
+                line,
+                3,
+                "  ",
+            ),
+            line,
+        );
+    }
 }
 
 #[test]
-fn test_render_absolute_indentation_single_line3() {
-    assert_eq!(
-        render_absolute_indentation(
-            AbsoluteIndentation::ClosingColumnInsignificant {
-                last_line_break_significant: true,
-            },
-            " ",
-            1,
-            "  "
-        ),
-        " "
-    );
+fn test_render_absolute_indentation_1_line3() {
+    for line in ["", " ", " a"] {
+        assert_eq!(
+            render_absolute_indentation(
+                AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                },
+                line,
+                3,
+                "  ",
+            ),
+            line,
+        );
+    }
+}
+
+#[test]
+fn test_render_absolute_indentation_2_line2() {
+        assert_eq!(
+            render_absolute_indentation(
+                AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                },
+                "
+",
+                3,
+                "    ",
+            ),
+            "",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                },
+                " 
+",
+                3,
+                "    ",
+            ),
+            "",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                },
+                "    a
+",
+                3,
+                "    ",
+            ),
+            "
+                a
+            ",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                },
+                "
+    ",
+                3,
+                "    ",
+            ),
+            "
+    ",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                },
+                " 
+    ",
+                3,
+                "    ",
+            ),
+            " 
+    ",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                },
+                "    a
+    ",
+                3,
+                "    ",
+            ),
+            "    a
+    "
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                },
+                "
+    a",
+                3,
+                "    ",
+            ),
+            "
+    a"
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                },
+                " 
+    a",
+                3,
+                "    ",
+            ),
+            " 
+    a"
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                },
+                "  a
+    a",
+                3,
+                "    ",
+            ),
+            "  a
+    a"
+        );
 }
 
 #[test]
@@ -252,7 +385,7 @@ fn test_render_absolute_indentation1() {
    b
      c
             ",
-            1,
+            3,
             "  "
         ),
         "
@@ -260,57 +393,6 @@ fn test_render_absolute_indentation1() {
         a
        b
          c
-  "
-    );
-}
-
-#[test]
-fn test_render_absolute_indentation2() {
-    assert_eq!(
-        render_absolute_indentation(
-            AbsoluteIndentation::ClosingColumnInsignificant {
-                last_line_break_significant: false,
-            },
-            "a",
-            1,
-            "  "
-        ),
-        "a",
-    );
-}
-
-#[test]
-fn test_render_absolute_indentation_last_break_significant() {
-    assert_eq!(
-        render_absolute_indentation(
-            AbsoluteIndentation::ClosingColumnInsignificant {
-                last_line_break_significant: true,
-            },
-            "x
-y",
-            1,
-            "  "
-        ),
-        "
-    x
-    y"
-    );
-}
-
-#[test]
-fn test_render_absolute_indentation_trailing_whitespace_line() {
-    assert_eq!(
-        render_absolute_indentation(
-            AbsoluteIndentation::ClosingColumnInsignificant {
-                last_line_break_significant: true,
-            },
-            "a
-            ",
-            1,
-            "  "
-        ),
-        "
-    a
   "
     );
 }
@@ -355,13 +437,15 @@ fn render_absolute_indentation(
             .expect("`split` should not produce empty iterators.");
     }
 
-    let Some(last_line) = content.clone().next_back() else {
-        return content_input.to_owned(); // can we save the `to_owned` by changing the return type to `&str`?
-    };
-    let last_line_is_whitespace = last_line.chars().all(char::is_whitespace);
+    let last_line_is_whitespace = content
+        .clone()
+        .next_back()
+        .expect("`split` should not produce empty iterators and `content_collected.len() != 1`.")
+        .chars()
+        .all(char::is_whitespace);
     if last_line_is_whitespace {
         content.next_back().expect(
-            "`next_back()` should still be `Some(last_line)` because it just was for a `clone()`.",
+            "`split` should not produce empty iterators and `content_collected.len() != 1`.",
         );
     }
 
