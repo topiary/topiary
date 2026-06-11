@@ -56,7 +56,7 @@
       extensions | default = ["md"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/MDeiml/tree-sitter-markdown.git",
+          git = "https://github.com/tree-sitter-grammars/tree-sitter-markdown.git",
           rev = "c3570720f7f7bbad22fe96603f106276618e0cf5",
           subdir = "tree-sitter-markdown",
           nixHash = "sha256-wQKcqU0V6gHj84qOkUwdXsBW3f6MNfJMFxuGTucAgh8=",
