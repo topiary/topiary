@@ -24,13 +24,13 @@ in
     src = final.fetchCrate {
       pname = "wasm-bindgen-cli";
       version = wasmBindgenVersion;
-      hash = "sha256-vO4RSxi/sMWxmsEs3GuljdMfIRSu75A+Q+c5wgYToRU=";
+      hash = "sha256-ymeAEYsr7OnupWYJWjSeVGvq3+s+zxSNkODbzY62rYs=";
     };
 
     cargoDeps = final.rustPlatform.fetchCargoVendor {
       inherit src;
       pname = "${src.pname}-${src.version}";
-      hash = "sha256-Inup6vvJSG5ghNyeDPyZbfZo4d0LsMG2OJfStoaeDBs=";
+      hash = "sha256-d7x6gtx5OqEE4MyT6yjYn/qtgjx7GroTpXJewnBV2dU=";
     };
   };
 }
