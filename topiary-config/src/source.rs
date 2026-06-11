@@ -2,11 +2,12 @@
 
 use std::{
     env::current_dir,
-    ffi::OsString,
     fmt,
     io::Cursor,
     path::{Path, PathBuf},
 };
+
+use nickel_lang_core::program::ProgramBuilder;
 
 use crate::error::{TopiaryConfigError, TopiaryConfigResult};
 
@@ -18,17 +19,17 @@ pub enum Source {
     File(PathBuf),
 }
 
-impl From<Source> for nickel_lang_core::program::Input<Cursor<String>, OsString> {
-    fn from(source: Source) -> Self {
+impl Source {
+    /// Register this source as an input on the given [`ProgramBuilder`].
+    pub fn add_to<R, W>(self, builder: ProgramBuilder<R, W>) -> ProgramBuilder<R, W> {
         use nickel_lang_core::cache::InputFormat;
-        match source {
-            Source::Builtin => Self::Source(
-                Cursor::new(source.builtin_nickel()),
-                "built-in".into(),
+        match self {
+            Source::Builtin => builder.add_source_with_format(
+                Cursor::new(Self::Builtin.builtin_nickel()),
+                "built-in",
                 InputFormat::Nickel,
             ),
-            Source::Directory(path) => Self::Path(path.into()),
-            Source::File(path) => Self::Path(path.into()),
+            Source::Directory(path) | Source::File(path) => builder.add_path(path.into_os_string()),
         }
     }
 }
