@@ -400,7 +400,15 @@ fn rewrite_injected_leaves(
             ))
             .attach_language(Some(span.language.as_str()))?;
 
-        let inner_language = resolve_injected_language(resolve, &span.language)?;
+        // If the injected language is unsupported, skip formatting this injection
+        // by continuing the loop. This leaves the original, unformatted text intact.
+        let Some(inner_language) = resolve_injected_language(resolve, &span.language)? else {
+            log::warn!(
+                "Skipping injection for unsupported language: {}",
+                span.language
+            );
+            continue;
+        };
 
         let mut formatted_inner = Vec::new();
         formatter_str(
@@ -430,21 +438,22 @@ fn rewrite_injected_leaves(
     Ok(())
 }
 
+/// Resolves a language string from an injection (e.g. "rust" in ```rust) into a `Language`
+/// instance.
+///
+/// Returns `Ok(None)` if the language is not configured or cannot be resolved, allowing the caller
+/// to gracefully skip formatting rather than failing the entire formatting operation.
 fn resolve_injected_language(
     resolve: Option<&LanguageResolver<'_>>,
     language: &str,
-) -> FormatterResult<Arc<Language>> {
+) -> FormatterResult<Option<Arc<Language>>> {
     let Some(resolve) = resolve else {
-        return Err(report!(FormatterError::InjectionLanguageResolution {
-            language: language.to_owned(),
-        }));
+        return Ok(None);
     };
 
     match resolve(language) {
-        Ok(Some(language)) => Ok(language),
-        Ok(None) => Err(report!(FormatterError::InjectionLanguageResolution {
-            language: language.to_owned(),
-        })),
+        Ok(Some(language)) => Ok(Some(language)),
+        Ok(None) => Ok(None),
         Err(err)
             if matches!(
                 err.current_context(),
@@ -658,7 +667,7 @@ mod tests {
     }
 
     #[test(tokio::test)]
-    async fn unresolved_injection_fails_formatting() {
+    async fn unresolved_injection_skips_formatting() {
         let input = r#"rule token = parse
   | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
 "#;
@@ -676,14 +685,7 @@ mod tests {
             None,
         );
 
-        assert!(matches!(
-            result,
-            Err(ref report)
-                if matches!(
-                    report.current_context(),
-                    FormatterError::InjectionLanguageResolution { language } if language == "ocaml"
-                )
-        ));
+        assert!(result.is_ok());
     }
 
     #[test(tokio::test)]

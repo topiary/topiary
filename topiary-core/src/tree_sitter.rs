@@ -191,6 +191,8 @@ pub fn collect_injections(
     let mut matches = query.query.matches(&root, source, &mut cursor);
     #[allow(clippy::while_let_on_iterator)] // Not a normal iterator
     while let Some(query_match) = matches.next() {
+        // Resolve the language of the injection either via a hardcoded `#injection_language!` predicate
+        // or by dynamically reading the text of the `@injection.language` capture (e.g. for Markdown code blocks).
         let language_name = query
             .query
             .general_predicates(query_match.pattern_index())
@@ -199,11 +201,19 @@ pub fn collect_injections(
                 (&*p.operator() == "injection_language!")
                     .then(|| p.args().into_iter().next())
                     .flatten()
+            })
+            .map(|s| s.to_string())
+            .or_else(|| {
+                query_match
+                    .captures()
+                    .find(|c| c.name(capture_names.as_slice()) == "injection.language")
+                    .and_then(|c| c.node().utf8_text(source).ok())
+                    .map(|s| s.to_string())
             });
 
         let Some(language_name) = language_name else {
             log::warn!(
-                "Injection query pattern {} has no #injection_language! predicate; skipping",
+                "Injection query pattern {} has neither an #injection_language! predicate nor an @injection.language capture; skipping",
                 query_match.pattern_index()
             );
             continue;
