@@ -7,6 +7,7 @@ use rootcause::{
     report,
 };
 use std::{error, fmt, io, process::ExitCode, result};
+use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
 
 pub(crate) use hooks::ErrorSpanHook;
 
@@ -96,12 +97,25 @@ where
             };
             break;
         }
-        if let Some(e) = rep.downcast_current_context::<io::Error>() {}
-
+        if let Some(_) = rep.downcast_current_context::<io::Error>() {
+            // I/O errors: Exit 3
+            code = 3;
+        }
+        if let Some(e) = rep.downcast_current_context::<TopiaryConfigError>() {
+            // I/O errors: Exit 3
+            code = match e {
+                TopiaryConfigError::FileNotFound(_)
+                | TopiaryConfigError::QueryFileNotFound(_)
+                | TopiaryConfigError::Io(_)
+                | TopiaryConfigError::Fetching(
+                    FetchError::Io(_) | FetchError::GrammarFileNotFound(_),
+                ) => 3,
+                _ => 10,
+            };
+            break;
+        }
         if let Some(e) = rep.downcast_current_context::<TopiaryError>() {
             code = match e {
-                // I/O errors: Exit 3
-                TopiaryError::Io => 3,
                 // Multiple errors: Exit 9
                 TopiaryError::Multiple => 9,
                 // Anything else: Exit 10
