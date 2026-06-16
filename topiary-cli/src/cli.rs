@@ -2,13 +2,13 @@
 
 use clap::{ArgAction, ArgGroup, Args, CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, shells::Shell};
-use rootcause::report;
+use rootcause::{report, report_collection::ReportCollection};
 use std::{io::stdout, path::PathBuf};
 
 use log::LevelFilter;
 
 use crate::{
-    error::{CLIResult, ErrorSpanHook},
+    error::{CLIResult, ErrorSpanHook, TopiaryError},
     fs, visualisation,
 };
 
@@ -249,13 +249,20 @@ pub fn get_args() -> CLIResult<Cli> {
                 },
             ..
         } => {
+            let mut errs = ReportCollection::new();
             // If we're given a list of FILES... then we assume them to all be on disk, even if "-"
             // is passed as an argument (i.e., interpret this as a valid filename, rather than as
             // stdin). We recursively expand directories until we're left with a list of
             // (potential) files, as input sources. This is finally deduplicated to avoid
             // formatting the same file multiple times (e.g., in the case that a symlink points to
             // a file within the set, or if the same file is specified twice at the command line).
-            fs::traverse(files, *follow_symlinks)?;
+            fs::traverse(files, *follow_symlinks, &mut errs)?;
+
+            // if there are only errors and no files, we should propagate the given errors
+            if files.is_empty() && !errs.is_empty() {
+                return Err(errs.context(TopiaryError::Multiple).into());
+            }
+
             files.sort_unstable();
             files.dedup();
         }

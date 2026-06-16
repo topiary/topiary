@@ -46,7 +46,7 @@ fn resolve_injected_language(
 async fn main() -> ExitCode {
     if let Err(e) = run().await {
         if !e.benign() {
-            eprintln!("{e}");
+            eprintln!("EEE {e:?}");
         }
         return exit_code(e);
     }
