@@ -156,7 +156,7 @@ impl InjectionQuery {
 /// language, as determined by an [`InjectionQuery`].
 #[derive(Clone, Debug)]
 pub struct InjectionSpan<'a> {
-    pub byte_range: &'a str,
+    pub content: &'a str,
     /// The injected language name, taken from the `#injection_language!`
     /// predicate of the matching pattern.
     pub language: String,
@@ -225,7 +225,7 @@ pub fn collect_injections<'a>(
         {
             let node = capture.node();
             spans.push(InjectionSpan {
-                byte_range: input_content
+                content: input_content
                     .get(node.start_byte() as usize..node.end_byte() as usize)
                     .expect("`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range."),
                 language: language_name.clone(),

@@ -397,7 +397,7 @@ fn rewrite_injected_leaves(
 
         let mut formatted_inner = Vec::new();
         formatter_str(
-            span.byte_range,
+            span.content,
             &mut formatted_inner,
             &inner_language,
             Operation::Format {
@@ -646,7 +646,7 @@ mod tests {
         assert_eq!(spans.len(), 1);
         assert_eq!(spans[0].language, "ocaml");
         assert_eq!(
-            spans[0].byte_range,
+            spans[0].content,
             r#"let values=[1;2;3] in List.map (fun x->x+1) values"#
         );
     }
