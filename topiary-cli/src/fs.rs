@@ -1,4 +1,5 @@
-use rootcause::{report, report_collection::ReportCollection};
+use rootcause::{IntoReport, report, report_collection::ReportCollection};
+use topiary_core::SpanAttachment;
 
 use crate::error::CLIResult;
 use std::{
@@ -116,7 +117,7 @@ pub fn traverse(
             Ok(meta) => meta,
             Err(e) => {
                 log::error!("Skipping {}: Cannot access", file.display());
-                errs.push(e.into());
+                errs.push(e.attach(format!("{}", file.display())).into());
                 continue;
             }
         };
@@ -167,7 +168,7 @@ pub fn traverse(
                         "Skipping {}: File does not exist (e.g., broken symlink)",
                         file.display()
                     );
-                    errs.push(report!(e).into());
+                    errs.push(e.into_report().attach(format!("{}", file.display())).into());
                 }
             }
         }
