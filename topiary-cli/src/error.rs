@@ -8,6 +8,8 @@ use rootcause::{
 };
 use std::{error, fmt, io, process::ExitCode, result};
 
+pub(crate) use hooks::ErrorSpanHook;
+
 use similar::TextDiff;
 use topiary_core::FormatterError;
 
@@ -19,14 +21,9 @@ pub type CLIResult<C, T = SendSync> = result::Result<C, Report<Dynamic, Mutable,
 /// CLI-specific failures.
 #[derive(Debug)]
 pub enum TopiaryError {
-    // formatter errors or general errors such as tree-sitter specific ones
-    Lib,
     Config,
-    /// I/O-related errors
-    Io,
     Multiple,
     UnsupportedLanguage(String),
-    Other,
     /// Formatting check failed: input is not already formatted
     CheckFailed {
         source_name: String,
@@ -38,8 +35,6 @@ pub enum TopiaryError {
 impl fmt::Display for TopiaryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TopiaryError::Lib => write!(f, "Formatter error"),
-            TopiaryError::Io => write!(f, "I/O Error"),
             TopiaryError::Config => write!(f, "Configuration error"),
             TopiaryError::Multiple => write!(
                 f,
@@ -48,7 +43,6 @@ impl fmt::Display for TopiaryError {
             TopiaryError::UnsupportedLanguage(name) => {
                 write!(f, "The specified language is unsupported: {name}")
             }
-            TopiaryError::Other => todo!(),
             TopiaryError::CheckFailed {
                 source_name,
                 original,
@@ -102,6 +96,7 @@ where
             };
             break;
         }
+        if let Some(e) = rep.downcast_current_context::<io::Error>() {}
 
         if let Some(e) = rep.downcast_current_context::<TopiaryError>() {
             code = match e {
@@ -117,53 +112,6 @@ where
     }
 
     ExitCode::from(code)
-}
-
-impl<T> ReportConversion<tempfile::PersistError, Mutable, T> for TopiaryError
-where
-    Self: ObjectMarkerFor<T>,
-    String: ObjectMarkerFor<T>,
-{
-    fn convert_report(
-        report: Report<tempfile::PersistError, Mutable, T>,
-    ) -> Report<Self, Mutable, T> {
-        let filepath = format!("{}", report.current_context().file.path().display());
-        report.context(TopiaryError::Io).attach(filepath)
-    }
-}
-
-impl<T> ReportConversion<io::Error, Mutable, T> for TopiaryError
-where
-    Self: ObjectMarkerFor<T>,
-    io::ErrorKind: ObjectMarkerFor<T>,
-    &'static str: ObjectMarkerFor<T>,
-{
-    fn convert_report(report: Report<io::Error, Mutable, T>) -> Report<Self, Mutable, T> {
-        let kind = report.current_context().kind();
-        let msg = match kind {
-            io::ErrorKind::NotFound => "File not found",
-            _ => "Could not read or write to file",
-        };
-
-        report.context(Self::Io).attach(msg).attach(kind)
-    }
-}
-
-// We only have to deal with io::BufWriter<crate::output::OutputFile>,
-// but the genericised code is clearer
-impl<W, T> ReportConversion<io::IntoInnerError<W>, Mutable, T> for TopiaryError
-where
-    Self: ObjectMarkerFor<T>,
-    W: io::Write + fmt::Debug + Send + 'static,
-    &'static str: ObjectMarkerFor<T>,
-{
-    fn convert_report(
-        report: Report<io::IntoInnerError<W>, Mutable, T>,
-    ) -> Report<Self, Mutable, T> {
-        report
-            .context(Self::Io)
-            .attach("Cannot flush internal buffer")
-    }
 }
 
 // Tells whether an error should raise a message on stderr,

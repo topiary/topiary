@@ -1,19 +1,19 @@
-
 use rootcause::{
+    ReportMut,
     hooks::report_creation::ReportCreationHook,
     markers::{Dynamic, Local, ObjectMarkerFor, SendSync},
-    ReportMut,
 };
 use topiary_core::ErrorSpan;
 use topiary_tree_sitter_facade::QueryError;
 
-pub struct SpanHook;
+pub(crate) struct ErrorSpanHook;
 
-impl SpanHook {
+impl ErrorSpanHook {
     fn on_create<T>(mut report: ReportMut<'_, Dynamic, T>)
     where
         ErrorSpan: ObjectMarkerFor<T>,
     {
+        // Attach QueryError display value as the primary label for our ErrorSpan
         if let Some(query_error) = report.downcast_current_context::<QueryError>() {
             // TODO add error_span.with_label(...) setter methods
             let mut span = ErrorSpan::default()
@@ -25,7 +25,7 @@ impl SpanHook {
     }
 }
 
-impl ReportCreationHook for SpanHook {
+impl ReportCreationHook for ErrorSpanHook {
     fn on_local_creation(&self, report: ReportMut<'_, Dynamic, Local>) {
         Self::on_create(report);
     }

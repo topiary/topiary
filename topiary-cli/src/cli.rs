@@ -8,7 +8,7 @@ use std::{io::stdout, path::PathBuf};
 use log::LevelFilter;
 
 use crate::{
-    error::CLIResult,
+    error::{CLIResult, ErrorSpanHook},
     fs, visualisation,
 };
 
@@ -220,6 +220,10 @@ pub fn get_args() -> CLIResult<Cli> {
             _ => LevelFilter::Trace,
         })
         .init();
+
+    rootcause::hooks::Hooks::new()
+        .report_creation_hook(ErrorSpanHook)
+        .install()?;
 
     // NOTE We do not check that input files are actual files (with Path::is_file), because that
     // would break in the case of, for example, named pipes; thus also adding a platform dimension
