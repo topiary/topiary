@@ -1,5 +1,4 @@
-use rootcause::{IntoReport, report, report_collection::ReportCollection};
-use topiary_core::SpanAttachment;
+use rootcause::{IntoReport, report_collection::ReportCollection};
 
 use crate::error::CLIResult;
 use std::{

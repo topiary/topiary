@@ -16,9 +16,9 @@ use topiary_tree_sitter_facade::{
 use streaming_iterator::StreamingIterator;
 
 use crate::{
+    FormatterResult,
     atom_collection::{AtomCollection, QueryPredicates},
     error::{FormatterError, SpanAttachment},
-    FormatterResult,
 };
 
 /// Supported visualisation formats
@@ -57,7 +57,6 @@ impl TopiaryQuery {
     /// contents of the query file.
     ///
     /// # Errors
-    ///https://docs.rs/miette/latest/miette/struct.Report.html
     /// This function will return an error if tree-sitter failed to parse the
     /// query file.
     pub fn new(
