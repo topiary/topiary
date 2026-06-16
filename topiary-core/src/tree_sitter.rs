@@ -226,7 +226,7 @@ pub fn collect_injections<'a>(
             let node = capture.node();
             spans.push(InjectionSpan {
                 content: input_content
-                    .get(node.start_byte() as usize..node.end_byte() as usize)
+                    .get(node.byte_range())
                     .expect("`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range."),
                 language: language_name.clone(),
                 node_id: node.id(),
