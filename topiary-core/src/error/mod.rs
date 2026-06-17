@@ -178,7 +178,7 @@ where
     }
 }
 
-fn query_error_report(err: QueryError) -> Report<QueryError> {
+pub(crate) fn query_error_report(err: QueryError) -> Report<QueryError> {
     let range = err.range;
     let label = format!("{err}");
     report!(err)

@@ -1,5 +1,3 @@
-mod hooks;
-
 use rootcause::{
     Report,
     markers::{Dynamic, Mutable, SendSync},
@@ -8,7 +6,6 @@ use rootcause::{
 };
 use std::{error, fmt, io, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
-
 
 use similar::TextDiff;
 use topiary_core::FormatterError;
