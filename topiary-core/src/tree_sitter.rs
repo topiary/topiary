@@ -69,7 +69,7 @@ impl TopiaryQuery {
                 let range = e.current_context().range;
                 e.attach_range(range)
             })
-            .attach_source(Some(query_content))?;
+            .attach_source(query_content.into())?;
 
         Ok(TopiaryQuery {
             query,

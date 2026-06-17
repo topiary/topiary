@@ -9,7 +9,6 @@ use rootcause::{
 use std::{error, fmt, io, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
 
-pub(crate) use hooks::ErrorSpanHook;
 
 use similar::TextDiff;
 use topiary_core::FormatterError;

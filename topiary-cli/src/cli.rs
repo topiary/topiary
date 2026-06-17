@@ -8,7 +8,7 @@ use std::{io::stdout, path::PathBuf};
 use log::LevelFilter;
 
 use crate::{
-    error::{CLIResult, ErrorSpanHook, TopiaryError},
+    error::{CLIResult, TopiaryError},
     fs, visualisation,
 };
 
@@ -221,9 +221,9 @@ pub fn get_args() -> CLIResult<Cli> {
         })
         .init();
 
-    rootcause::hooks::Hooks::new()
-        .report_creation_hook(ErrorSpanHook)
-        .install()?;
+    // rootcause::hooks::Hooks::new()
+    //     .report_creation_hook(ErrorSpanHook)
+    //     .install()?;
 
     // NOTE We do not check that input files are actual files (with Path::is_file), because that
     // would break in the case of, for example, named pipes; thus also adding a platform dimension
