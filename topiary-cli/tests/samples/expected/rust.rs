@@ -114,10 +114,7 @@ const JSON: Foo = json!({
   "code": 200,
   "success": true,
   "payload": {
-    "features": [
-      "serde",
-      "json"
-    ],
+    "features": [ "serde", "json" ],
     "homepage": null
   }
 });
