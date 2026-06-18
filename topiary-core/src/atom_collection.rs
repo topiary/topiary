@@ -457,8 +457,7 @@ impl AtomCollection {
 
                 self.append(Atom::Hardline, node, predicates);
             }
-            // Mark a leaf to have all its lines be indented
-            "multi_line_indent_all" => {
+            "multi_line_string" => {
                 for a in &mut self.atoms {
                     if let Atom::Leaf {
                         id,
@@ -472,7 +471,20 @@ impl AtomCollection {
                                 last_line_break_significant: false,
                             },
                         );
-                        // *multi_line_indent_all = MultiLineIndent::RelativeIndentation;
+                    }
+                }
+            }
+            // Mark a leaf to have all its lines be indented
+            "multi_line_indent_all" => {
+                for a in &mut self.atoms {
+                    if let Atom::Leaf {
+                        id,
+                        multi_line_indent_all,
+                        ..
+                    } = a
+                        && *id == node.id()
+                    {
+                        *multi_line_indent_all = MultiLineIndent::RelativeIndentation;
                     }
                 }
             }

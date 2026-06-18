@@ -8,7 +8,7 @@
   (quoted_enum_tag)
 ] @leaf
 
-(mult_str_literal) @keep_whitespace @multi_line_indent_all
+(mult_str_literal) @keep_whitespace @multi_line_string
 
 ; Allow a blank line before the following nodes
 [
