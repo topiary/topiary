@@ -1,4 +1,5 @@
 ; https://docs.rs/serde_json/latest/serde_json/macro.json.html
+; https://github.com/helix-editor/helix/blob/43bf7c2dc219606c64003aef21151f49f48d0939/runtime/queries/rust/injections.scm#L42-L52
 (
   (macro_invocation
     macro: [
