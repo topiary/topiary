@@ -50,9 +50,9 @@ pub enum Capitalisation {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum AbsoluteIndentation {
-    Comment,
-    ClosingColumnSignificant,
     ClosingColumnInsignificant { last_line_break_significant: bool },
+    ClosingColumnSignificant,
+    Comment,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
