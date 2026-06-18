@@ -6,9 +6,9 @@
         std.string.split
           " "
           m%"
-          line one with trailing space 
-          line two
-        "%
+            line one with trailing space 
+            line two
+          "%
         |> std.array.at 6
     },
     # Issue 680

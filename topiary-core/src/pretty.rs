@@ -255,7 +255,7 @@ fn render_absolute_indentation(
 
     for line in content {
         if line.chars().all(char::is_whitespace) {
-            write!(buffer, "\n").unwrap();
+            writeln!(buffer).unwrap();
         } else {
             write!(buffer, "\n{}{}", indent.repeat(indent_level + 1), line).unwrap();
         }
