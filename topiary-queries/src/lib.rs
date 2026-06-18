@@ -34,12 +34,6 @@ pub fn markdown_injections() -> &'static str {
     include_str!("../queries/markdown/injections.scm")
 }
 
-/// Returns the Topiary-compatible injection query file for Markdown.
-#[cfg(feature = "rust")]
-pub fn rust_injections() -> &'static str {
-    include_str!("../queries/rust/injections.scm")
-}
-
 /// Returns the Topiary-compatible query file for Nickel.
 #[cfg(feature = "nickel")]
 pub fn nickel() -> &'static str {
@@ -80,6 +74,12 @@ pub fn openscad() -> &'static str {
 #[cfg(feature = "rust")]
 pub fn rust() -> &'static str {
     include_str!("../queries/rust/formatting.scm")
+}
+
+/// Returns the Topiary-compatible injection query file for Rust.
+#[cfg(feature = "rust")]
+pub fn rust_injections() -> &'static str {
+    include_str!("../queries/rust/injections.scm")
 }
 
 /// Returns the Topiary-compatible query file for SDML.

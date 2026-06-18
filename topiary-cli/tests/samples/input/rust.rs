@@ -27,12 +27,12 @@ enum NoFinalComma {
 
 enum ExpandTwoLevels {
     Leaf {
-        /*
-         * Multi-line
-         * comment
-         */
+    /*
+     * Multi-line
+     * comment
+     */
         content: String,
-        //   Comment after field declaration in enum variant.
+         //   Comment after field declaration in enum variant.
         id: usize,
 
         size: usize,
@@ -95,6 +95,7 @@ while i == true {
     let i = 42;
 }
 
+
 // Scoped blocks
 {
     let i = 42;
@@ -110,28 +111,10 @@ impl MyTrait for MyStruct {
     }
 }
 
-fn foo() {
-    let value = serde_json::json!({
-  "code": 200,
-  "success": true,
-  "payload": {
-    "features": [
-      "serde",
-      "json"
-    ],
+const JSON: Foo = json!({
+  "code": 200, "success": true,
+"payload": {
+        "features": [ "serde", "json" ],
     "homepage": null
-  }
-});
-    wasmtime::component::bindgen!({world: "foo", // not needed if `path` has one `world`
-    // Instead of `path` the WIT document can be provided inline if
-    // desired.
-    inline: "
-        package tree-sitter:wit
-@1.0.0;
-
-    ",
-    interfaces: "
-        import wasi:cli/command;
-    ",
-    });
 }
+});
