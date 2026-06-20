@@ -9,8 +9,8 @@ use rootcause::prelude::ResultExt;
 use topiary_tree_sitter_facade::Node;
 
 use crate::{
-    Atom, Capitalisation, FormatterError, FormatterResult, ScopeCondition, ScopeInformation,
-    tree_sitter::NodeExt,
+    AbsoluteIndentation, Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent,
+    ScopeCondition, ScopeInformation, tree_sitter::NodeExt,
 };
 
 /// A struct that holds sets of node IDs that have line breaks before or after them.
@@ -457,6 +457,23 @@ impl AtomCollection {
 
                 self.append(Atom::Hardline, node, predicates);
             }
+            "multi_line_string" => {
+                for a in &mut self.atoms {
+                    if let Atom::Leaf {
+                        id,
+                        multi_line_indent_all,
+                        ..
+                    } = a
+                        && *id == node.id()
+                    {
+                        *multi_line_indent_all = MultiLineIndent::AbsoluteIndentation(
+                            AbsoluteIndentation::ClosingColumnInsignificant {
+                                last_line_break_significant: false,
+                            },
+                        );
+                    }
+                }
+            }
             // Mark a leaf to have all its lines be indented
             "multi_line_indent_all" => {
                 for a in &mut self.atoms {
@@ -467,7 +484,7 @@ impl AtomCollection {
                     } = a
                         && *id == node.id()
                     {
-                        *multi_line_indent_all = true;
+                        *multi_line_indent_all = MultiLineIndent::RelativeIndentation;
                     }
                 }
             }
@@ -605,7 +622,7 @@ impl AtomCollection {
                 id,
                 original_position: node.start_position().into(),
                 single_line_no_indent: false,
-                multi_line_indent_all: false,
+                multi_line_indent_all: MultiLineIndent::None,
                 keep_whitespace: false,
                 capitalisation: Capitalisation::Pass,
             });

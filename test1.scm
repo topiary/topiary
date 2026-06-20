@@ -1,0 +1,1 @@
+(string_fragment) @leaf @multi_line_indent_all

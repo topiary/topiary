@@ -41,13 +41,27 @@ pub struct ScopeInformation {
     scope_id: String,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Capitalisation {
     UpperCase,
     LowerCase,
-    #[default]
     Pass,
 }
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum AbsoluteIndentation {
+    ClosingColumnInsignificant { last_line_break_significant: bool },
+    ClosingColumnSignificant,
+    Comment,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum MultiLineIndent {
+    None,
+    RelativeIndentation,
+    AbsoluteIndentation(AbsoluteIndentation),
+}
+
 /// An atom represents a small piece of the output. We turn Tree-sitter nodes
 /// into atoms, and we add white-space atoms where appropriate. The final list
 /// of atoms is rendered to the output.
@@ -77,7 +91,7 @@ pub enum Atom {
         // marks the leaf to be printed on a single line, with no indentation
         single_line_no_indent: bool,
         // if the leaf is multi-line, each line will be indented, not just the first
-        multi_line_indent_all: bool,
+        multi_line_indent_all: MultiLineIndent,
         // don't trim trailing newline characters if set to true
         keep_whitespace: bool,
         capitalisation: Capitalisation,
