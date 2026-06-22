@@ -221,10 +221,6 @@ pub fn get_args() -> CLIResult<Cli> {
         })
         .init();
 
-    // rootcause::hooks::Hooks::new()
-    //     .report_creation_hook(ErrorSpanHook)
-    //     .install()?;
-
     // NOTE We do not check that input files are actual files (with Path::is_file), because that
     // would break in the case of, for example, named pipes; thus also adding a platform dimension
     // to the check, which is simply not worth the complexity. We _could_ check by opening each

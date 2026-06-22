@@ -190,7 +190,7 @@ pub struct InputFile<'cfg> {
 }
 
 impl InputFile<'_> {
-    /// Convert our `InputFile` into language definition values that Topiary can consume
+    /// Convert our `InputFile` into a language definition values with blocking I/O.
     pub fn to_language_sync(&self) -> CLIResult<Language> {
         let grammar = self.language().grammar()?;
         let query_contents = self.formatting_query.get_content_sync()?;
@@ -223,6 +223,7 @@ impl InputFile<'_> {
         self.source().filepath()
     }
 
+    /// Expose language for input
     pub fn language(&self) -> &topiary_config::language::Language {
         self.language
     }
@@ -233,7 +234,6 @@ impl InputFile<'_> {
     }
 
     /// Expose optional injection query path for input
-
     pub fn injection_query(&self) -> Option<&QuerySource> {
         self.injection_query.as_ref()
     }

@@ -134,7 +134,6 @@ impl<C> Benign for Report<C>
 where
     C: ?Sized,
 {
-    // matches!(self, TopiaryError::Lib(r) if r.current_context() == &FormatterError::PatternDoesNotMatch)
     fn benign(&self) -> bool {
         iter_downcast_reports::<FormatterError>(self)
             .any(|fmt_err| *fmt_err == FormatterError::PatternDoesNotMatch)
