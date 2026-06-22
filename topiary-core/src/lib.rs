@@ -353,7 +353,11 @@ pub fn formatter_tree(
             let rendered = pretty::render(
                 &atoms[..],
                 // Default to "  " if the language has no indentation specified
-                language.indent.as_ref().map_or("  ", |v| v.as_str()),
+                language
+                    .indent
+                    .as_ref()
+                    .expect("indent should be resolved in the configuration, this is a bug")
+                    .as_str(),
             )?;
 
             // Add a final line break if missing

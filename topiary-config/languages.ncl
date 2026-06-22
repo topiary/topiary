@@ -48,8 +48,9 @@ let LanguageConfig = {
     | doc "File extensions (without leading dot) associated with this language.",
   indent
     | String
-    | optional
-    | doc "Indentation string for this language; defaults to two spaces.",
+    | doc "Indentation string for this language; defaults to two spaces."
+    | default
+    = "  ",
   grammar | Grammar,
 }
 in
@@ -176,7 +177,7 @@ in
 
     rust = {
       extensions | default = ["rs"],
-      indent | default = "    ", # 4 spaces
+      indent | priority -1 = "    ", # 4 spaces
       grammar.source | default = {
         git = {
           git = "https://github.com/tree-sitter/tree-sitter-rust.git",
@@ -224,7 +225,7 @@ in
 
     wit = {
       extensions | default = ["wit"],
-      indent | default = "    ", # 4 spaces
+      indent | priority -1 = "    ", # 4 spaces
       grammar.source | default = {
         git = {
           git = "https://github.com/bytecodealliance/tree-sitter-wit",
