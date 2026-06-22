@@ -370,7 +370,6 @@ impl<'cfg, 'i> Inputs<'cfg> {
     }
 }
 
-#[allow(clippy::result_large_err)]
 pub(crate) fn to_query_from_language(
     language: &topiary_config::language::Language,
 ) -> CLIResult<QuerySource> {

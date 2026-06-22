@@ -93,7 +93,7 @@ where
             };
             break;
         }
-        if let Some(_) = rep.downcast_current_context::<io::Error>() {
+        if rep.downcast_current_context::<io::Error>().is_some() {
             // I/O errors: Exit 3
             code = 3;
         }
