@@ -20,12 +20,12 @@ let GitSource = {
 in
 
 let GrammarSource
-  | doc "
-# Either a Git source or a local filesystem path. Fields are optional
-# at the contract layer so that user configurations can override one
-# variant with the other via Nickel record merging (e.g. setting
-# `grammar.source.path` on top of a default `grammar.source.git`).
-"
+  | doc m%"
+Either a Git source or a local filesystem path. Fields are optional
+at the contract layer so that user configurations can override one
+variant with the other via Nickel record merging (e.g. setting
+`grammar.source.path` on top of a default `grammar.source.git`).
+"%
   =
     std.contract.any_of [
       { git | GitSource },
