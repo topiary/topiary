@@ -48,9 +48,8 @@ let LanguageConfig = {
     | doc "File extensions (without leading dot) associated with this language.",
   indent
     | String
-    | doc "Indentation string for this language; defaults to two spaces."
-    | default
-    = "  ",
+    | optional
+    | doc "Indentation string for this language; defaults to two spaces.",
   grammar | Grammar,
 }
 in
