@@ -5,10 +5,10 @@
       a =
         std.string.split
           " "
-          m%"
-          line one with trailing space 
-          line two
-        "%
+m%"
+line one with trailing space 
+line two
+"%
         |> std.array.at 6
     },
     # Issue 680
@@ -220,8 +220,7 @@ doc "hello" | optional,
 
   array = {
     NonEmpty
-      | doc m%"
-          Enforces that an array is not empty.
+      | doc m%"Enforces that an array is not empty.
 
           # Examples
 
@@ -257,7 +256,7 @@ doc "hello" | optional,
           std.array.first [ "this is the head", "this is not" ] =>
             "this is the head"
           ```
-        "%
+          "%
       = fun array => %array/at% array 0,
 
     last
@@ -272,7 +271,7 @@ doc "hello" | optional,
           std.array.last [ "this is the head", "this is not" ] =>
             "this is not"
           ```
-        "%
+      "%
       = fun array => %array/at% array (%array/length% array - 1),
 
     drop_first
@@ -286,67 +285,66 @@ doc "hello" | optional,
           ```nickel
           std.array.drop_first [ 1, 2, 3 ] =>
             [ 2, 3 ]
-          ```
-        "%
+          ```"%
       = fun array => %array/slice% 1 (%array/length% array) array,
 
     drop_last
       : forall a. Array a -> Array a
       | NonEmpty -> Dyn
       | doc m%"
-          Returns the given array without its last element.
+        Returns the given array without its last element.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.drop_last [ 1, 2, 3 ] =>
-            [ 1, 2 ]
-          ```
+        ```nickel
+        std.array.drop_last [ 1, 2, 3 ] =>
+          [ 1, 2 ]
+        ```
         "%
       = fun array => %array/slice% 0 (%array/length% array - 1) array,
 
     length
       : forall a. Array a -> Number
       | doc m%"
-          Returns the length of an array.
+            Returns the length of an array.
 
-          # Examples
+            # Examples
 
-          ```nickel
-          std.array.length [ "Hello,", " World!" ] =>
-            2
-          ```
+            ```nickel
+            std.array.length [ "Hello,", " World!" ] =>
+              2
+            ```
         "%
       = fun l => %array/length% l,
 
     map
       : forall a b. (a -> b) -> Array a -> Array b
       | doc m%"
-          Applies a function to every element in the given array. That is,
-          `map f [ x1, x2, ..., xn ]` is `[ f x1, f x2, ..., f xn ]`.
+        Applies a function to every element in the given array. That is,
+        `map f [ x1, x2, ..., xn ]` is `[ f x1, f x2, ..., f xn ]`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.map (fun x => x + 1) [ 1, 2, 3 ] =>
-            [ 2, 3, 4 ]
-          ```
-        "%
+        ```nickel
+        std.array.map (fun x => x + 1) [ 1, 2, 3 ] =>
+          [ 2, 3, 4 ]
+        ```
+      "%
       = fun f l => %array/map% l f,
 
     at
       : forall a. Number -> Array a -> a
       | std.contract.unstable.IndexedArrayFun 'Index
       | doc m%"
-          Retrieves the n-th element from an array, with indices starting at 0.
+            Retrieves the n-th element from an array, with indices starting at 0.
 
-          # Examples
+            # Examples
 
-          ```nickel
-          std.array.at 3 [ "zero", "one", "two", "three", "four" ] =>
-            "three"
-          ```
-        "%
+            ```nickel
+            std.array.at 3 [ "zero", "one", "two", "three", "four" ] =>
+              "three"
+            ```
+          "%
       = fun n l => %array/at% l n,
 
     at_or
@@ -390,68 +388,68 @@ doc "hello" | optional,
     fold_left
       : forall a b. (a -> b -> a) -> a -> Array b -> a
       | doc m%"
-          Folds a function over an array. In a functional language like Nickel,
-          folds serve a similar purpose to loops or iterators. `fold_left`
-          iterates over an array, by repeatedly applying a function to each
-          element, threading an additional arbitrary state (the accumulator, of
-          type `a` in the signature) through the chain of applications.
+Folds a function over an array. In a functional language like Nickel,
+folds serve a similar purpose to loops or iterators. `fold_left`
+iterates over an array, by repeatedly applying a function to each
+element, threading an additional arbitrary state (the accumulator, of
+type `a` in the signature) through the chain of applications.
 
-          `fold_left f init [x1, x2, ..., xn]` results in `f (... (f (f init x1) x2) ...) xn`.
+`fold_left f init [x1, x2, ..., xn]` results in `f (... (f (f init x1) x2) ...) xn`.
 
-          This function is strict in the intermediate accumulator.
+This function is strict in the intermediate accumulator.
 
-          # Left vs right
+# Left vs right
 
-          Folds come in two variants, left and right. How to decide which one to
-          use?
+Folds come in two variants, left and right. How to decide which one to
+use?
 
-          - If the folded function isn't associative (such as subtraction), then
-            each variant will give a different result. The choice is dictacted by
-            which one you need. For example:
+- If the folded function isn't associative (such as subtraction), then
+  each variant will give a different result. The choice is dictacted by
+  which one you need. For example:
 
-            ```nickel
-            std.array.fold_right (-) 0 [1, 2, 3, 4]
-             => -2
-            std.array.fold_left (-) 0 [1, 2, 3, 4]
-             => -10
-            ```
-          - If the folded function is associative, both `fold_right` and
-            `fold_left` return the same result. In that case, **`fold_left` is
-            generally preferred**, because it forces the evaluation of the
-            intermediate results resulting in less memory consumption and overall
-            better performance (outside of pathological cases).
-            `fold_left` also iterates from the start of the array, which
-            corresponds to the usual behavior of loops and iterators in most
-            programming languages. There is one case where `fold_right` might be
-            preferred, see the next point.
-          - If the folded function is associative but _(left) short-circuiting_,
-            meaning that it can sometimes determine the result without using the
-            right argument, then `fold_right` provides early return. An example is
-            the boolean AND operator `&&`: when evaluating `left && right`, if
-            `left` is `false`, the whole expression will evaluate to `false`
-            without even evaluating `right`. Consider the following expression:
+  ```nickel
+  std.array.fold_right (-) 0 [1, 2, 3, 4]
+    => -2
+  std.array.fold_left (-) 0 [1, 2, 3, 4]
+    => -10
+  ```
+- If the folded function is associative, both `fold_right` and
+  `fold_left` return the same result. In that case, **`fold_left` is
+  generally preferred**, because it forces the evaluation of the
+  intermediate results resulting in less memory consumption and overall
+  better performance (outside of pathological cases).
+  `fold_left` also iterates from the start of the array, which
+  corresponds to the usual behavior of loops and iterators in most
+  programming languages. There is one case where `fold_right` might be
+  preferred, see the next point.
+- If the folded function is associative but _(left) short-circuiting_,
+  meaning that it can sometimes determine the result without using the
+  right argument, then `fold_right` provides early return. An example is
+  the boolean AND operator `&&`: when evaluating `left && right`, if
+  `left` is `false`, the whole expression will evaluate to `false`
+  without even evaluating `right`. Consider the following expression:
 
-            ```nickel
-            std.array.replicate 1000 true
-            # gives [false, .. true 1000 times]
-            |> std.array.prepend false
-            |> std.array.fold_right (&&) [false]
-            ```
+  ```nickel
+  std.array.replicate 1000 true
+  # gives [false, .. true 1000 times]
+  |> std.array.prepend false
+  |> std.array.fold_right (&&) [false]
+  ```
 
-            Here, `fold_right` will stop at the first element, and the operation
-            runs in constant time, given the definition of `fold_right` and the
-            lazy evaluation of Nickel. If we had used `fold_left` instead, which
-            is closer to a standard iterator, we would have iterated over all of
-            the 1000 elements of the array.
+  Here, `fold_right` will stop at the first element, and the operation
+  runs in constant time, given the definition of `fold_right` and the
+  lazy evaluation of Nickel. If we had used `fold_left` instead, which
+  is closer to a standard iterator, we would have iterated over all of
+  the 1000 elements of the array.
 
-          # Examples
+# Examples
 
-          ```nickel
-          fold_left (fun acc e => acc + e) 0 [ 1, 2, 3 ] =>
-            (((0 + 1) + 2) 3) =>
-            6
-          ```
-        "%
+```nickel
+fold_left (fun acc e => acc + e) 0 [ 1, 2, 3 ] =>
+  (((0 + 1) + 2) 3) =>
+  6
+```
+"%
       = fun f acc array =>
         let length = %array/length% array in
         if length == 0 then
