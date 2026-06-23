@@ -1213,7 +1213,7 @@ fn collapse_spaces_before_antispace(v: &mut [Atom]) {
 ///
 /// This function uses an iterative approach instead of a recursive one for performance reasons.
 /// See https://github.com/topiary/topiary/pull/417#issuecomment-1499085230 for more details.
-fn dfs_flatten<'tree>(node: &Node<'tree>) -> Vec<Node<'tree>> {
+pub fn dfs_flatten<'tree>(node: &Node<'tree>) -> Vec<Node<'tree>> {
     // Flatten the tree, depth-first, into a vector of nodes
     let mut walker = node.walk();
     let mut dfs_nodes = Vec::new();
