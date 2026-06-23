@@ -383,7 +383,7 @@ pub fn formatter_tree(
 
             match output_format {
                 Visualisation::GraphViz => graphviz::write(output, &root).context_to()?,
-                Visualisation::Json => write!(output, "{}", tree.root_node().to_sexp())?,
+                Visualisation::Json => serde_json::to_writer(output, &root).context_to()?,
             };
         }
     };
