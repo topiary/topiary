@@ -383,16 +383,7 @@ pub fn formatter_tree(
 
             match output_format {
                 Visualisation::GraphViz => graphviz::write(output, &root).context_to()?,
-                Visualisation::Json => write!(
-                    output,
-                    "{}",
-                    atom_collection::dfs_flatten(&tree.root_node())
-                        .iter()
-                        .map(topiary_tree_sitter_facade::Node::to_sexp)
-                        .map(|n| format!("{n}\n"))
-                        .collect::<String>()
-                )
-                .context_to()?,
+                Visualisation::Json => write!(output, "{}", tree.root_node().to_sexp())?,
             };
         }
     };
