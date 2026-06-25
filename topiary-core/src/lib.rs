@@ -438,7 +438,7 @@ fn resolve_injected_language(
 
     match resolve(language) {
         Ok(Some(language_cfg)) => {
-            log::warn!("resolved injected language: {language}");
+            log::info!("resolved injected language: {language}");
             Ok(Some(language_cfg))
         }
         Ok(None) => Ok(None),
