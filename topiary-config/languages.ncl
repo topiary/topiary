@@ -1,8 +1,62 @@
 # MAINTAINERS: If the structure of this configuration changes, it may
 # break `prefetchLanguagesNickelFile` in nix/utils/prefetchLanguages.nix
 # Please keep these synchronised.
+let GitSource = {
+  git
+    | String
+    | doc "URL of the Git repository hosting the tree-sitter grammar.",
+  rev
+    | String
+    | doc "Git revision (commit, tag, or branch) to fetch.",
+  subdir
+    | String
+    | optional
+    | doc "Sub-directory of the repository where the grammar lives.",
+  nixHash
+    | String
+    | optional
+    | doc "Pre-computed Nix SHA256 hash; generate using 'TODO add command to generate hash'",
+}
+in
 
-{
+let GrammarSource
+  | doc m%"
+Either a Git source or a local filesystem path. Fields are optional
+at the contract layer so that user configurations can override one
+variant with the other via Nickel record merging (e.g. setting
+`grammar.source.path` on top of a default `grammar.source.git`).
+"%
+  =
+    std.contract.any_of [
+      { git | GitSource },
+      { path | String },
+    ]
+in
+
+let Grammar = {
+  source | GrammarSource,
+  symbol
+    | String
+    | optional
+    | doc "Override for the tree-sitter symbol; defaults to `tree_sitter_<name>`.",
+}
+in
+
+let LanguageConfig = {
+  extensions
+    | Array String
+    | doc "File extensions (without leading dot) associated with this language.",
+  indent
+    | String
+    | doc "Indentation string for this language; defaults to two spaces."
+    | default
+    = "  ",
+  grammar | Grammar,
+}
+in
+
+{ languages | { _ : LanguageConfig } }
+& {
   languages = {
     bash = {
       extensions | default = ["sh", "bash"],
@@ -123,7 +177,7 @@
 
     rust = {
       extensions | default = ["rs"],
-      indent | default = "    ", # 4 spaces
+      indent | priority -1 = "    ", # 4 spaces
       grammar.source | default = {
         git = {
           git = "https://github.com/tree-sitter/tree-sitter-rust.git",
@@ -171,7 +225,7 @@
 
     wit = {
       extensions | default = ["wit"],
-      indent | default = "    ", # 4 spaces
+      indent | priority -1 = "    ", # 4 spaces
       grammar.source | default = {
         git = {
           git = "https://github.com/bytecodealliance/tree-sitter-wit",
