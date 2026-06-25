@@ -7,7 +7,7 @@
       (identifier) @_macro_name
     ]
     (token_tree
-      (token_tree . "{" "}" .) @injection.content
+      (token_tree . ["[" "}"]) @injection.content
     )
   )
   (#eq? @_macro_name "json")

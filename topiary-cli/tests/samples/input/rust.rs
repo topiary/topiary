@@ -118,3 +118,8 @@ const JSON: Foo = json!({
     "homepage": null
 }
 });
+
+const JSON2: Value = json!([
+    "foo",
+"bar",
+]);

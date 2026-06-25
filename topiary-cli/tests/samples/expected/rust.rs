@@ -110,11 +110,12 @@ impl MyTrait for MyStruct {
     }
 }
 
-const JSON: Foo = json!({
-  "code": 200,
-  "success": true,
-  "payload": {
-    "features": [ "serde", "json" ],
-    "homepage": null
-  }
-});
+const JSON: Foo = json!({"code": 200,
+"success": true,
+"payload": {"features": ["serde", "json"],
+"homepage": null}});
+
+const JSON2: Value = json!([
+  "foo",
+  "bar",
+]);
