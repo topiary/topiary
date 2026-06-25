@@ -1,9 +1,9 @@
 use rootcause::{
     Report,
     markers::{Dynamic, Mutable, SendSync},
-    preformatted::PreformattedContext,
     report,
 };
+use rootcause_preformat::{PreformatReportExt, PreformattedContext};
 use std::{error, fmt, io, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
 

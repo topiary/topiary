@@ -15,6 +15,7 @@ use rootcause::{
     report,
     report_collection::ReportCollection,
 };
+use rootcause_preformat::PreformatReportExt;
 use tempfile::tempfile;
 use topiary_config::Configuration;
 use topiary_core::{

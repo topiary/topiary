@@ -42,6 +42,7 @@ miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 tabled = { workspace = true }
 rootcause.workspace = true
 similar = "3.1"
+rootcause-preformat.workspace = true
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

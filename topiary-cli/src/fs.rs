@@ -1,4 +1,4 @@
-use rootcause::{IntoReport, report_collection::ReportCollection};
+use rootcause::{report, report_collection::ReportCollection};
 
 use crate::error::CLIResult;
 use std::{
@@ -167,7 +167,7 @@ pub fn traverse(
                         "Skipping {}: File does not exist (e.g., broken symlink)",
                         file.display()
                     );
-                    errs.push(e.into_report().attach(format!("{}", file.display())).into());
+                    errs.push(report!(e).attach(format!("{}", file.display())).into());
                 }
             }
         }
