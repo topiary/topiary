@@ -17,9 +17,8 @@ use std::num::NonZero;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 
-use crate::error::TopiaryConfigResult;
 #[cfg(not(target_arch = "wasm32"))]
-use crate::error::{TopiaryConfigError, TopiaryConfigFetchingError};
+use crate::error::TopiaryConfigFetchingError;
 
 /// Language definitions, as far as the CLI and configuration are concerned, contain everything
 /// needed to configure formatting for that language.
@@ -87,59 +86,6 @@ impl Language {
 
     pub fn indent(&self) -> Option<String> {
         self.config.indent.clone()
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    #[allow(clippy::result_large_err)]
-    pub fn find_query_file(&self) -> TopiaryConfigResult<PathBuf> {
-        use crate::source::Source;
-
-        let name = self.name.as_str();
-
-        #[rustfmt::skip]
-        let potentials: [Option<PathBuf>; 5] = [
-            std::env::var("TOPIARY_LANGUAGE_DIR").map(PathBuf::from).ok(),
-            option_env!("TOPIARY_LANGUAGE_DIR").map(PathBuf::from),
-            Source::fetch_one(&None).queries_dir(),
-            Some(PathBuf::from("./topiary-queries/queries")),
-            Some(PathBuf::from("../topiary-queries/queries")),
-        ];
-
-        potentials
-            .into_iter()
-            .flatten()
-            .flat_map(|path| {
-                [
-                    // New layout: <dir>/<lang>/formatting.scm
-                    path.join(name).join(topiary_queries::FORMATTING_QUERY),
-                    // Old layout: <dir>/<lang>.scm
-                    path.join(format!("{name}.scm")),
-                ]
-            })
-            .find(|path| path.exists())
-            .ok_or_else(|| TopiaryConfigError::QueryFileNotFound(PathBuf::from(name)))
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn find_injections_file(&self) -> Option<PathBuf> {
-        use crate::source::Source;
-
-        let name = self.name.as_str();
-
-        #[rustfmt::skip]
-        let potentials: [Option<PathBuf>; 5] = [
-            std::env::var("TOPIARY_LANGUAGE_DIR").map(PathBuf::from).ok(),
-            option_env!("TOPIARY_LANGUAGE_DIR").map(PathBuf::from),
-            Source::fetch_one(&None).queries_dir(),
-            Some(PathBuf::from("./topiary-queries/queries")),
-            Some(PathBuf::from("../topiary-queries/queries")),
-        ];
-
-        potentials
-            .into_iter()
-            .flatten()
-            .map(|path| path.join(name).join(topiary_queries::INJECTIONS_QUERY))
-            .find(|path| path.exists())
     }
 
     #[cfg(not(target_arch = "wasm32"))]
