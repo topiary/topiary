@@ -129,18 +129,22 @@ impl Configuration {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
+    fn query_search_paths(&self) -> Vec<PathBuf> {
+        if let Some(query_dir) = &self.query_dir {
+            vec![query_dir.clone()]
+        } else {
+            vec![
+                PathBuf::from("./topiary-queries/queries"),
+                PathBuf::from("../topiary-queries/queries"),
+            ]
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::result_large_err)]
     pub fn find_query_file(&self, language_name: &str) -> TopiaryConfigResult<PathBuf> {
-        #[rustfmt::skip]
-        let potentials: [Option<PathBuf>; 3] = [
-            self.query_dir.clone(),
-            Some(PathBuf::from("./topiary-queries/queries")),
-            Some(PathBuf::from("../topiary-queries/queries")),
-        ];
-
-        potentials
+        self.query_search_paths()
             .into_iter()
-            .flatten()
             .flat_map(|path| {
                 [
                     // New layout: <dir>/<lang>/formatting.scm
@@ -156,16 +160,8 @@ impl Configuration {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn find_injections_file(&self, language_name: &str) -> Option<PathBuf> {
-        #[rustfmt::skip]
-        let potentials: [Option<PathBuf>; 3] = [
-            self.query_dir.clone(),
-            Some(PathBuf::from("./topiary-queries/queries")),
-            Some(PathBuf::from("../topiary-queries/queries")),
-        ];
-
-        potentials
+        self.query_search_paths()
             .into_iter()
-            .flatten()
             .map(|path| path.join(language_name).join(topiary_queries::INJECTIONS_QUERY))
             .find(|path| path.exists())
     }
