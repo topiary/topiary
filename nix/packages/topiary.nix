@@ -118,12 +118,7 @@ let
         preConfigurePhases = optional prefetchGrammars "prepareTopiaryDefaultConfiguration";
         inherit prepareTopiaryDefaultConfiguration;
 
-        postInstall = ''
-          mkdir -p $out/share/queries
-          cp -r topiary-queries/queries/* $out/share/queries
-        '';
 
-        # No longer using TOPIARY_LANGUAGE_DIR
 
         meta.mainProgram = "topiary";
       }
