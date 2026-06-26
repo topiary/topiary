@@ -71,11 +71,12 @@ async fn run() -> CLIResult<()> {
     let query_dir = args.global.query_dir.clone();
 
     let file_config = &args.global.configuration;
-    let (config, nickel_config) = topiary_config::Configuration::fetch(
-        args.global.merge_configuration,
-        file_config,
-        query_dir,
-    )?;
+    let (mut config, nickel_config) =
+        topiary_config::Configuration::fetch(args.global.merge_configuration, file_config)?;
+
+    if let Some(query_dir) = query_dir {
+        config.set_query_dir(query_dir);
+    }
 
     // Delegate by subcommand
     match args.command {

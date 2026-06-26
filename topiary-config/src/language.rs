@@ -89,7 +89,6 @@ impl Language {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-
     // Returns the library path, and ensures the parent directories exist.
     pub fn library_path(&self) -> std::io::Result<PathBuf> {
         match &self.config.grammar.source {

@@ -56,11 +56,7 @@ impl Configuration {
     /// If the configuration file exists, but cannot be parsed, this function will return a
     /// `TopiaryConfigError` with the error that occurred.
     #[allow(clippy::result_large_err)]
-    pub fn fetch(
-        merge: bool,
-        file: &Option<PathBuf>,
-        query_dir_override: Option<PathBuf>,
-    ) -> TopiaryConfigResult<(Self, NickelValue)> {
+    pub fn fetch(merge: bool, file: &Option<PathBuf>) -> TopiaryConfigResult<(Self, NickelValue)> {
         // If we have an explicit file, fail if it doesn't exist
         if let Some(path) = file
             && !path.exists()
@@ -72,24 +68,25 @@ impl Configuration {
             // Get all available configuration sources
             let sources: Vec<Source> = Source::fetch_all(file);
 
-            let query_dir = query_dir_override.or_else(|| {
-                sources
-                    .iter()
-                    .find_map(|s| s.queries_dir().filter(|p| p.exists()))
-            });
+            let implicit_query_dir = sources
+                .iter()
+                .find_map(|s| s.queries_dir().filter(|p| p.exists()));
 
             // And ask Nickel to parse and merge them
-            Self::parse_and_merge(&sources, query_dir)
+            let (mut config, term) = Self::parse_and_merge(&sources)?;
+            config.query_dir = config.query_dir.or(implicit_query_dir);
+            Ok((config, term))
         } else {
             // Get the available configuration with best priority
             let source = Source::fetch_one(file);
-            let query_dir =
-                query_dir_override.or_else(|| source.queries_dir().filter(|p| p.exists()));
+            let implicit_query_dir = source.queries_dir().filter(|p| p.exists());
 
-            match source {
-                Source::Builtin => Self::parse(Source::Builtin, query_dir),
-                source => Self::parse_and_merge(&[source, Source::Builtin], query_dir),
-            }
+            let (mut config, term) = match source {
+                Source::Builtin => Self::parse(Source::Builtin)?,
+                source => Self::parse_and_merge(&[source, Source::Builtin])?,
+            };
+            config.query_dir = config.query_dir.or(implicit_query_dir);
+            Ok((config, term))
         }
     }
 
@@ -128,6 +125,11 @@ impl Configuration {
         self.query_dir.as_deref()
     }
 
+    /// Sets the query directory for this Configuration
+    pub fn set_query_dir(&mut self, query_dir: PathBuf) {
+        self.query_dir = Some(query_dir);
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     fn query_search_paths(&self) -> Vec<PathBuf> {
         if let Some(query_dir) = &self.query_dir {
@@ -162,7 +164,10 @@ impl Configuration {
     pub fn find_injections_file(&self, language_name: &str) -> Option<PathBuf> {
         self.query_search_paths()
             .into_iter()
-            .map(|path| path.join(language_name).join(topiary_queries::INJECTIONS_QUERY))
+            .map(|path| {
+                path.join(language_name)
+                    .join(topiary_queries::INJECTIONS_QUERY)
+            })
             .find(|path| path.exists())
     }
 
@@ -291,10 +296,7 @@ impl Configuration {
     }
 
     #[allow(clippy::result_large_err)]
-    fn parse_and_merge(
-        sources: &[Source],
-        query_dir: Option<PathBuf>,
-    ) -> TopiaryConfigResult<(Self, NickelValue)> {
+    fn parse_and_merge(sources: &[Source]) -> TopiaryConfigResult<(Self, NickelValue)> {
         let mut builder = ProgramBuilder::new()
             .with_trace(std::io::stderr())
             .with_reporter(NullReporter {});
@@ -306,17 +308,13 @@ impl Configuration {
         let term = program.eval_full_for_export()?;
 
         let serde_config = SerdeConfiguration::deserialize(term.clone())?;
-        let mut config: Configuration = serde_config.into();
-        config.query_dir = query_dir.or(config.query_dir);
+        let config: Configuration = serde_config.into();
 
         Ok((config, term))
     }
 
     #[allow(clippy::result_large_err)]
-    fn parse(
-        source: Source,
-        query_dir: Option<PathBuf>,
-    ) -> TopiaryConfigResult<(Self, NickelValue)> {
+    fn parse(source: Source) -> TopiaryConfigResult<(Self, NickelValue)> {
         let mut program = source
             .add_to(
                 ProgramBuilder::new()
@@ -328,8 +326,7 @@ impl Configuration {
         let term = program.eval_full_for_export()?;
 
         let serde_config = SerdeConfiguration::deserialize(term.clone())?;
-        let mut config: Configuration = serde_config.into();
-        config.query_dir = query_dir.or(config.query_dir);
+        let config: Configuration = serde_config.into();
 
         Ok((config, term))
     }
