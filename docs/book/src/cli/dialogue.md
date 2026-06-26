@@ -9,9 +9,10 @@ However, if you are developing custom queries or need to override the default qu
 
 1. The `--query-dir` CLI argument, if provided.
 2. An adjacent `queries/` folder in the same directory as the loaded configuration file (e.g., `~/.config/topiary/queries/`).
-3. `topiary-queries/queries` in the current working directory.
-4. `topiary-queries/queries` in the parent of the current directory.
-5. The compiled-in default queries.
+3. The `query_dir` explicitly set inside the configuration file.
+4. `topiary-queries/queries` in the current working directory.
+5. `topiary-queries/queries` in the parent of the current directory.
+6. The compiled-in default queries.
 
 That is to say, you can easily use your own queries by either placing them in a `queries/` folder next to your `languages.ncl` configuration file, or by explicitly passing `--query-dir` to the CLI:
 
