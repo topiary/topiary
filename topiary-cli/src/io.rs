@@ -405,6 +405,9 @@ where
         #[cfg(feature = "ocamllex")]
         "ocamllex" => Some(topiary_queries::ocamllex_injections().into()),
 
+        #[cfg(feature = "rust")]
+        "rust" => Some(topiary_queries::rust_injections().into()),
+
         _ => None,
     }
 }
