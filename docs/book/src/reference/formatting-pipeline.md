@@ -11,6 +11,12 @@ list of atomic units -- formatting directives, defined by the matching
 capture names, and leaf node content (see also [`@leaf`](capture-names/general.md#leaf))
 -- along with the necessary metadata to drive the process.
 
+If the host language defines [language injections](language-injections.md),
+Topiary first discovers the injected spans and treats those host nodes as
+forced leaves during query matching. The captured leaf content is
+rewritten with the inner language's formatted output before atom
+post-processing and pretty printing continue.
+
 ## Atom processing
 
 The list of atoms from the first step are then processed into a
@@ -36,6 +42,10 @@ renders each atom into a stream of text output. For example, an
 atoms immediately following a hardline will now be prefixed with the
 appropriate indent string, until the respective "indentation end" atom
 is reached.
+
+Injected leaves are rendered like any other leaf. This means the host
+formatter controls indentation around the injected span, while the inner
+formatter controls the text inside the span.
 
 ## Vertical whitespace trimming
 

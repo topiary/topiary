@@ -4,33 +4,43 @@
 
 use std::fmt::Write;
 
+use rootcause::prelude::ResultExt;
+
 use crate::{Atom, Capitalisation, FormatterError, FormatterResult};
 
-/// Renders a slice of Atoms into an owned string.
-/// The indent &str is used when an `Atom::IdentStart` is encountered.
-/// Any string is accepted, but you will probably want to specify something
-/// along the lines of "  " "    " or "\t".
+/// Renders a slice of [`Atom`]s into formatted source code.
+///
+/// This is the final stage of the formatting pipeline. It walks through the
+/// atom list produced by [`apply_query_tree`](crate::tree_sitter::apply_query_tree),
+/// interpreting each atom to emit text, newlines, and indentation into the
+/// output buffer.
+///
+/// The `indent` parameter specifies the string used for one level of
+/// indentation (e.g. `"  "`, `"    "`, or `"\t"`).
 ///
 /// # Errors
 ///
-/// If an unexpected Atom is encountered, a `FormatterError::Internal` is returned.
+/// Returns an error if an atom that should have been removed during
+/// post-processing is still present, or if indentation blocks are
+/// mismatched.
 pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
     let mut buffer = String::new();
     let mut indent_level: usize = 0;
 
     for atom in atoms {
         match atom {
-            Atom::Blankline => write!(buffer, "\n\n{}", indent.repeat(indent_level))?,
+            Atom::Blankline => {
+                write!(buffer, "\n\n{}", indent.repeat(indent_level)).context_to()?
+            }
 
             Atom::Empty => (),
 
-            Atom::Hardline => write!(buffer, "\n{}", indent.repeat(indent_level))?,
+            Atom::Hardline => write!(buffer, "\n{}", indent.repeat(indent_level)).context_to()?,
 
             Atom::IndentEnd => {
                 if indent_level == 0 {
-                    return Err(FormatterError::Query(
-                        "Trying to close an unopened indentation block".into(),
-                        None,
+                    rootcause::bail!(FormatterError::Query(
+                        "Trying to close an unopened indentation block".to_owned(),
                     ));
                 }
 
@@ -44,15 +54,20 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                 original_position,
                 single_line_no_indent,
                 multi_line_indent_all,
+                keep_whitespace,
                 capitalisation,
                 ..
             } => {
                 if *single_line_no_indent {
                     // The line break after the content has been previously added
                     // as a `Hardline` in the atom stream.
-                    writeln!(buffer)?;
+                    writeln!(buffer).context_to()?;
                 }
-                let content = content.trim_end_matches('\n');
+                let content = if *keep_whitespace {
+                    content
+                } else {
+                    content.trim_end_matches('\n')
+                };
 
                 let mut content = if *multi_line_indent_all {
                     let cursor = current_column(&buffer) as i32;
@@ -80,19 +95,18 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                     }
                     _ => {}
                 }
-                write!(buffer, "{content}")?;
+                write!(buffer, "{content}").context_to()?;
             }
 
-            Atom::Literal(s) => write!(buffer, "{s}")?,
+            Atom::Literal(s) => write!(buffer, "{s}").context_to()?,
 
-            Atom::Space => write!(buffer, " ")?,
+            Atom::Space => write!(buffer, " ").context_to()?,
 
             // All other atom kinds should have been post-processed at that point
             other => {
-                return Err(FormatterError::Internal(
-                    format!("Found atom that should have been removed before rendering: {other:?}",),
-                    None,
-                ))
+                rootcause::bail!(FormatterError::Internal(format!(
+                    "Found atom that should have been removed before rendering: {other:?}",
+                )));
             }
         };
     }
@@ -107,12 +121,12 @@ fn current_column(s: &str) -> usize {
 fn add_spaces_after_newlines(s: &str, n: i32) -> String {
     let mut result = String::new();
 
-    let chars = s.chars().peekable();
+    let mut chars = s.chars().peekable();
 
-    for c in chars {
+    while let Some(c) = chars.next() {
         result.push(c);
 
-        if c == '\n' {
+        if c == '\n' && !matches!(chars.peek(), Some('\n') | None) {
             for _ in 0..n {
                 result.push(' ');
             }

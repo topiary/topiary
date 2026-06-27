@@ -13,10 +13,12 @@
 /// WIT [grammar](https://component-model.bytecodealliance.org/design/wit.html) for tree-sitter
 package tree-sitter:wit
 @1.0.0;
+
 package topiary:wit@1.0.0;
 package wasmi:io:hello;
 package wasmi :io:hello /
 epic@1.0.0;
+
 /// `stream` (no _s_) is a *type* that
 /// - can include a `<T>`
 /// - be a type in ofitself
@@ -47,12 +49,10 @@ use wasi:io:hello/epic as cool;
 world imports{
     import streams; export streams;
     // The component implements the `scan` function
-   export scan:func()->list<u8 >;
-
+   export scan:func()->list<u8 >;  // inline-comment
    import iface-name:interface {
        type some-name=u32;foo:func(p:string)->result<u32,aaa>;
    }
-
    export iface-name:interface {
        type some-name=u32;
        foo:func(p:string)->result<u32,aaa>;
@@ -66,7 +66,9 @@ world world-two {import a:func();}
 
 world union-my-world-a {
    include world-one;
-       include world-two with {a as b, }
+       include world-two with {a as b,
+       c as d // inline-comment-trailing-comma
+       }
 }
 
 world union-my-world-b {
@@ -84,8 +86,8 @@ interface %resource {
        write:func(bytes:list<u8>);
        read:func(n:u32)->list<u8>;
        merge:static func(lhs:blob,
-       // add trailing comma
-       rhs:blob)->blob;
+       rhs:blob // inline-comment-trailing-comma
+       )->blob;
     }
 
     resource res {
@@ -106,9 +108,9 @@ interface %resource {
 interface my-use-items {
    use foo. { t1, t2, };
   use wasi:http/types.{body};
-   // add trailing comma
    use newline-interface.{ a,
-   list as collection,of,names
+   list as collection,of,names // inline-comment-trailing-comma
+
    };
    use my:dependency/the-interface .{more,names as foo};
    use wasi:http/types@1.0.0.{request,response};
@@ -123,30 +125,27 @@ interface my-use-items {
 interface types {
   // "package of named fields"
  record r {
-   a:u32,
-   b:result<_,errno>,
+   a:u32,// inline-comment-trailing-comma
+   b:result<_,errno>
  }
 
   // values of this type will be one of the specified cases
 variant human {
-   baby,
+   baby, // inline-comment-trailing-comma
    child( u32),
-   // add trailing comma
    fixed-size(
-   list<bool,1>)
+   list<bool,1>) // inline-comment-trailing-comma
 }
 
   // similar to `variant`, but no type payloads
  enum errno {too-big,
-  // add trailing comma
- too-small,too-fast,too-slow }
+ too-small,too-fast,/* block-comment-trailing-comma */too-slow  // inline-comment-trailing-comma
+ }
 
   // a bitflags type
  flags permissions {
    read,
-   write,
-   // add trailing comma
-   exec
+   write, exec // inline-comment-trailing-comma
  }
 
   // type aliases are allowed to primitive types and additionally here are some
@@ -156,7 +155,7 @@ variant human {
  type t3=string;
  type t4=option<u32>; type t5=result<char,errno>; type t6=result<string>;
  type t7=option<result<_,list<string,2>>>;
- type t8=t7;
+ type t8=t7;// inline-comment-trailing-comma
 }
 
 // ==================
@@ -169,7 +168,7 @@ interface stream-async {
    is-closed:func()->bool;
    read:async func(num-bytes:u32)->result<list<u8>>;
    from-bytes:static func(bytes:list<u8>)->file;
-   from-stream:static async func(bytes:stream<u8>)->file;
+   from-stream:static async func(bytes:stream<u8>)->file;// inline-comment-trailing-comma
  }
 }
 

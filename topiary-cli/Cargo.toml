@@ -29,22 +29,22 @@ async-scoped = { workspace = true }
 clap = { workspace = true, features = ["derive", "env", "wrap_help"] }
 clap_complete = { workspace = true }
 env_logger = { workspace = true }
-futures = { workspace = true }
-itertools = { workspace = true }
 log = { workspace = true }
 nickel-lang-core.workspace = true
-serde = { workspace = true, features = ["derive"] }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["fs", "rt-multi-thread", "sync", "macros"] }
 toml = { workspace = true }
 topiary-core.workspace = true
 topiary-config.workspace = true
 topiary-queries.workspace = true
-topiary-tree-sitter-facade.workspace = true
+miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
+tabled = { workspace = true }
+similar = "3.1"
+rootcause.workspace = true
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
-paste = { workspace = true }
+pastey = { workspace = true }
 predicates = { workspace = true }
 
 [features]
@@ -70,7 +70,8 @@ contributed = [
 
 # Excluded by default
 experimental = [
-  "rust"
+  "rust",
+  "markdown"
 ]
 
 bash = ["topiary-config/bash", "topiary-queries/bash"]
@@ -85,4 +86,5 @@ rust = ["topiary-config/rust", "topiary-queries/rust"]
 sdml = ["topiary-config/sdml", "topiary-queries/sdml"]
 toml = ["topiary-config/toml", "topiary-queries/toml"]
 tree_sitter_query = ["topiary-config/tree_sitter_query", "topiary-queries/tree_sitter_query"]
+markdown = ["topiary-config/markdown", "topiary-queries/markdown"]
 wit = ["topiary-config/wit", "topiary-queries/wit"]

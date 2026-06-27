@@ -1,4 +1,4 @@
-use prettydiff::text::{diff_lines, ContextConfig};
+use prettydiff::text::{ContextConfig, diff_lines};
 
 pub fn pretty_assert_eq(v1: &str, v2: &str) {
     if v1 != v2 {

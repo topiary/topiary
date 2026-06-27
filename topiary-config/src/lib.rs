@@ -13,7 +13,7 @@ use std::{
 
 use language::{Language, LanguageConfiguration};
 use nickel_lang_core::{
-    error::NullReporter, eval::cache::CacheImpl, program::Program, term::RichTerm,
+    error::NullReporter, eval::cache::CacheImpl, eval::value::NickelValue, program::ProgramBuilder,
 };
 use serde::Deserialize;
 
@@ -22,17 +22,16 @@ use crate::error::TopiaryConfigFetchingError;
 #[cfg(not(target_arch = "wasm32"))]
 use tempfile::tempdir;
 
-use crate::{
-    error::{TopiaryConfigError, TopiaryConfigResult},
-    source::Source,
-};
+use crate::error::{TopiaryConfigError, TopiaryConfigResult};
+
+pub use source::Source;
 
 /// The configuration of the Topiary.
 ///
 /// Contains information on how to format every language the user is interested in, modulo what is
 /// supported. It can be provided by the user of the library, or alternatively, Topiary ships with
 /// default configuration that can be accessed using `Configuration::default`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Configuration {
     languages: Vec<Language>,
 }
@@ -54,12 +53,12 @@ impl Configuration {
     /// If the configuration file exists, but cannot be parsed, this function will return a
     /// `TopiaryConfigError` with the error that occurred.
     #[allow(clippy::result_large_err)]
-    pub fn fetch(merge: bool, file: &Option<PathBuf>) -> TopiaryConfigResult<(Self, RichTerm)> {
+    pub fn fetch(merge: bool, file: &Option<PathBuf>) -> TopiaryConfigResult<(Self, NickelValue)> {
         // If we have an explicit file, fail if it doesn't exist
-        if let Some(path) = file {
-            if !path.exists() {
-                return Err(TopiaryConfigError::FileNotFound(path.to_path_buf()));
-            }
+        if let Some(path) = file
+            && !path.exists()
+        {
+            return Err(TopiaryConfigError::FileNotFound(path.to_path_buf()));
         }
 
         if merge {
@@ -70,10 +69,10 @@ impl Configuration {
             Self::parse_and_merge(&sources)
         } else {
             // Get the available configuration with best priority
-            let source: Source = Source::fetch_one(file);
-
-            // And parse it with Nickel
-            Self::parse(source)
+            match Source::fetch_one(file) {
+                Source::Builtin => Self::parse(Source::Builtin),
+                source => Self::parse_and_merge(&[source, Source::Builtin]),
+            }
         }
     }
 
@@ -114,7 +113,7 @@ impl Configuration {
                     language.name,
                     git_source.git,
                     git_source.rev,
-                    library_path.to_string_lossy()
+                    library_path.display()
                 );
 
                 git_source.fetch_and_compile_with_dir(
@@ -129,7 +128,7 @@ impl Configuration {
                 log::info!(
                     "Fetch \"{}\": Configured via filesystem ({}); nothing to do",
                     language.name,
-                    path.to_string_lossy(),
+                    path.display(),
                 );
 
                 if !path.exists() {
@@ -177,7 +176,7 @@ impl Configuration {
         // When the `parallel` feature is enabled (which it is by default), we use Rayon to fetch
         // and compile all found grammars concurrently.
         // NOTE The MSVC linker does not seem to like concurrent builds, so concurrency is disabled
-        // on Windows (see https://github.com/tweag/topiary/issues/868)
+        // on Windows (see https://github.com/topiary/topiary/issues/868)
         #[cfg(all(feature = "parallel", not(windows)))]
         {
             use rayon::prelude::*;
@@ -207,13 +206,9 @@ impl Configuration {
     #[allow(clippy::result_large_err)]
     pub fn detect<P: AsRef<Path>>(&self, path: P) -> TopiaryConfigResult<&Language> {
         let pb = &path.as_ref().to_path_buf();
-        if let Some(extension) = pb.extension().map(|ext| ext.to_string_lossy()) {
+        if let Some(extension) = pb.extension().and_then(|ext| ext.to_str()) {
             for lang in &self.languages {
-                if lang
-                    .config
-                    .extensions
-                    .contains::<String>(&extension.to_string())
-                {
+                if lang.config.extensions.contains(extension) {
                     return Ok(lang);
                 }
             }
@@ -223,11 +218,14 @@ impl Configuration {
     }
 
     #[allow(clippy::result_large_err)]
-    fn parse_and_merge(sources: &[Source]) -> TopiaryConfigResult<(Self, RichTerm)> {
-        let inputs = sources.iter().map(|s| s.clone().into());
-
-        let mut program =
-            Program::<CacheImpl>::new_from_inputs(inputs, std::io::stderr(), NullReporter {})?;
+    fn parse_and_merge(sources: &[Source]) -> TopiaryConfigResult<(Self, NickelValue)> {
+        let mut builder = ProgramBuilder::new()
+            .with_trace(std::io::stderr())
+            .with_reporter(NullReporter {});
+        for source in sources {
+            builder = source.clone().add_to(builder);
+        }
+        let mut program = builder.build::<CacheImpl>()?;
 
         let term = program.eval_full_for_export()?;
 
@@ -237,12 +235,14 @@ impl Configuration {
     }
 
     #[allow(clippy::result_large_err)]
-    fn parse(source: Source) -> TopiaryConfigResult<(Self, RichTerm)> {
-        let mut program = Program::<CacheImpl>::new_from_input(
-            source.into(),
-            std::io::stderr(),
-            NullReporter {},
-        )?;
+    fn parse(source: Source) -> TopiaryConfigResult<(Self, NickelValue)> {
+        let mut program = source
+            .add_to(
+                ProgramBuilder::new()
+                    .with_trace(std::io::stderr())
+                    .with_reporter(NullReporter {}),
+            )
+            .build::<CacheImpl>()?;
 
         let term = program.eval_full_for_export()?;
 
@@ -256,16 +256,14 @@ impl Default for Configuration {
     /// Return the built-in configuration
     // This is particularly useful for testing
     fn default() -> Self {
-        let mut program = Program::<CacheImpl>::new_from_source(
-            Source::Builtin
-                .read()
-                .expect("Evaluating the builtin configuration should be safe")
-                .as_slice(),
-            "builtin",
-            std::io::empty(),
-            NullReporter {},
-        )
-        .expect("Evaluating the builtin configuration should be safe");
+        let mut program = Source::Builtin
+            .add_to(
+                ProgramBuilder::new()
+                    .with_trace(std::io::empty())
+                    .with_reporter(NullReporter {}),
+            )
+            .build::<CacheImpl>()
+            .expect("Evaluating the builtin configuration should be safe");
         let term = program
             .eval_full_for_export()
             .expect("Evaluating the builtin configuration should be safe");

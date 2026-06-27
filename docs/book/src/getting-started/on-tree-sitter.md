@@ -90,7 +90,7 @@ exceptional rules like this exist, they can easily be accommodated.
 
 ### Topiary language query files
 
-A language query file, usually given then `.scm` extension, is a
+A language query file, usually given the `.scm` extension, is a
 collection of such queries with appropriate formatting capture names.
 Taken in aggregate, when applied to source code files by Topiary, they
 define a formatting style for the language in question.

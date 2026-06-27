@@ -9,9 +9,9 @@ questions, or just want to hang out, feel free to say "Hi!" on our
 Otherwise, full documentation -- including the [guide for contributors]
 -- can be found in the [Topiary Book].
 
-[issues]: https://github.com/tweag/topiary/issues
-[pull requests]: https://github.com/tweag/topiary/pulls
-[discussions]: https://github.com/tweag/topiary/discussions
+[issues]: https://github.com/topiary/topiary/issues
+[pull requests]: https://github.com/topiary/topiary/pulls
+[discussions]: https://github.com/topiary/topiary/discussions
 [discord channel]: https://discord.gg/FSnkvNyyzC
 [guide for contributors]: https://topiary.tweag.io/book/guides/contributing.html
 [topiary book]: https://topiary.tweag.io/book

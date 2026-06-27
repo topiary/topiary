@@ -31,6 +31,7 @@ pub struct Cli {
 pub struct GlobalArgs {
     /// Configuration file
     #[arg(
+        aliases = &["config", "cfg"],
         short = 'C',
         long,
         display_order = 100,
@@ -41,7 +42,7 @@ pub struct GlobalArgs {
     pub configuration: Option<PathBuf>,
 
     /// Enable merging for configuration files
-    #[arg(short = 'M', long, display_order = 101, global = true)]
+    #[arg(alias = "merge", short = 'M', long, display_order = 101, global = true)]
     pub merge_configuration: bool,
 
     /// Logging verbosity (increased per occurrence)
@@ -121,6 +122,10 @@ pub enum Commands {
     /// Format inputs
     #[command(alias = "fmt", display_order = 1)]
     Format {
+        /// Verify inputs are already formatted (exit non-zero with diff if not)
+        #[arg(short = 'c', long)]
+        check: bool,
+
         /// Consume as much as possible in the presence of parsing errors
         #[arg(short, long)]
         tolerate_parsing_errors: bool,
@@ -150,7 +155,10 @@ pub enum Commands {
 
     /// Print the current configuration
     #[command(alias = "cfg", display_order = 3)]
-    Config,
+    Config {
+        #[command(subcommand)]
+        command: Option<ConfigCommand>,
+    },
 
     /// Prefetch languages in the configuration
     #[command(display_order = 4)]
@@ -176,6 +184,19 @@ pub enum Commands {
         /// Shell (omit to detect from the environment)
         shell: Option<Shell>,
     },
+
+    /// Check if an input parses to the respective Tree-sitter grammar
+    #[command(display_order = 6)]
+    CheckGrammar {
+        #[command(flatten)]
+        inputs: AtLeastOneInput,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigCommand {
+    /// Display config sources that Topiary looks through
+    ShowSources,
 }
 
 /// Parse CLI arguments and normalise them for the caller
@@ -214,6 +235,15 @@ pub fn get_args() -> CLIResult<Cli> {
                     ..
                 },
             ..
+        }
+        | Commands::CheckGrammar {
+            inputs:
+                AtLeastOneInput {
+                    files,
+                    follow_symlinks,
+                    ..
+                },
+            ..
         } => {
             // If we're given a list of FILES... then we assume them to all be on disk, even if "-"
             // is passed as an argument (i.e., interpret this as a valid filename, rather than as
@@ -226,19 +256,20 @@ pub fn get_args() -> CLIResult<Cli> {
             files.dedup();
         }
 
+        // Make sure our FILE is not a directory
         Commands::Visualise {
             input: ExactlyOneInput {
                 file: Some(file), ..
             },
             ..
-        } => {
-            // Make sure our FILE is not a directory
-            if file.is_dir() {
-                return Err(TopiaryError::Bin(
-                    format!("Cannot visualise directory \"{}\"; please provide a single file from disk or stdin.", file.to_string_lossy()),
-                    None,
-                ));
-            }
+        } if file.is_dir() => {
+            return Err(TopiaryError::Bin(
+                format!(
+                    "Cannot visualise directory \"{}\"; please provide a single file from disk or stdin.",
+                    file.display()
+                ),
+                None,
+            ));
         }
 
         // Attempt to detect shell from environment, when omitted

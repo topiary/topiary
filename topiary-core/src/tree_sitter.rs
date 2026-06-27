@@ -4,18 +4,21 @@
 
 use std::{collections::HashSet, fmt::Display};
 
+use miette::{LabeledSpan, Severity, SourceSpan};
+use rootcause::{prelude::ResultExt, report};
 use serde::Serialize;
 
 use topiary_tree_sitter_facade::{
-    Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryMatch, QueryPredicate, Tree,
+    Node, Parser, Point, Query, QueryCapture, QueryCursor, QueryError, QueryMatch, QueryPredicate,
+    Tree,
 };
 
 use streaming_iterator::StreamingIterator;
 
 use crate::{
-    atom_collection::{AtomCollection, QueryPredicates},
-    error::FormatterError,
     FormatterResult,
+    atom_collection::{AtomCollection, QueryPredicates},
+    error::{FormatterError, SpanAttachment},
 };
 
 /// Supported visualisation formats
@@ -60,9 +63,14 @@ impl TopiaryQuery {
     pub fn new(
         grammar: &topiary_tree_sitter_facade::Language,
         query_content: &str,
-    ) -> FormatterResult<TopiaryQuery> {
+    ) -> FormatterResult<TopiaryQuery, QueryError> {
         let query = Query::new(grammar, query_content)
-            .map_err(|e| FormatterError::Query("Error parsing query file".into(), Some(e)))?;
+            .into_report()
+            .map_err(|e| {
+                let range = e.current_context().range;
+                e.attach_range(range)
+            })
+            .attach_source(Some(query_content))?;
 
         Ok(TopiaryQuery {
             query,
@@ -95,6 +103,138 @@ impl TopiaryQuery {
     pub fn pattern_position(&self, _pattern_index: usize) -> Position {
         unimplemented!()
     }
+}
+
+/// A pre-compiled query that identifies regions of a parsed source which
+/// should be formatted as a different ("injected") language.
+///
+/// An injection query captures the embedded source text with
+/// `@injection.content`, and declares the inner language via a
+/// `(#injection_language! "name")` predicate on the same pattern. For example,
+/// to mark every `(ocaml)` node within an `ocamllex` source as OCaml:
+///
+/// ```scheme
+/// ((ocaml) @injection.content
+///  (#injection_language! "ocaml"))
+/// ```
+#[derive(Debug)]
+pub struct InjectionQuery {
+    pub query: Query,
+    pub query_content: String,
+}
+
+impl InjectionQuery {
+    /// Compile `query_content` against `grammar` as an injection query.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FormatterError::Query`] if tree-sitter fails to parse the
+    /// query.
+    pub fn new(
+        grammar: &topiary_tree_sitter_facade::Language,
+        query_content: &str,
+    ) -> FormatterResult<InjectionQuery> {
+        let query = Query::new(grammar, query_content)
+            .into_report()
+            .map_err(|e| {
+                let range = e.current_context().range;
+                e.attach_range(range)
+            })
+            .attach_source(Some(query_content))
+            .context(FormatterError::Query(
+                "Error parsing injection query file".into(),
+            ))?;
+
+        Ok(InjectionQuery {
+            query,
+            query_content: query_content.to_owned(),
+        })
+    }
+}
+
+/// A region of host source text that should be formatted as a different
+/// language, as determined by an [`InjectionQuery`].
+#[derive(Clone, Debug)]
+pub struct InjectionSpan<'a> {
+    pub content: &'a str,
+    /// The injected language name, taken from the `#injection_language!`
+    /// predicate of the matching pattern.
+    pub language: String,
+    /// Tree-sitter id of the captured node. Valid only against the same
+    /// [`Tree`] from which these spans were collected: tree-sitter does not
+    /// guarantee node-id stability across edit-and-reparse, but within a
+    /// single parse IDs are stable. Used to locate and rewrite the
+    /// corresponding `Atom::Leaf` after the host has been atomised.
+    pub node_id: usize,
+}
+
+/// Run an [`InjectionQuery`] against a parsed `tree`, returning every
+/// `@injection.content` capture paired with the language declared by its
+/// pattern's `#injection_language!` predicate.
+///
+/// Patterns missing an `#injection_language!` predicate are skipped (with a
+/// warning logged).
+///
+/// Missing predicates or unmatched captures are logged, not raised.
+pub fn collect_injections<'a>(
+    tree: &Tree,
+    input_content: &'a str,
+    query: &InjectionQuery,
+) -> Vec<InjectionSpan<'a>> {
+    let root = tree.root_node();
+    let source = input_content.as_bytes();
+    let capture_names = query.query.capture_names();
+
+    let mut cursor = QueryCursor::new();
+    let mut spans = Vec::new();
+
+    let mut matches = query.query.matches(&root, source, &mut cursor);
+    #[allow(clippy::while_let_on_iterator)] // Not a normal iterator
+    while let Some(query_match) = matches.next() {
+        // Resolve the language of the injection either via a hardcoded `#injection_language!` predicate
+        // or by dynamically reading the text of the `@injection.language` capture (e.g. for Markdown code blocks).
+        let language_name = query
+            .query
+            .general_predicates(query_match.pattern_index())
+            .into_iter()
+            .find_map(|p| {
+                (&*p.operator() == "injection_language!")
+                    .then(|| p.args().into_iter().next())
+                    .flatten()
+            })
+            .map(|s| s.to_string())
+            .or_else(|| {
+                query_match
+                    .captures()
+                    .find(|c| c.name(capture_names.as_slice()) == "injection.language")
+                    .and_then(|c| c.node().utf8_text(source).ok())
+                    .map(|s| s.to_string())
+            });
+
+        let Some(language_name) = language_name else {
+            log::warn!(
+                "Injection query pattern {} has neither an #injection_language! predicate nor an @injection.language capture; skipping",
+                query_match.pattern_index()
+            );
+            continue;
+        };
+
+        for capture in query_match
+            .captures()
+            .filter(|c| c.name(capture_names.as_slice()) == "injection.content")
+        {
+            let node = capture.node();
+            spans.push(InjectionSpan {
+                content: input_content
+                    .get(node.byte_range())
+                    .expect("`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range."),
+                language: language_name.clone(),
+                node_id: node.id(),
+            });
+        }
+    }
+
+    spans
 }
 
 impl From<Point> for Position {
@@ -214,7 +354,56 @@ impl Display for LocalQueryMatch<'_> {
 // A struct to store the result of a query coverage check
 pub struct CoverageData {
     pub cover_percentage: f32,
-    pub missing_patterns: Vec<String>,
+    pub missing_patterns: Vec<LabeledSpan>,
+}
+
+impl CoverageData {
+    fn status_msg(&self) -> String {
+        match self.cover_percentage {
+            0.0 if self.missing_patterns.is_empty() => "No queries found".into(),
+            1.0 => "All queries are matched".into(),
+            _ => format!("Unmatched queries: {}", self.missing_patterns.len()),
+        }
+    }
+
+    fn full_coverage(&self) -> bool {
+        self.cover_percentage == 1.0
+    }
+
+    /// Returns an error if coverage is not 100%
+    pub fn get_result(&self) -> FormatterResult<()> {
+        if !self.full_coverage() {
+            return Err(FormatterError::PatternDoesNotMatch.into());
+        }
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for CoverageData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.status_msg())
+    }
+}
+impl std::error::Error for CoverageData {}
+
+impl miette::Diagnostic for CoverageData {
+    fn severity(&self) -> Option<miette::Severity> {
+        match self.cover_percentage {
+            1.0 => Severity::Advice,
+            0.0 => Severity::Warning,
+            _ => Severity::Error,
+        }
+        .into()
+    }
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = LabeledSpan> + '_>> {
+        Some(Box::new(self.missing_patterns.iter().cloned()))
+    }
+
+    fn help<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
+        let msg = format!("Query coverage: {:.2}%", self.cover_percentage * 100.0);
+
+        Some(Box::new(msg))
+    }
 }
 
 /// Applies a query to an input content and returns a collection of atoms.
@@ -234,6 +423,46 @@ pub fn apply_query(
     tolerate_parsing_errors: bool,
 ) -> FormatterResult<AtomCollection> {
     let tree = parse(input_content, grammar, tolerate_parsing_errors)?;
+    apply_query_tree(tree, input_content, query)
+}
+
+/// Applies tree-sitter formatting queries to a parsed syntax tree, producing
+/// an [`AtomCollection`] ready for rendering.
+///
+/// This is the second stage of the formatting pipeline, between
+/// [`parse`] and [`render`](crate::pretty::render). It performs the
+/// following steps:
+///
+/// 1. Match: Runs the query patterns against the tree's root node,
+///    collecting all matches and their captures.
+/// 2. Identify leaves: Finds nodes marked with `@leaf` in the query so
+///    the flattening step will not recurse into them.
+/// 3. Flatten: Converts the tree into a flat [`AtomCollection`] of
+///    terminal/leaf nodes.
+/// 4. Apply formatting: Processes each match and evaluates predicates
+///    (e.g. `#single_line_only!`) and applies formatting directives
+///    (`@append_space`, `@prepend_hardline`, etc.) to the corresponding atoms.
+///
+/// # Errors
+///
+/// This function can return an error if:
+/// - The input exhaustivity check fails.
+/// - A predicate could not be parsed or is malformed.
+/// - An unknown capture name was encountered in the query.
+pub fn apply_query_tree(
+    tree: Tree,
+    input_content: &str,
+    query: &TopiaryQuery,
+) -> FormatterResult<AtomCollection> {
+    apply_query_tree_with_forced_leaves(tree, input_content, query, std::iter::empty())
+}
+
+pub(crate) fn apply_query_tree_with_forced_leaves(
+    tree: Tree,
+    input_content: &str,
+    query: &TopiaryQuery,
+    forced_leaf_nodes: impl Iterator<Item = usize>,
+) -> FormatterResult<AtomCollection> {
     let root = tree.root_node();
     let source = input_content.as_bytes();
 
@@ -255,7 +484,9 @@ pub fn apply_query(
 
     // Find the ids of all tree-sitter nodes that were identified as a leaf
     // We want to avoid recursing into them in the collect_leaves function.
-    let specified_leaf_nodes: HashSet<usize> = collect_leaf_ids(&matches, capture_names.clone());
+    let mut specified_leaf_nodes: HashSet<usize> =
+        collect_leaf_ids(&matches, capture_names.clone());
+    specified_leaf_nodes.extend(forced_leaf_nodes);
 
     // The Flattening: collects all terminal nodes of the tree-sitter tree in a Vec
     let mut atoms = AtomCollection::collect_leaves(&root, source, specified_leaf_nodes)?;
@@ -309,7 +540,7 @@ pub fn apply_query(
                 "".into()
             };
 
-            log::info!("Processing match{query_name_info}: {m} at location {pos}");
+            log::debug!("Processing match{query_name_info}: {m} at location {pos}");
         }
 
         // If any capture is a do_nothing, then do nothing.
@@ -332,41 +563,49 @@ pub fn apply_query(
     Ok(atoms)
 }
 
-/// Parses some string into a syntax tree, given a tree-sitter grammar.
+/// Parses source code into a tree-sitter syntax tree.
+///
+/// This is the first stage of the formatting pipeline. It creates a
+/// tree-sitter parser, applies the given grammar, and parses the input
+/// into a concrete syntax tree. Unless `tolerate_parsing_errors` is set,
+/// the resulting tree is checked for error nodes to ensure it is complete.
+///
+/// # Errors
+///
+/// Returns an error if the grammar cannot be applied, the input cannot
+/// be parsed, or the resulting tree contains error nodes (when
+/// `tolerate_parsing_errors` is `false`).
 pub fn parse(
     content: &str,
     grammar: &topiary_tree_sitter_facade::Language,
     tolerate_parsing_errors: bool,
 ) -> FormatterResult<Tree> {
-    let mut parser = Parser::new()?;
-    parser.set_language(grammar).map_err(|_| {
-        FormatterError::Internal("Could not apply Tree-sitter grammar".into(), None)
-    })?;
+    let mut parser = Parser::new().context_to()?;
+    parser
+        .set_language(grammar)
+        .context_to()
+        .attach("Could not apply Tree-sitter grammar")?;
 
-    let tree = parser
-        .parse(content, None)?
-        .ok_or_else(|| FormatterError::Internal("Could not parse input".into(), None))?;
+    let tree = parser.parse(content, None).context_to()?.ok_or_else(|| {
+        report!(FormatterError::Internal(
+            "Could not parse input".to_string()
+        ))
+    })?;
 
     // Fail parsing if we don't get a complete syntax tree.
     if !tolerate_parsing_errors {
-        check_for_error_nodes(&tree.root_node())?;
+        check_for_error_nodes(&tree.root_node()).attach_source(Some(content))?;
     }
 
     Ok(tree)
 }
 
+// returns first error node encountered
 fn check_for_error_nodes(node: &Node) -> FormatterResult<()> {
-    if node.kind() == "ERROR" {
-        let start = node.start_position();
-        let end = node.end_position();
-
-        // Report 1-based lines and columns.
-        return Err(FormatterError::Parsing {
-            start_line: start.row() + 1,
-            start_column: start.column() + 1,
-            end_line: end.row() + 1,
-            end_column: end.column() + 1,
-        });
+    if node.is_error() {
+        return Err(report!(FormatterError::Parsing)
+            .attach_range(node.range())
+            .attach_language(node.language_name()));
     }
 
     for child in node.children(&mut node.walk()) {
@@ -416,19 +655,21 @@ fn handle_predicate(
 ) -> FormatterResult<QueryPredicates> {
     let operator = &*predicate.operator();
     if "delimiter!" == operator {
-        let arg =
-            predicate.args().into_iter().next().ok_or_else(|| {
-                FormatterError::Query(format!("{operator} needs an argument"), None)
-            })?;
+        let arg = predicate
+            .args()
+            .into_iter()
+            .next()
+            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
         Ok(QueryPredicates {
             delimiter: Some(arg),
             ..predicates.clone()
         })
     } else if "scope_id!" == operator {
-        let arg =
-            predicate.args().into_iter().next().ok_or_else(|| {
-                FormatterError::Query(format!("{operator} needs an argument"), None)
-            })?;
+        let arg = predicate
+            .args()
+            .into_iter()
+            .next()
+            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
         Ok(QueryPredicates {
             scope_id: Some(arg),
             ..predicates.clone()
@@ -444,37 +685,40 @@ fn handle_predicate(
             ..predicates.clone()
         })
     } else if "single_line_scope_only!" == operator {
-        let arg =
-            predicate.args().into_iter().next().ok_or_else(|| {
-                FormatterError::Query(format!("{operator} needs an argument"), None)
-            })?;
+        let arg = predicate
+            .args()
+            .into_iter()
+            .next()
+            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
         Ok(QueryPredicates {
             single_line_scope_only: Some(arg),
             ..predicates.clone()
         })
     } else if "multi_line_scope_only!" == operator {
-        let arg =
-            predicate.args().into_iter().next().ok_or_else(|| {
-                FormatterError::Query(format!("{operator} needs an argument"), None)
-            })?;
+        let arg = predicate
+            .args()
+            .into_iter()
+            .next()
+            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
         Ok(QueryPredicates {
             multi_line_scope_only: Some(arg),
             ..predicates.clone()
         })
     } else if "query_name!" == operator {
-        let arg =
-            predicate.args().into_iter().next().ok_or_else(|| {
-                FormatterError::Query(format!("{operator} needs an argument"), None)
-            })?;
+        let arg = predicate
+            .args()
+            .into_iter()
+            .next()
+            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
         Ok(QueryPredicates {
             query_name: Some(arg),
             ..predicates.clone()
         })
     } else {
-        Err(FormatterError::Query(
-            format!("{operator} is an unknown predicate. Maybe you forgot a \"!\"?"),
-            None,
-        ))
+        Err(FormatterError::Query(format!(
+            "{operator} is an unknown predicate. Maybe you forgot a \"!\"?"
+        )))
+        .into_report()
     }
 }
 
@@ -510,8 +754,8 @@ fn check_predicates(predicates: &QueryPredicates) -> FormatterResult<()> {
     if incompatible_predicates > 1 {
         Err(FormatterError::Query(
             "A query can contain at most one #single/multi_line[_scope]_only! predicate".into(),
-            None,
-        ))
+        )
+        .into())
     } else {
         Ok(())
     }
@@ -526,6 +770,9 @@ pub fn check_query_coverage(
     original_query: &TopiaryQuery,
     grammar: &topiary_tree_sitter_facade::Language,
 ) -> FormatterResult<CoverageData> {
+    use miette::LabeledSpan;
+    use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
     let tree = parse(input_content, grammar, false)?;
     let root = tree.root_node();
     let source = input_content.as_bytes();
@@ -537,8 +784,10 @@ pub fn check_query_coverage(
         .query
         .matches(&root, source, &mut cursor)
         .count();
+
     let pattern_count = original_query.query.pattern_count();
     let query_content = &original_query.query_content;
+    let query = &original_query.query;
 
     // If there are no queries at all (e.g., when debugging) return early
     // rather than dividing by zero
@@ -555,7 +804,10 @@ pub fn check_query_coverage(
     if pattern_count == 1 {
         let mut cover_percentage = 1.0;
         if ref_match_count == 0 {
-            missing_patterns.push(query_content.into());
+            missing_patterns.push(LabeledSpan::new_with_span(
+                Some("empty query".into()),
+                SourceSpan::from(0..query_content.len()),
+            ));
             cover_percentage = 0.0
         }
         return Ok(CoverageData {
@@ -564,31 +816,48 @@ pub fn check_query_coverage(
         });
     }
 
-    let mut ok_patterns = 0.0;
-    for i in 0..pattern_count {
-        // We don't need to use TopiaryQuery in this test since we have no need
-        // for duplicate versions of the query_content string, instead we create the query
-        // manually.
-        let mut query = Query::new(grammar, query_content)
-            .map_err(|e| FormatterError::Query("Error parsing query file".into(), Some(e)))?;
-        query.disable_pattern(i);
-        let mut cursor = QueryCursor::new();
-        let match_count = query.matches(&root, source, &mut cursor).count();
-        if match_count == ref_match_count {
-            let index_start = query.start_byte_for_pattern(i);
-            let index_end = if i == pattern_count - 1 {
-                query_content.len()
-            } else {
-                query.start_byte_for_pattern(i + 1)
-            };
-            let pattern_content = &query_content[index_start..index_end];
-            missing_patterns.push(pattern_content.into());
-        } else {
-            ok_patterns += 1.0;
-        }
-    }
+    let missing_patterns: Vec<LabeledSpan> = (0..pattern_count)
+        .into_par_iter()
+        .filter_map(|i| {
+            // The TreeSitter API doesn't support splitting a query per pattern subqueries.
+            // We do so manually here by using the `query_content` and `query` fields for the same
+            // `TopiaryQuery` object.
 
-    let cover_percentage = ok_patterns / pattern_count as f32;
+            let start_idx = query.start_byte_for_pattern(i);
+            let end_idx = query.end_byte_for_pattern(i);
+            // SAFETY: the index range provided is returned directly from the inner `Query` object
+            let pattern_content = unsafe { query_content.get_unchecked(start_idx..end_idx) };
+            // All child patterns of a non-empty `Query` object created through `Query::new` are guaranteed
+            // to create their own valid `Query` by referencing their pattern byte range.
+            let pattern_query = Query::new(grammar, pattern_content)
+                .expect("unable to create subquery of valid query, this is a bug");
+
+            let mut cursor = QueryCursor::new();
+            let pattern_has_matches = pattern_query
+                .matches(&root, source, &mut cursor)
+                .next()
+                .is_some();
+            if !pattern_has_matches {
+                let trimmed_end_idx = pattern_content
+                    .rmatch_indices('\n')
+                    .map(|(i, _)| i)
+                    .find_map(|i| {
+                        let line = pattern_content[i..].trim_start();
+                        let is_pattern_line = !line.is_empty() && !line.starts_with(';');
+                        is_pattern_line.then_some(start_idx + i + 2)
+                    })
+                    .unwrap_or(pattern_content.len());
+                return Some(LabeledSpan::new_with_span(
+                    Some("unmatched".into()),
+                    SourceSpan::from(start_idx..trimmed_end_idx),
+                ));
+            }
+            None
+        })
+        .collect();
+
+    let ok_patterns = pattern_count - missing_patterns.len();
+    let cover_percentage = ok_patterns as f32 / pattern_count as f32;
     Ok(CoverageData {
         cover_percentage,
         missing_patterns,

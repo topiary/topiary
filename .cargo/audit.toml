@@ -1,4 +1,2 @@
 [advisories]
-ignore = [
-  "RUSTSEC-2024-0436"  # See issue #902
-]
+ignore = []

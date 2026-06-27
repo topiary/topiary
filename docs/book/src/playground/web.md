@@ -7,7 +7,7 @@ development and has diverged from newer releases of Topiary. The web
 playground is kept online, for demonstrative purposes, but newer
 features have **not been implemented**.
 
-See GitHub to [assess the divergence](https://github.com/tweag/topiary/compare/playground...main).
+See GitHub to [assess the divergence](https://github.com/topiary/topiary/compare/playground...main).
 
 </div>
 

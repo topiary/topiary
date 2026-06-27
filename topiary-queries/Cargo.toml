@@ -3,7 +3,7 @@ name = "topiary-queries"
 # The version should always be "X.Y.Z" where the workspace version is `X.Y.Z'`
 # with `Z' <= Z`. Whenever there's a need to release an update to the queries
 # without changing the core of Topiary, just bump `Z`.
-version = "0.6.3"
+version = "0.7.3"
 categories = ["development-tools", "text-processing"]
 keywords = ["code-formatter", "formatter", "text", "tree-sitter"]
 edition.workspace = true
@@ -30,4 +30,5 @@ rust = []
 sdml = []
 toml = []
 tree_sitter_query = []
+markdown = []
 wit = []

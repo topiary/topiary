@@ -1,4 +1,7 @@
 use std::{error, fmt, io, path::PathBuf, process::ExitCode, result};
+
+use rootcause::Report;
+use similar::TextDiff;
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError};
 use topiary_core::FormatterError;
 
@@ -11,7 +14,7 @@ pub type CLIResult<T> = result::Result<T, TopiaryError>;
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum TopiaryError {
-    Lib(FormatterError),
+    Lib(Report<FormatterError>),
     Bin(String, Option<CLIError>),
     Config(topiary_config::error::TopiaryConfigError),
 }
@@ -23,6 +26,13 @@ pub enum CLIError {
     Generic(Box<dyn error::Error>),
     Multiple,
     UnsupportedLanguage(String),
+
+    /// Formatting check failed: input is not already formatted
+    CheckFailed {
+        source_name: String,
+        original: String,
+        formatted: String,
+    },
 
     /// Could not detect the input language from the `(filename, Option<extension>)`
     LanguageDetection(PathBuf, Option<String>),
@@ -45,6 +55,23 @@ impl fmt::Display for TopiaryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             TopiaryError::Lib(error) => write!(f, "{error}"),
+            TopiaryError::Bin(
+                _,
+                Some(CLIError::CheckFailed {
+                    source_name,
+                    original,
+                    formatted,
+                }),
+            ) => {
+                let diff = TextDiff::from_lines(original, formatted);
+                write!(
+                    f,
+                    "Diff in {source_name}:\n{}",
+                    diff.unified_diff()
+                        .context_radius(3)
+                        .header("original", "formatted")
+                )
+            }
             TopiaryError::Bin(message, _) => write!(f, "{message}"),
             TopiaryError::Config(e) => write!(f, "{e}"),
         }
@@ -54,11 +81,12 @@ impl fmt::Display for TopiaryError {
 impl error::Error for TopiaryError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            TopiaryError::Lib(error) => error.source(),
+            TopiaryError::Lib(error) => error.current_context_error_source(),
             TopiaryError::Bin(_, Some(CLIError::IOError(error))) => Some(error),
             TopiaryError::Bin(_, Some(CLIError::Generic(error))) => error.source(),
             TopiaryError::Bin(_, Some(CLIError::Multiple)) => None,
             TopiaryError::Bin(_, Some(CLIError::UnsupportedLanguage(_))) => None,
+            TopiaryError::Bin(_, Some(CLIError::CheckFailed { .. })) => None,
             TopiaryError::Bin(_, Some(CLIError::LanguageDetection(_, _))) => None,
             TopiaryError::Bin(_, None) => None,
             TopiaryError::Config(error) => error.source(),
@@ -72,26 +100,31 @@ impl From<TopiaryError> for ExitCode {
             // Things went well but Topiary needs to answer 'false' in a clean way: Exit 1
             _ if e.benign() => 1,
 
+            // Check mode detected unformatted files: Exit 1
+            // This error is not benign, but we still need to answer `false` without resulting in a typical an error
+            TopiaryError::Bin(_, Some(CLIError::CheckFailed { .. })) => 1,
+
             // Multiple errors: Exit 9
             TopiaryError::Bin(_, Some(CLIError::Multiple)) => 9,
-
-            // Idempotency parsing errors: Exit 8
-            TopiaryError::Lib(FormatterError::IdempotenceParsing(_)) => 8,
-
-            // Idempotency errors: Exit 7
-            TopiaryError::Lib(FormatterError::Idempotence) => 7,
-
-            // Exit 6 no longer exists and is now reserved for compatibility reasons
-
-            // Parsing errors: Exit 5
-            TopiaryError::Lib(FormatterError::Parsing { .. }) => 5,
-
-            // Query errors: Exit 4
-            TopiaryError::Lib(FormatterError::Query(_, _)) => 4,
+            TopiaryError::Lib(r) => {
+                match r.current_context() {
+                    // Idempotency parsing errors: Exit 8
+                    FormatterError::IdempotenceParsing => 8,
+                    // Idempotency errors: Exit 7
+                    FormatterError::Idempotence => 7,
+                    // Parsing errors: Exit 5
+                    FormatterError::Parsing => 5,
+                    // Query errors: Exit 4
+                    FormatterError::Query(_) => 4,
+                    // I/O errors: Exit 3
+                    FormatterError::Io => 3,
+                    // Anything else: Exit 10
+                    _ => 10,
+                }
+            }
 
             // I/O errors: Exit 3
-            TopiaryError::Lib(FormatterError::Io(_))
-            | TopiaryError::Bin(_, Some(CLIError::IOError(_))) => 3,
+            TopiaryError::Bin(_, Some(CLIError::IOError(_))) => 3,
 
             // Bad arguments: Exit 2
             // (Handled by clap: https://github.com/clap-rs/clap/issues/3426)
@@ -104,8 +137,8 @@ impl From<TopiaryError> for ExitCode {
     }
 }
 
-impl From<FormatterError> for TopiaryError {
-    fn from(e: FormatterError) -> Self {
+impl From<Report<FormatterError>> for TopiaryError {
+    fn from(e: Report<FormatterError>) -> Self {
         Self::Lib(e)
     }
 }
@@ -178,9 +211,13 @@ pub trait Benign {
 impl Benign for TopiaryError {
     #[allow(clippy::match_like_matches_macro)]
     fn benign(&self) -> bool {
-        match self {
-            TopiaryError::Lib(FormatterError::PatternDoesNotMatch) => true,
-            _ => false,
-        }
+        matches!(self, TopiaryError::Lib(r) if r.current_context() == &FormatterError::PatternDoesNotMatch)
+    }
+}
+
+pub(crate) fn print_error(e: &dyn error::Error) {
+    log::error!("{e}");
+    if let Some(source) = e.source() {
+        log::error!("Cause: {source}");
     }
 }

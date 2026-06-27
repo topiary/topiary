@@ -5,11 +5,12 @@ use std::{
     ops::Deref,
 };
 
+use rootcause::prelude::ResultExt;
 use topiary_tree_sitter_facade::Node;
 
 use crate::{
-    tree_sitter::NodeExt, Atom, Capitalisation, FormatterError, FormatterResult, ScopeCondition,
-    ScopeInformation,
+    Atom, Capitalisation, FormatterError, FormatterResult, ScopeCondition, ScopeInformation,
+    tree_sitter::NodeExt,
 };
 
 /// A struct that holds sets of node IDs that have line breaks before or after them.
@@ -30,11 +31,11 @@ pub struct AtomCollection {
     /// A flat list of all Atoms. This is is updated by some formatting
     /// directives, but most require some more complexity.
     atoms: Vec<Atom>,
-    /// Whenever a formatting directive instructs tree-sitter to prepend
+    /// Whenever a formatting directive instructs topiary to prepend
     /// something to a node, a new Atom is added to this HashMap.
     /// The key of the hashmap is the identifier of the node.
     prepend: HashMap<usize, Vec<Atom>>,
-    /// Whenever a formatting directive instructs tree-sitter to append
+    /// Whenever a formatting directive instructs topiary to append
     /// something to a node, a new Atom is added to this HashMap.
     /// The key of the hashmap is the identifier of the node.
     append: HashMap<usize, Vec<Atom>>,
@@ -115,6 +116,32 @@ impl AtomCollection {
         Ok(atoms)
     }
 
+    /// Replace the `content` of the [`Atom::Leaf`] whose tree-sitter `id`
+    /// matches `node_id`. Returns whether a matching leaf was found.
+    ///
+    /// Used by the injection flow to splice formatted inner-language text
+    /// into a host leaf atom after the host's atom collection has been
+    /// built but before rendering.
+    pub fn rewrite_injected_leaf_content(&mut self, node_id: usize, new_content: String) -> bool {
+        for atom in &mut self.atoms {
+            if let Atom::Leaf {
+                id,
+                content,
+                original_position,
+                ..
+            } = atom
+                && *id == node_id
+            {
+                *content = new_content;
+                // Injected formatters return column-zero text; let the host
+                // leaf indentation account for the current render column.
+                original_position.column = 1;
+                return true;
+            }
+        }
+        false
+    }
+
     // wrap inside a conditional atom if #single/multi_line_scope_only! is set
     fn wrap(&mut self, atom: Atom, predicates: &QueryPredicates) -> Atom {
         if let Some(scope_id) = &predicates.single_line_scope_only {
@@ -167,12 +194,12 @@ impl AtomCollection {
 
         let requires_delimiter = || {
             predicates.delimiter.as_deref().ok_or_else(|| {
-                FormatterError::Query(format!("@{name} requires a #delimiter! predicate"), None)
+                FormatterError::Query(format!("@{name} requires a #delimiter! predicate"))
             })
         };
         let requires_scope_id = || {
             predicates.scope_id.as_deref().ok_or_else(|| {
-                FormatterError::Query(format!("@{name} requires a #scope_id! predicate"), None)
+                FormatterError::Query(format!("@{name} requires a #scope_id! predicate"))
             })
         };
 
@@ -206,14 +233,14 @@ impl AtomCollection {
             log::debug!("Skipping because context is single-line and #multi_line_only! is set");
             return Ok(());
         }
-        if let Some(parent_id) = self.parent_leaf_nodes.get(&node.id()) {
-            if *parent_id != node.id() {
-                log::warn!(
-                    "Skipping because the match occurred below a leaf node: {}",
-                    node.display_one_based()
-                );
-                return Ok(());
-            }
+        if let Some(parent_id) = self.parent_leaf_nodes.get(&node.id())
+            && *parent_id != node.id()
+        {
+            log::debug!(
+                "Skipping because the match occurred below a leaf node: {}",
+                node.display_one_based()
+            );
+            return Ok(());
         }
 
         match name {
@@ -242,6 +269,15 @@ impl AtomCollection {
 
                 self.append(space, node, predicates);
             }
+            "append_empty_input_softline" => {
+                let space = if self.line_break_after.contains(&node.id()) {
+                    Atom::Hardline
+                } else {
+                    Atom::Empty
+                };
+
+                self.append(space, node, predicates);
+            }
             "append_space" => self.append(Atom::Space, node, predicates),
             "append_antispace" => self.append(Atom::Antispace, node, predicates),
             "append_spaced_softline" => {
@@ -263,6 +299,15 @@ impl AtomCollection {
                     Atom::Hardline
                 } else {
                     Atom::Space
+                };
+
+                self.prepend(space, node, predicates);
+            }
+            "prepend_empty_input_softline" => {
+                let space = if self.line_break_before.contains(&node.id()) {
+                    Atom::Hardline
+                } else {
+                    Atom::Empty
                 };
 
                 self.prepend(space, node, predicates);
@@ -404,10 +449,9 @@ impl AtomCollection {
                         single_line_no_indent,
                         ..
                     } = a
+                        && *id == node.id()
                     {
-                        if *id == node.id() {
-                            *single_line_no_indent = true;
-                        }
+                        *single_line_no_indent = true;
                     }
                 }
 
@@ -421,19 +465,31 @@ impl AtomCollection {
                         multi_line_indent_all,
                         ..
                     } = a
+                        && *id == node.id()
                     {
-                        if *id == node.id() {
-                            *multi_line_indent_all = true;
-                        }
+                        *multi_line_indent_all = true;
+                    }
+                }
+            }
+            // Mark a leaf to disable trimming
+            "keep_whitespace" => {
+                for a in &mut self.atoms {
+                    if let Atom::Leaf {
+                        id,
+                        keep_whitespace,
+                        ..
+                    } = a
+                        && *id == node.id()
+                    {
+                        *keep_whitespace = true;
                     }
                 }
             }
             // Return a query parsing error on unknown capture names
             unknown => {
-                return Err(FormatterError::Query(
-                    format!("@{unknown} is not a valid capture name"),
-                    None,
-                ))
+                rootcause::bail!(FormatterError::Query(format!(
+                    "@{unknown} is not a valid capture name"
+                )));
             }
         }
 
@@ -545,11 +601,12 @@ impl AtomCollection {
             || node.kind() == "ERROR"
         {
             self.atoms.push(Atom::Leaf {
-                content: String::from(node.utf8_text(source)?),
+                content: String::from(node.utf8_text(source).context_to()?),
                 id,
                 original_position: node.start_position().into(),
                 single_line_no_indent: false,
                 multi_line_indent_all: false,
+                keep_whitespace: false,
                 capitalisation: Capitalisation::Pass,
             });
             // Mark all sub-nodes as having this node as a "leaf parent"
@@ -778,7 +835,9 @@ impl AtomCollection {
                                 Some(multi_line),
                             ));
                         } else {
-                            log::warn!("Found several measuring scopes in a single regular scope {scope_id:?}");
+                            log::warn!(
+                                "Found several measuring scopes in a single regular scope {scope_id:?}"
+                            );
                             force_apply_modifications = true;
                         }
                     } else {
@@ -974,7 +1033,10 @@ impl AtomCollection {
                 // If two whitespace atoms follow each other, remove the non-dominant one.
                 (
                     moved_prev @ (Atom::Space | Atom::Hardline | Atom::Blankline),
-                    [head @ (Atom::Space | Atom::Hardline | Atom::Blankline), tail @ ..],
+                    [
+                        head @ (Atom::Space | Atom::Hardline | Atom::Blankline),
+                        tail @ ..,
+                    ],
                 ) => {
                     if head.dominates(moved_prev) {
                         *moved_prev = Atom::Empty;
@@ -1126,7 +1188,7 @@ fn collapse_spaces_before_antispace(v: &mut [Atom]) {
 /// # Notes
 ///
 /// This function uses an iterative approach instead of a recursive one for performance reasons.
-/// See https://github.com/tweag/topiary/pull/417#issuecomment-1499085230 for more details.
+/// See https://github.com/topiary/topiary/pull/417#issuecomment-1499085230 for more details.
 fn dfs_flatten<'tree>(node: &Node<'tree>) -> Vec<Node<'tree>> {
     // Flatten the tree, depth-first, into a vector of nodes
     let mut walker = node.walk();
@@ -1248,7 +1310,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::{atom_collection::AtomCollection, Atom};
+    use crate::{Atom, atom_collection::AtomCollection};
     use test_log::test;
 
     #[test]

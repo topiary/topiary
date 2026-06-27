@@ -4,64 +4,91 @@ on:
   pull_request:
     branches: main
 
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#concurrency
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+
 jobs:
-  build:
+
+  nix-flake-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up build dependencies
+        uses: ./.github/actions/nix-build
+        with:
+          nix_path: nixpkgs=channel:nixpkgs-unstable
+          auth_token: "${{ secrets.CACHIX_TWEAG_TOPIARY_AUTH_TOKEN }}"
+
+      - name: Clippy, test, and benchmark
+        env:
+          # Disable Nix garbage collection
+          GC_DONT_GC: 1
+        run: nix -L flake check
+
+  nix-client-app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up build dependencies
+        uses: ./.github/actions/nix-build
+        with:
+          nix_path: nixpkgs=channel:nixpkgs-unstable
+          auth_token: "${{ secrets.CACHIX_TWEAG_TOPIARY_AUTH_TOKEN }}"
+
+      - name: Build executable
+        run: nix build . -L
+
+      - name: Test executable
+        run: 'echo \{ \"foo\": \"bar\" \} | nix run . -- fmt -l json'
+
+      - name: Build client-app example
+        run: nix build .#client-app -L
+
+      - name: Verify that usage in README.md matches CLI output
+        run: nix run .#verify-documented-usage -L
+
+      - name: Test against config regressions
+        run: |
+            nix run . -- config --merge --cfg ./topiary-config/tests/issue-1124.ncl
+            nix run . -- config --merge --cfg ./topiary-config/tests/issue-1131.ncl
+
+  topiary-cli:
     strategy:
       matrix:
         os:
           - ubuntu-latest
-          - macos-14  # TODO Revert to macos-latest; see #1043
+          - macos-latest
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
+      - name: Set up build dependencies
+        uses: ./.github/actions/nix-build
         with:
           nix_path: nixpkgs=channel:nixpkgs-unstable
-
-      - name: Setup up mold linker
-        uses: rui314/setup-mold@v1
-
-      - name: Set up Nix cache
-        uses: cachix/cachix-action@v16
-        with:
-          name: tweag-topiary
-          authToken: "${{ secrets.CACHIX_TWEAG_TOPIARY_AUTH_TOKEN }}"
-
-      - name: Set up frontend cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            **/node_modules
-            ~/.cache/puppeteer
-          key: frontend_${{ matrix.os }}_${{ hashFiles('**/package-lock.json') }}
-
-      - name: Clippy, test, and benchmark
-        if: matrix.os == 'ubuntu-latest'
-        run: export GC_DONT_GC=1; nix -L flake check
-
-      - name: Build and test executable
-        run: 'echo \{ \"foo\": \"bar\" \} | nix run . -- fmt -l json'
+          auth_token: "${{ secrets.CACHIX_TWEAG_TOPIARY_AUTH_TOKEN }}"
 
       - name: Build the topiary-cli and test those tests that cannot be performed in Nix
         run: nix develop --command bash -c "cargo test -p topiary-cli --features experimental"
 
-      - name: Build client-app example
-        run: nix build .#client-app
-
-      - name: Verify that usage in README.md matches CLI output
-        run: nix run .#verify-documented-usage
-
-  build-windows:
+  test-windows:
     # Note: GitHub's Windows runners have a Rust toolchain installed
-    # https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md
     runs-on: windows-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Init rust-cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Prefetch grammars
         run: cargo run --all-features -- prefetch

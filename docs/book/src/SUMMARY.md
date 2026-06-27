@@ -20,6 +20,7 @@
   - [`topiary completion`](cli/usage/completion.md)
   - [`topiary prefetch`](cli/usage/prefetch.md)
   - [`topiary coverage`](cli/usage/coverage.md)
+  - [`topiary check-grammar`](cli/usage/check-grammar.md)
 
 - [Configuration](cli/configuration.md)
 - [Runtime dialogue](cli/dialogue.md)
@@ -40,6 +41,7 @@
 
 - [Language support](reference/language-support.md)
 - [Formatting pipeline](reference/formatting-pipeline.md)
+- [Language injections](reference/language-injections.md)
 - [Capture names](reference/capture-names/index.md)
   - [General advice](reference/capture-names/general.md)
   - [Horizontal spacing](reference/capture-names/horizontal-spacing.md)
@@ -49,4 +51,5 @@
   - [Insertion and deletion](reference/capture-names/insertion-and-deletion.md)
   - [Modification](reference/capture-names/modification.md)
 - [Rust library](reference/library.md)
+- [Nix API](reference/nix.md)
 - [Related tools](reference/related.md)

@@ -5,11 +5,11 @@
 use anyhow::anyhow;
 #[cfg(not(target_arch = "wasm32"))]
 use gix::{
+    ObjectId,
     interrupt::IS_INTERRUPTED,
     progress::Discard,
-    remote::{self, fetch, fetch::refmap, Direction},
+    remote::{self, Direction, fetch, fetch::refmap},
     worktree::state::checkout,
-    ObjectId,
 };
 use std::collections::HashSet;
 #[cfg(not(target_arch = "wasm32"))]
@@ -85,15 +85,22 @@ impl Language {
         Self { name, config }
     }
 
+    pub fn indent(&self) -> Option<String> {
+        self.config.indent.clone()
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::result_large_err)]
     pub fn find_query_file(&self) -> TopiaryConfigResult<PathBuf> {
-        let basename = PathBuf::from(self.name.as_str()).with_extension("scm");
+        use crate::source::Source;
+
+        let name = self.name.as_str();
 
         #[rustfmt::skip]
-        let potentials: [Option<PathBuf>; 4] = [
+        let potentials: [Option<PathBuf>; 5] = [
             std::env::var("TOPIARY_LANGUAGE_DIR").map(PathBuf::from).ok(),
             option_env!("TOPIARY_LANGUAGE_DIR").map(PathBuf::from),
+            Source::fetch_one(&None).queries_dir(),
             Some(PathBuf::from("./topiary-queries/queries")),
             Some(PathBuf::from("../topiary-queries/queries")),
         ];
@@ -101,9 +108,38 @@ impl Language {
         potentials
             .into_iter()
             .flatten()
-            .map(|path| path.join(&basename))
+            .flat_map(|path| {
+                [
+                    // New layout: <dir>/<lang>/formatting.scm
+                    path.join(name).join(topiary_queries::FORMATTING_QUERY),
+                    // Old layout: <dir>/<lang>.scm
+                    path.join(format!("{name}.scm")),
+                ]
+            })
             .find(|path| path.exists())
-            .ok_or_else(|| TopiaryConfigError::QueryFileNotFound(basename))
+            .ok_or_else(|| TopiaryConfigError::QueryFileNotFound(PathBuf::from(name)))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn find_injections_file(&self) -> Option<PathBuf> {
+        use crate::source::Source;
+
+        let name = self.name.as_str();
+
+        #[rustfmt::skip]
+        let potentials: [Option<PathBuf>; 5] = [
+            std::env::var("TOPIARY_LANGUAGE_DIR").map(PathBuf::from).ok(),
+            option_env!("TOPIARY_LANGUAGE_DIR").map(PathBuf::from),
+            Source::fetch_one(&None).queries_dir(),
+            Some(PathBuf::from("./topiary-queries/queries")),
+            Some(PathBuf::from("../topiary-queries/queries")),
+        ];
+
+        potentials
+            .into_iter()
+            .flatten()
+            .map(|path| path.join(name).join(topiary_queries::INJECTIONS_QUERY))
+            .find(|path| path.exists())
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -135,7 +171,7 @@ impl Language {
     ) -> Result<topiary_tree_sitter_facade::Language, TopiaryConfigFetchingError> {
         let library_path = self.library_path()?;
 
-        // Ensure the comile exists
+        // Ensure the compile exists
         if !library_path.is_file() {
             match &self.config.grammar.source {
                 GrammarSource::Git(git_source) => {
@@ -144,13 +180,13 @@ impl Language {
                 GrammarSource::Path(_) => {
                     return Err(TopiaryConfigFetchingError::GrammarFileNotFound(
                         library_path,
-                    ))
+                    ));
                 }
             }
         }
 
         assert!(library_path.is_file());
-        log::debug!("Loading grammar from {}", library_path.to_string_lossy());
+        log::debug!("Loading grammar from {}", library_path.display());
 
         use libloading::{Library, Symbol};
 
@@ -212,10 +248,7 @@ impl GitSource {
         name: &str,
         library_path: PathBuf,
     ) -> Result<(), TopiaryConfigFetchingError> {
-        log::info!(
-            "{}: Language Grammar not found, attempting to fetch and compile it",
-            name
-        );
+        log::info!("{name}: Language Grammar not found, attempting to fetch and compile it");
         // Create a temporary directory to clone the repository to. We could
         // cached the repositories, but the additional disk space is probably
         // not worth the benefits gained by caching. The tempdir is deleted
@@ -235,7 +268,7 @@ impl GitSource {
         tmp_dir: PathBuf,
     ) -> Result<(), TopiaryConfigFetchingError> {
         if !force && library_path.is_file() {
-            log::info!("{}: Built grammar already exists; nothing to do", name);
+            log::info!("{name}: Built grammar already exists; nothing to do");
             return Ok(());
         }
         let tmp_dir = tmp_dir.join(name);

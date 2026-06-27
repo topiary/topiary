@@ -13,8 +13,8 @@ readme.workspace = true
 license.workspace = true
 
 [dependencies]
-itertools = { workspace = true }
 log = { workspace = true }
+miette = { workspace = true }
 pretty_assertions = { workspace = true }
 prettydiff = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -23,9 +23,11 @@ streaming-iterator = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt"] }
 topiary-tree-sitter-facade = { workspace = true }
 tree-sitter = { workspace = true }
+rayon = { workspace = true }
+thiserror = { workspace = true }
+rootcause = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-futures = { workspace = true }
 topiary-web-tree-sitter-sys.workspace = true
 
 [dev-dependencies]
@@ -33,9 +35,15 @@ criterion = { workspace = true, features = ["async_futures"] }
 env_logger = { workspace = true }
 test-log = { workspace = true }
 tokio-test = { workspace = true }
+topiary-config = { workspace = true, features = ["ocaml", "ocamllex"] }
+topiary-queries = { workspace = true, features = ["json", "ocaml", "ocamllex"] }
 tree-sitter-json.workspace = true
 tree-sitter-nickel.workspace = true
 
 [[bench]]
 name = "benchmark"
+harness = false
+
+[[bench]]
+name = "injections"
 harness = false

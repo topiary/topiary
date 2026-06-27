@@ -1,6 +1,13 @@
 //! Configuration for Topiary can be sourced from either that which is built-in, or from disk.
 
-use std::{env::current_dir, ffi::OsString, fmt, io::Cursor, path::PathBuf};
+use std::{
+    env::current_dir,
+    fmt,
+    io::Cursor,
+    path::{Path, PathBuf},
+};
+
+use nickel_lang_core::program::ProgramBuilder;
 
 use crate::error::{TopiaryConfigError, TopiaryConfigResult};
 
@@ -8,110 +15,134 @@ use crate::error::{TopiaryConfigError, TopiaryConfigResult};
 #[derive(Debug, Clone)]
 pub enum Source {
     Builtin,
+    Directory(PathBuf),
     File(PathBuf),
 }
 
-impl From<Source> for nickel_lang_core::program::Input<Cursor<String>, OsString> {
-    fn from(source: Source) -> Self {
-        match source {
-            Source::Builtin => Self::Source(Cursor::new(source.builtin_nickel()), "builtin".into()),
-            Source::File(path) => Self::Path(path.into()),
+impl Source {
+    /// Register this source as an input on the given [`ProgramBuilder`].
+    pub fn add_to<R, W>(self, builder: ProgramBuilder<R, W>) -> ProgramBuilder<R, W> {
+        use nickel_lang_core::cache::InputFormat;
+        match self {
+            Source::Builtin => builder.add_source_with_format(
+                Cursor::new(Self::Builtin.builtin_nickel()),
+                "built-in",
+                InputFormat::Nickel,
+            ),
+            Source::Directory(path) | Source::File(path) => builder.add_path(path.into_os_string()),
         }
     }
 }
 
 impl Source {
-    /// Return the valid sources of configuration, in priority order (highest to lowest):
+    /// Iterate through valid sources of configuration, in priority order (highest to lowest):
     ///
-    /// 1. `file`, passed as a CLI argument/environment variable
+    /// 1. `path`, passed as a CLI argument/environment variable
     /// 2. `.topiary/languages.ncl` (or equivalent)
-    /// 3. `~/.config/topiary/languages.ncl` (or equivalent)
-    /// 4. Built-in configuration (per `Self::builtin_nickel()`)
-    pub fn fetch_all(file: &Option<PathBuf>) -> Vec<Self> {
-        let candidates = [
-            ("OS", Some(find_os_configuration_dir_config())),
-            ("workspace", find_workspace_configuration_dir_config()),
-            ("CLI", file.clone()),
-        ];
+    /// 3. `~/.config/topiary/languages.ncl`
+    /// 4. OS configuration directory (if different from #3)
+    /// 5. Built-in configuration: [`Self::builtin_nickel`]
+    pub fn config_sources(path: &Option<PathBuf>) -> impl Iterator<Item = (&'static str, Self)> {
+        let mut sources = Vec::new();
 
+        if let Some(path) = path {
+            let source = if path.is_dir() {
+                Self::Directory(path.clone())
+            } else {
+                Self::File(path.clone())
+            };
+
+            sources.push(("CLI", source));
+        }
+
+        sources.append(&mut vec![
+            ("workspace", workspace_config_dir()),
+            #[cfg(target_os = "macos")]
+            ("unix-home", unix_home_config_dir()),
+            ("OS", os_config_dir()),
+            // add built-in config to end
+            ("built-in", Self::Builtin),
+        ]);
+
+        sources.into_iter()
+    }
+
+    /// Return expected query directory associated with the source path
+    pub fn queries_dir(&self) -> Option<PathBuf> {
+        match self {
+            Source::Builtin => None,
+            Source::Directory(dir) => Some(dir.join("queries")),
+            Source::File(file) => file.parent().map(|d| d.join("queries")),
+        }
+    }
+
+    // return a config file if able uses `languages.ncl` for directories
+    pub fn languages_file(&self) -> Option<PathBuf> {
+        match self {
+            Source::Builtin => None,
+            Source::File(file) => Some(file.clone()),
+            Source::Directory(dir) => Some(dir.join("languages.ncl")),
+        }
+    }
+
+    // return an iterator containing all config sources that have been shown to exist
+    fn valid_config_sources(file: &Option<PathBuf>) -> impl Iterator<Item = (&'static str, Self)> {
+        Self::config_sources(file).filter_map(|(hint, candidate)| {
+            if matches!(candidate, Self::Builtin) {
+                return Some((hint, candidate));
+            }
+            let languages_file = candidate.languages_file().unwrap();
+            if !languages_file.exists() {
+                log::debug!("configuration file not found: {}.", candidate);
+                return None;
+            }
+
+            Some((hint, Self::File(languages_file)))
+        })
+    }
+    /// Return all valid configuration sources.
+    /// See [`Self::config_sources`].
+    pub fn fetch_all(file: &Option<PathBuf>) -> Vec<Self> {
         // We always include the built-in configuration, as a fallback
         log::info!("Adding built-in configuration to merge");
-        let mut res: Vec<Self> = vec![Self::Builtin];
-
-        for (hint, candidate) in candidates {
-            if let Some(path) = Self::find(&candidate) {
+        Self::valid_config_sources(file)
+            .inspect(|(hint, candidate)| {
+                let Self::File(path) = candidate else { return };
                 log::info!(
                     "Adding {hint}-specified configuration to merge: {}",
-                    path.to_string_lossy()
+                    path.display()
                 );
-                res.push(Self::File(path));
-            }
-        }
-
-        res
+            })
+            .map(|(_, s)| s)
+            .collect()
     }
 
-    /// Return the source of configuration that has top priority among available ones.
-    /// The priority order is, from highest to lowest:
-    ///
-    /// 1. `file`, passed as a CLI argument/environment variable
-    /// 2. `.topiary/languages.ncl` (or equivalent)
-    /// 3. `~/.config/topiary/languages.ncl` (or equivalent)
-    /// 4. Built-in configuration (per `Self::builtin_nickel()`)
+    /// Checks if a given [`Self`] variant can be found as a path or value
+    pub fn languages_exists(&self) -> bool {
+        match self {
+            Source::Builtin => true,
+            Source::File(file) => file.exists(),
+            Source::Directory(dir) => dir.join("languages.ncl").exists(),
+        }
+    }
+
+    /// Return a valid source of configuration with the highest priority.
+    /// See [`Self::config_sources`].
     pub fn fetch_one(file: &Option<PathBuf>) -> Self {
-        let candidates = [
-            ("CLI", file.clone()),
-            ("workspace", find_workspace_configuration_dir_config()),
-            ("OS", Some(find_os_configuration_dir_config())),
-        ];
-
-        for (hint, candidate) in candidates {
-            if let Some(source) = Self::find(&candidate).map(Self::File) {
-                log::info!("Using {hint}-specified configuration: {source}");
-                return source;
-            }
-        }
-
-        log::info!("Using built-in configuration");
-        Self::Builtin
-    }
-
-    /// Attempts to find a configuration file, given a `path` parameter. If `path` is `None`, then
-    /// the function returns `None`.
-    /// Otherwise, if the path is a directory, then it attempts to find a `languages.ncl` file
-    /// within that directory. If the file exists, then it returns `Some(path.join("languages.ncl"))`.
-    /// If the file does not exist, then it logs a message and returns `None`. If the path is a file,
-    /// then it returns `Some(path)`.
-    fn find(path: &Option<PathBuf>) -> Option<PathBuf> {
-        match path {
-            None => None,
-            Some(path) => {
-                let candidate = if path.is_dir() {
-                    path.join("languages.ncl")
-                } else {
-                    path.clone()
-                };
-
-                if candidate.exists() {
-                    Some(candidate)
-                } else {
-                    log::info!(
-                        "Could not find configuration file: {}.",
-                        candidate.to_string_lossy()
-                    );
-                    None
-                }
-            }
-        }
+        let (hint, source) = Self::valid_config_sources(file)
+            .next()
+            .expect("built-in should always be present");
+        log::info!("Using {hint}-specified configuration: {source}");
+        source
     }
 
     #[allow(clippy::result_large_err)]
     pub fn read(&self) -> TopiaryConfigResult<Vec<u8>> {
         match self {
             Self::Builtin => Ok(self.builtin_nickel().into_bytes()),
-            Self::File(path) => std::fs::read_to_string(path)
-                .map_err(TopiaryConfigError::Io)
-                .map(|s| s.into_bytes()),
+
+            Self::Directory(dir) => read_to_string(&dir.join("languages.ncl")),
+            Self::File(path) => read_to_string(path),
         }
     }
 
@@ -120,35 +151,59 @@ impl Source {
     }
 }
 
+fn read_to_string(path: &Path) -> TopiaryConfigResult<Vec<u8>> {
+    std::fs::read_to_string(path)
+        .map_err(TopiaryConfigError::Io)
+        .map(|s| s.into_bytes())
+}
+
 impl fmt::Display for Source {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Builtin => write!(f, "Built-in configuration"),
+            Self::Builtin => write!(f, "<built-in>"),
 
-            Self::File(path) => {
+            Self::File(path) | Self::Directory(path) => {
                 // If the configuration is provided through a file, then we know by this point that
                 // it must exist and so the call to `canonicalize` will succeed. However, special
                 // cases -- such as process substitution, which creates a temporary FIFO -- may
                 // fail if the shell has cleaned things up from under us; in which case, we
                 // fallback to the original `path`.
                 let config = path.canonicalize().unwrap_or(path.clone());
-                write!(f, "{}", config.to_string_lossy())
+                write!(f, "{}", config.display())
             }
         }
     }
 }
 
 /// Find the OS-specific configuration directory
-fn find_os_configuration_dir_config() -> PathBuf {
-    crate::project_dirs().config_dir().to_path_buf()
+/// Directory is not guaranteed to exist.
+fn os_config_dir() -> Source {
+    Source::Directory(crate::project_dirs().config_dir().to_path_buf())
 }
 
 /// Ascend the directory hierarchy, starting from the current working directory, in search of the
-/// nearest `.topiary` configuration directory
-fn find_workspace_configuration_dir_config() -> Option<PathBuf> {
-    current_dir()
-        .expect("Could not get current working directory")
+/// nearest `.topiary` configuration directory.
+/// Directory is not guaranteed to exist.
+fn workspace_config_dir() -> Source {
+    let pwd = current_dir().expect("Could not get current working directory");
+    let dir = pwd
         .ancestors()
         .map(|path| path.join(".topiary"))
         .find(|path| path.exists())
+        .unwrap_or_else(|| pwd.join(".topiary"));
+
+    Source::Directory(dir)
+}
+
+/// Certain platforms have alternate config directories (macOS)
+/// polyfill for linux-like `os_config_dir()`
+/// https://docs.rs/directories/latest/src/directories/lib.rs.html#38-43
+/// Directory is not guaranteed to exist.
+#[cfg(target_os = "macos")]
+fn unix_home_config_dir() -> Source {
+    let dir = std::env::home_dir()
+        .unwrap_or_default()
+        .join(".config/topiary");
+
+    Source::Directory(dir)
 }

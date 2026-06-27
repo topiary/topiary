@@ -1,4 +1,4 @@
-use assert_cmd::Command;
+use assert_cmd::cargo_bin_cmd;
 use std::fs;
 use std::path::PathBuf;
 use topiary_core::test_utils::pretty_assert_eq;
@@ -10,6 +10,7 @@ fn get_file_extension(language: &str) -> &str {
         "bash" => "sh",
         "css" => "css",
         "json" => "json",
+        "markdown" => "md",
         "nickel" => "ncl",
         "ocaml" => "ml",
         "ocaml_interface" => "mli",
@@ -28,7 +29,7 @@ fn get_file_extension(language: &str) -> &str {
 #[macro_export]
 macro_rules! lang_test {
     ($($lang:literal,)+ $test_fn:ident) => {
-        paste::paste! {$(
+        pastey::paste! {$(
             #[cfg(feature = $lang)]
             #[test]
             fn [<$test_fn _ $lang>]() {
@@ -60,7 +61,7 @@ mod test_fmt {
         fs::copy(input, &staged).unwrap();
 
         // Run Topiary against the staged input file
-        let mut topiary = Command::cargo_bin("topiary").unwrap();
+        let mut topiary = cargo_bin_cmd!("topiary");
         let output = topiary
             .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
             .arg("fmt")
@@ -83,6 +84,7 @@ mod test_fmt {
         "bash",
         "css",
         "json",
+        "markdown",
         "nickel",
         "ocaml",
         "ocaml_interface",
@@ -100,36 +102,94 @@ mod test_fmt {
     #[test]
     #[cfg(feature = "tree_sitter_query")]
     fn fmt_queries() {
-        let language_dir = fs::read_dir("../topiary-queries/queries").unwrap();
+        // Top level query directory
+        let query_dir = fs::read_dir("../topiary-queries/queries").unwrap();
 
-        for file in language_dir {
-            let file = file.unwrap();
+        for language_dir in query_dir {
+            let language_dir = fs::read_dir(language_dir.unwrap().path()).unwrap();
 
-            // Load the query file (we assume is formatted correctly)
-            let expected = fs::read_to_string(file.path()).unwrap();
+            for file in language_dir {
+                let file = file.unwrap();
 
-            let tmp_dir = TempDir::new().unwrap();
+                // Load the query file (we assume is formatted correctly)
+                let expected = fs::read_to_string(file.path()).unwrap();
 
-            // Copy the file to a temp dir
-            let mut input_file = tmp_dir.path().to_path_buf();
-            input_file.push(file.path().file_name().unwrap());
-            fs::copy(file.path(), &input_file).unwrap();
+                let tmp_dir = TempDir::new().unwrap();
 
-            // Run topiary on the input file in the temp dir
-            let mut topiary = Command::cargo_bin("topiary").unwrap();
-            topiary
-                .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
-                .arg("fmt")
-                .arg(&input_file)
-                .assert()
-                .success();
+                // Copy the file to a temp dir
+                let mut input_file = tmp_dir.path().to_path_buf();
+                input_file.push(file.path().file_name().unwrap());
+                fs::copy(file.path(), &input_file).unwrap();
 
-            // Read the file after formatting
-            let formatted = fs::read_to_string(input_file).unwrap();
+                // Run topiary on the input file in the temp dir
+                let mut topiary = cargo_bin_cmd!("topiary");
+                topiary
+                    .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
+                    .arg("fmt")
+                    .arg(&input_file)
+                    .assert()
+                    .success();
 
-            pretty_assert_eq(&expected, &formatted);
+                // Read the file after formatting
+                let formatted = fs::read_to_string(input_file).unwrap();
+
+                pretty_assert_eq(&expected, &formatted);
+            }
         }
     }
+}
+
+#[cfg(test)]
+mod test_check {
+    use super::*;
+
+    #[allow(unused)]
+    fn check_input(lang: &str) {
+        let file = format!("{lang}.{}", get_file_extension(lang));
+        let input = PathBuf::from(format!("tests/samples/input/{file}"));
+        let expected = PathBuf::from(format!("tests/samples/expected/{file}"));
+
+        // Make sure our test makes sense
+        assert!(input.exists() && expected.exists());
+
+        // The input file is unformatted, so --check should fail
+        let mut topiary = cargo_bin_cmd!("topiary");
+        topiary
+            .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
+            .arg("fmt")
+            .arg("--check")
+            .arg(&input)
+            .assert()
+            .failure();
+
+        // The expected file is already formatted, so --check should succeed
+        let mut topiary = cargo_bin_cmd!("topiary");
+        topiary
+            .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
+            .arg("fmt")
+            .arg("--check")
+            .arg(&expected)
+            .assert()
+            .success();
+    }
+
+    lang_test!(
+        "bash",
+        "css",
+        "json",
+        "markdown",
+        "nickel",
+        "ocaml",
+        "ocaml_interface",
+        "ocamllex",
+        "openscad",
+        "rust",
+        "sdml",
+        "toml",
+        "tree_sitter_query",
+        "wit",
+        check_input
+    );
 }
 
 #[cfg(test)]
@@ -145,7 +205,7 @@ mod test_coverage {
         assert!(input.exists());
 
         // Run `topiary coverage` against the input file
-        let mut topiary = Command::cargo_bin("topiary").unwrap();
+        let mut topiary = cargo_bin_cmd!("topiary");
         let output = topiary
             .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
             .arg("coverage")
@@ -162,6 +222,7 @@ mod test_coverage {
         "bash",
         "css",
         "json",
+        "markdown",
         "nickel",
         "ocaml",
         // "ocaml_interface.mli" is voluntarily omitted:
@@ -182,33 +243,37 @@ mod test_coverage {
 #[test]
 #[cfg(feature = "tree_sitter_query")]
 fn formatted_query_tester() {
-    let language_dir = fs::read_dir("../topiary-queries/queries").unwrap();
+    // Top level query directory
+    let query_dir = fs::read_dir("../topiary-queries/queries").unwrap();
 
-    for file in language_dir {
-        let file = file.unwrap();
+    for language_dir in query_dir {
+        let language_dir = fs::read_dir(language_dir.unwrap().path()).unwrap();
+        for file in language_dir {
+            let file = file.unwrap();
 
-        // Load the query file (we assume is formatted correctly)
-        let expected = fs::read_to_string(file.path()).unwrap();
+            // Load the query file (we assume is formatted correctly)
+            let expected = fs::read_to_string(file.path()).unwrap();
 
-        let tmp_dir = TempDir::new().unwrap();
+            let tmp_dir = TempDir::new().unwrap();
 
-        // Copy the file to a temp dir
-        let mut input_file = tmp_dir.path().to_path_buf();
-        input_file.push(file.path().file_name().unwrap());
-        fs::copy(file.path(), &input_file).unwrap();
+            // Copy the file to a temp dir
+            let mut input_file = tmp_dir.path().to_path_buf();
+            input_file.push(file.path().file_name().unwrap());
+            fs::copy(file.path(), &input_file).unwrap();
 
-        // Run topiary on the input file in the temp dir
-        let mut topiary = Command::cargo_bin("topiary").unwrap();
-        topiary
-            .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
-            .arg("fmt")
-            .arg(&input_file)
-            .assert()
-            .success();
+            // Run topiary on the input file in the temp dir
+            let mut topiary = cargo_bin_cmd!("topiary");
+            topiary
+                .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries/")
+                .arg("fmt")
+                .arg(&input_file)
+                .assert()
+                .success();
 
-        // Read the file after formatting
-        let formatted = fs::read_to_string(input_file).unwrap();
+            // Read the file after formatting
+            let formatted = fs::read_to_string(input_file).unwrap();
 
-        pretty_assert_eq(&expected, &formatted);
+            pretty_assert_eq(&expected, &formatted);
+        }
     }
 }

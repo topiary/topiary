@@ -6,23 +6,20 @@ mod native {
     };
     use std::{borrow::Cow, convert::TryFrom};
 
-    #[derive(Clone, Eq, Hash, PartialEq)]
+    #[derive(Clone, Copy, Eq, Hash, PartialEq)]
     pub struct Node<'tree> {
         pub(crate) inner: tree_sitter::Node<'tree>,
     }
 
     impl<'tree> Node<'tree> {
         #[inline]
-        pub fn byte_range(&self) -> std::ops::Range<u32> {
-            let range = self.inner.byte_range();
-            let start = u32::try_from(range.start).unwrap();
-            let end = u32::try_from(range.end).unwrap();
-            start..end
+        pub fn byte_range(&self) -> std::ops::Range<usize> {
+            self.inner.byte_range()
         }
 
         #[inline]
         pub fn child(&self, i: u32) -> Option<Self> {
-            self.inner.child(i as usize).map(Into::into)
+            self.inner.child(i).map(Into::into)
         }
 
         #[inline]
@@ -150,8 +147,13 @@ mod native {
         }
 
         #[inline]
+        pub fn language_name(&self) -> Option<&'static str> {
+            self.inner.language().name()
+        }
+
+        #[inline]
         pub fn named_child(&self, i: u32) -> Option<Self> {
-            self.inner.named_child(i as usize).map(Into::into)
+            self.inner.named_child(i).map(Into::into)
         }
 
         #[inline]
@@ -285,7 +287,7 @@ mod wasm {
     use crate::{input_edit::InputEdit, point::Point, range::Range, tree_cursor::TreeCursor};
     use std::borrow::Cow;
     use topiary_web_tree_sitter_sys::SyntaxNode;
-    use wasm_bindgen::{prelude::*, JsCast};
+    use wasm_bindgen::{JsCast, prelude::*};
 
     #[derive(Clone, Eq, Hash, PartialEq)]
     pub struct Node<'tree> {
@@ -296,9 +298,17 @@ mod wasm {
     impl<'tree> Node<'tree> {
         // FIXME: check that this is correct
         #[inline]
-        pub fn byte_range(&self) -> std::ops::Range<u32> {
-            let start = self.inner.start_index();
-            let end = self.inner.end_index();
+        pub fn byte_range(&self) -> std::ops::Range<usize> {
+            let start = self
+                .inner
+                .start_index()
+                .try_into()
+                .expect("`usize` and `u32` should be the same on `wasm32`.");
+            let end = self
+                .inner
+                .end_index()
+                .try_into()
+                .expect("`usize` and `u32` should be the same on `wasm32`.");
             start..end
         }
 

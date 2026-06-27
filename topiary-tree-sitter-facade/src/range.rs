@@ -1,9 +1,10 @@
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
+
     use crate::point::Point;
     use std::convert::TryFrom;
 
-    #[derive(Clone, Eq, Hash, PartialEq)]
+    #[derive(Clone, Copy, Eq, Hash, PartialEq)]
     pub struct Range {
         pub(crate) inner: tree_sitter::Range,
     }
@@ -22,6 +23,24 @@ mod native {
                 end_point,
             }
             .into()
+        }
+
+        /// Little utility to help convert 1-based line/column locations into
+        /// linewise ranges.
+        /// The last non newline character on a row will determine the range end.
+        #[inline]
+        pub fn new_linewise(source: &str, start_byte: u32, start_point: &Point) -> Self {
+            // The last character index before a newline appears
+            let end_byte = source[start_byte as usize..]
+                .find('\n')
+                .map(|i| i + start_byte as usize)
+                .unwrap_or(source.len()) as u32;
+            let end_point = Point::new(
+                start_point.row(),
+                start_point.column() + end_byte - start_byte,
+            );
+
+            Self::new(start_byte, end_byte, start_point, &end_point)
         }
 
         #[inline]

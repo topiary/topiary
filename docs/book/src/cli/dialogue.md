@@ -34,8 +34,8 @@ In that case, you don't have to worry about making
 `TOPIARY_LANGUAGE_DIR` has been set at build time and is set at runtime
 as well, the runtime value takes precedence.
 
-See [the contributor's guide](../guides/contributing.html) for details
-on setting up a development environment.
+See [the contributor's guide](../guides/contributing.md) for details on
+setting up a development environment.
 
 ## Logging
 
@@ -69,9 +69,10 @@ formatting. Otherwise, the following exit codes are defined:
 | Multiple errors              |    9 |
 | Unspecified error            |   10 |
 
-Negative results with error code `1` only happen when Topiary is called
-with the `coverage` sub-command, if the input does not cover 100% of the
-query.
+Negative results with error code `1` happen when Topiary is called
+with the `coverage` sub-command (if the input does not cover 100% of the
+query), or with `format --check` (if the input is not already
+formatted).
 
 When given multiple inputs, Topiary will do its best to process them
 all, even in the presence of errors. Should _any_ errors occur, Topiary

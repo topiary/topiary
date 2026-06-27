@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::TopiaryQuery;
+use crate::{InjectionQuery, TopiaryQuery};
 
 /// A Language contains all the information Topiary requires to format that
 /// specific languages.
@@ -12,7 +12,10 @@ pub struct Language {
     pub name: String,
     /// The Query Topiary will use to get the formatting captures, must be
     /// present. The topiary engine does not include any formatting queries.
-    pub query: TopiaryQuery,
+    pub formatting_query: TopiaryQuery,
+    /// Optional injection query identifying regions of source that should be
+    /// formatted as a different language.
+    pub injection_query: Option<InjectionQuery>,
     /// The tree-sitter Language. Topiary will use this Language for parsing.
     pub grammar: topiary_tree_sitter_facade::Language,
     /// The indentation string used for that particular language. Defaults to "  "

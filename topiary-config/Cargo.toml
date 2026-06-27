@@ -3,7 +3,7 @@ name = "topiary-config"
 # The version should always be "X.Y.Z" where the workspace version is `X.Y.Z'`
 # with `Z' <= Z`. Whenever there's a need to release an update to the config
 # without changing the core of Topiary, just bump `Z`.
-version = "0.6.2"
+version = "0.7.3"
 description = "Configuration parser and defaults for Topiary"
 categories = ["development-tools", "text-processing"]
 keywords = ["code-formatter", "formatter", "text", "tree-sitter"]
@@ -18,17 +18,15 @@ license.workspace = true
 [dependencies]
 anyhow.workspace = true
 directories.workspace = true
-itertools.workspace = true
 gix.workspace = true
 log.workspace = true
 nickel-lang-core.workspace = true
 rayon = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 tempfile.workspace = true
-toml.workspace = true
-tree-sitter.workspace = true
 tree-sitter-language.workspace = true
 
+topiary-queries.workspace = true
 topiary-tree-sitter-facade.workspace = true
 topiary-web-tree-sitter-sys.workspace = true
 
@@ -56,6 +54,7 @@ rust = []
 sdml = []
 toml = []
 tree_sitter_query = []
+markdown = []
 wit = []
 
 # This a convenience for the sake of downstream applications which don't
@@ -73,5 +72,6 @@ all = [
   "sdml",
   "toml",
   "tree_sitter_query",
+  "markdown",
   "wit",
 ]

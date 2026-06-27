@@ -1,7 +1,7 @@
 {
-  hello,
+  emptyFile,
   topiaryPkgs,
-  pre-commit-hook,
+  gitHook,
 }:
 
 let
@@ -9,10 +9,6 @@ let
 
 in
 {
-  # NOTE: The following checks have been removed as WASM
-  # and playground development has moved to the playground branch:
-  # - clippy-wasm
-  # - topiary-playground
   inherit (topiaryPkgs)
     clippy
     fmt
@@ -22,9 +18,8 @@ in
     topiary-cli
     ;
 
-  # Check that the `lib.pre-commit-hook` output builds/evaluates correctly.
-  # `deepSeq e1 e2` evaluates `e1` strictly in depth before returning `e2`. We
-  # use this trick because checks need to be derivations, which
-  # `lib.pre-commit-hook` is not.
-  pre-commit-hook = deepSeq pre-commit-hook hello;
+  # Check that the `lib.gitHook` output builds/evaluates correctly. `deepSeq e1
+  # e2` evaluates `e1` strictly in depth before returning `e2`. We use this
+  # trick because checks need to be derivations, which `lib.gitHook` is not.
+  gitHook = deepSeq gitHook emptyFile;
 }

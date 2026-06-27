@@ -5,7 +5,11 @@
 ```
 Print the current configuration
 
-Usage: topiary config [OPTIONS]
+Usage: topiary config [OPTIONS] [COMMAND]
+
+Commands:
+  show-sources  Display config sources that Topiary looks through
+  help          Print this message or the help of the given subcommand(s)
 
 Options:
   -C, --configuration <CONFIGURATION>  Configuration file [env: TOPIARY_CONFIG_FILE]
