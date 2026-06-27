@@ -4,7 +4,7 @@ use rootcause::{
     report,
 };
 use rootcause_preformat::{PreformatReportExt, PreformattedContext};
-use std::{any::TypeId, error, fmt, io, process::ExitCode, result};
+use std::{error, fmt, io, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
 
 use similar::TextDiff;
