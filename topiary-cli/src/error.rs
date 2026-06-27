@@ -4,7 +4,7 @@ use rootcause::{
     report,
 };
 use rootcause_preformat::{PreformatReportExt, PreformattedContext};
-use std::{error, fmt, io, process::ExitCode, result};
+use std::{any::TypeId, error, fmt, io, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
 
 use similar::TextDiff;
@@ -97,6 +97,10 @@ where
             // I/O errors: Exit 3
             code = 3;
         }
+        // NOTE/TODO: this does not currently handle type erased variants of original types
+        // see
+        // https://docs.rs/rootcause-preformat/latest/rootcause_preformat/struct.PreformattedContext.html#method.original_type_id
+        // for more
         if let Some(e) = rep.downcast_current_context::<TopiaryConfigError>() {
             // I/O errors: Exit 3
             code = match e {
