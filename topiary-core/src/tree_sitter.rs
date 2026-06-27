@@ -57,6 +57,7 @@ impl TopiaryQuery {
     /// contents of the query file.
     ///
     /// # Errors
+    ///
     /// This function will return an error if tree-sitter failed to parse the
     /// query file.
     pub fn new(
