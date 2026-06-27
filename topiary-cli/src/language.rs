@@ -11,7 +11,7 @@ use topiary_config::Configuration;
 use topiary_core::Language;
 
 use crate::{
-    error::CLIResult,
+    error::{CLIResult, ResultPreformat},
     io::{
         InputFile, to_injection_query_from_language, to_language_from_config_sync,
         to_query_from_language,
@@ -93,7 +93,7 @@ impl LanguageDefinitionCache {
         config: &Configuration,
         name: &str,
     ) -> CLIResult<Arc<Language>> {
-        let config_language = config.get_language(name)?;
+        let config_language = config.get_language(name).preformat_context()?;
         let formatting_query = to_query_from_language(config_language)?;
         let injection_query = to_injection_query_from_language(config_language);
         let key = Self::key_for_parts(name, &formatting_query, injection_query.as_ref());

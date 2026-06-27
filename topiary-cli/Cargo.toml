@@ -37,10 +37,12 @@ toml = { workspace = true }
 topiary-core.workspace = true
 topiary-config.workspace = true
 topiary-queries.workspace = true
+topiary-tree-sitter-facade.workspace = true
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 tabled = { workspace = true }
-similar = "3.1"
 rootcause.workspace = true
+similar = "3.1"
+rootcause-preformat.workspace = true
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

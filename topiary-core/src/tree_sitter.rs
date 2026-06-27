@@ -18,7 +18,7 @@ use streaming_iterator::StreamingIterator;
 use crate::{
     FormatterResult,
     atom_collection::{AtomCollection, QueryPredicates},
-    error::{FormatterError, SpanAttachment},
+    error::{FormatterError, SpanAttachment, query_error_report},
 };
 
 /// Supported visualisation formats
@@ -65,12 +65,8 @@ impl TopiaryQuery {
         query_content: &str,
     ) -> FormatterResult<TopiaryQuery, QueryError> {
         let query = Query::new(grammar, query_content)
-            .into_report()
-            .map_err(|e| {
-                let range = e.current_context().range;
-                e.attach_range(range)
-            })
-            .attach_source(Some(query_content))?;
+            .map_err(query_error_report)
+            .attach_source(query_content.into())?;
 
         Ok(TopiaryQuery {
             query,
@@ -135,12 +131,8 @@ impl InjectionQuery {
         query_content: &str,
     ) -> FormatterResult<InjectionQuery> {
         let query = Query::new(grammar, query_content)
-            .into_report()
-            .map_err(|e| {
-                let range = e.current_context().range;
-                e.attach_range(range)
-            })
-            .attach_source(Some(query_content))
+            .map_err(query_error_report)
+            .attach_source(query_content.into())
             .context(FormatterError::Query(
                 "Error parsing injection query file".into(),
             ))?;

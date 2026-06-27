@@ -1,68 +1,51 @@
-use std::{error, fmt, io, path::PathBuf, process::ExitCode, result};
+use rootcause::{
+    Report,
+    markers::{Dynamic, Mutable, SendSync},
+    report,
+};
+use rootcause_preformat::{PreformatReportExt, PreformattedContext};
+use std::{error, fmt, io, process::ExitCode, result};
+use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
 
-use rootcause::Report;
 use similar::TextDiff;
-use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError};
 use topiary_core::FormatterError;
 
 /// A convenience wrapper around `std::result::Result<T, TopiaryError>`.
-pub type CLIResult<T> = result::Result<T, TopiaryError>;
+pub type CLIResult<C, T = SendSync> = result::Result<C, Report<Dynamic, Mutable, T>>;
 
 /// The errors that can be raised by either the Topiary CLI, or passed through by the formatter
 /// library code. This acts as a supertype of `FormatterError`, with additional members to denote
 /// CLI-specific failures.
 #[derive(Debug)]
-#[allow(clippy::large_enum_variant)]
 pub enum TopiaryError {
-    Lib(Report<FormatterError>),
-    Bin(String, Option<CLIError>),
-    Config(topiary_config::error::TopiaryConfigError),
-}
-
-/// A subtype of `TopiaryError::Bin`
-#[derive(Debug)]
-pub enum CLIError {
-    IOError(io::Error),
-    Generic(Box<dyn error::Error>),
+    Config,
     Multiple,
     UnsupportedLanguage(String),
-
     /// Formatting check failed: input is not already formatted
     CheckFailed {
         source_name: String,
         original: String,
         formatted: String,
     },
-
-    /// Could not detect the input language from the `(filename, Option<extension>)`
-    LanguageDetection(PathBuf, Option<String>),
 }
-
-/// # Safety
-///
-/// Something can safely be Send unless it shares mutable state with something
-/// else without enforcing exclusive access to it. TopiaryError does not have a
-/// mutable state.
-unsafe impl Send for TopiaryError {}
-
-/// # Safety
-///
-/// Something can safely be Sync if and only if no other &TopiaryError can write
-/// to it. Since our TopiaryError contains no mutable data, TopiaryError is Sync.
-unsafe impl Sync for TopiaryError {}
 
 impl fmt::Display for TopiaryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TopiaryError::Lib(error) => write!(f, "{error}"),
-            TopiaryError::Bin(
-                _,
-                Some(CLIError::CheckFailed {
-                    source_name,
-                    original,
-                    formatted,
-                }),
-            ) => {
+            TopiaryError::Config => write!(f, "Configuration error"),
+            TopiaryError::Multiple => write!(
+                f,
+                "Processing of one or more inputs failed; see below for details"
+            ),
+            TopiaryError::UnsupportedLanguage(name) => {
+                write!(f, "The specified language is unsupported: {name}")
+            }
+            TopiaryError::CheckFailed {
+                source_name,
+                original,
+                formatted,
+            } => {
+                writeln!(f, "{source_name} is not formatted")?;
                 let diff = TextDiff::from_lines(original, formatted);
                 write!(
                     f,
@@ -72,134 +55,77 @@ impl fmt::Display for TopiaryError {
                         .header("original", "formatted")
                 )
             }
-            TopiaryError::Bin(message, _) => write!(f, "{message}"),
-            TopiaryError::Config(e) => write!(f, "{e}"),
         }
     }
 }
 
-impl error::Error for TopiaryError {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self {
-            TopiaryError::Lib(error) => error.current_context_error_source(),
-            TopiaryError::Bin(_, Some(CLIError::IOError(error))) => Some(error),
-            TopiaryError::Bin(_, Some(CLIError::Generic(error))) => error.source(),
-            TopiaryError::Bin(_, Some(CLIError::Multiple)) => None,
-            TopiaryError::Bin(_, Some(CLIError::UnsupportedLanguage(_))) => None,
-            TopiaryError::Bin(_, Some(CLIError::CheckFailed { .. })) => None,
-            TopiaryError::Bin(_, Some(CLIError::LanguageDetection(_, _))) => None,
-            TopiaryError::Bin(_, None) => None,
-            TopiaryError::Config(error) => error.source(),
-        }
-    }
-}
+// source is handled by `rootcause::Report::current_context_error_source`
+impl error::Error for TopiaryError {}
 
-impl From<TopiaryError> for ExitCode {
-    fn from(e: TopiaryError) -> Self {
-        let exit_code = match e {
-            // Things went well but Topiary needs to answer 'false' in a clean way: Exit 1
-            _ if e.benign() => 1,
-
-            // Check mode detected unformatted files: Exit 1
-            // This error is not benign, but we still need to answer `false` without resulting in a typical an error
-            TopiaryError::Bin(_, Some(CLIError::CheckFailed { .. })) => 1,
-
-            // Multiple errors: Exit 9
-            TopiaryError::Bin(_, Some(CLIError::Multiple)) => 9,
-            TopiaryError::Lib(r) => {
-                match r.current_context() {
-                    // Idempotency parsing errors: Exit 8
-                    FormatterError::IdempotenceParsing => 8,
-                    // Idempotency errors: Exit 7
-                    FormatterError::Idempotence => 7,
-                    // Parsing errors: Exit 5
-                    FormatterError::Parsing => 5,
-                    // Query errors: Exit 4
-                    FormatterError::Query(_) => 4,
-                    // I/O errors: Exit 3
-                    FormatterError::Io => 3,
-                    // Anything else: Exit 10
-                    _ => 10,
-                }
-            }
-
-            // I/O errors: Exit 3
-            TopiaryError::Bin(_, Some(CLIError::IOError(_))) => 3,
-
-            // Bad arguments: Exit 2
-            // (Handled by clap: https://github.com/clap-rs/clap/issues/3426)
-
-            // Anything else: Exit 10
-            _ => 10,
-        };
-
-        ExitCode::from(exit_code)
-    }
-}
-
-impl From<Report<FormatterError>> for TopiaryError {
-    fn from(e: Report<FormatterError>) -> Self {
-        Self::Lib(e)
-    }
-}
-
-impl From<TopiaryConfigError> for TopiaryError {
-    fn from(e: TopiaryConfigError) -> Self {
-        Self::Config(e)
-    }
-}
-
-impl From<TopiaryConfigFetchingError> for TopiaryError {
-    fn from(e: TopiaryConfigFetchingError) -> Self {
-        Self::Config(TopiaryConfigError::Fetching(e))
-    }
-}
-
-impl From<io::Error> for TopiaryError {
-    fn from(e: io::Error) -> Self {
-        match e.kind() {
-            io::ErrorKind::NotFound => {
-                Self::Bin("File not found".into(), Some(CLIError::IOError(e)))
-            }
-
-            _ => Self::Bin(
-                "Could not read or write to file".into(),
-                Some(CLIError::IOError(e)),
-            ),
-        }
-    }
-}
-
-impl From<tempfile::PersistError> for TopiaryError {
-    fn from(e: tempfile::PersistError) -> Self {
-        Self::Bin(
-            "Could not persist output to disk".into(),
-            Some(CLIError::IOError(e.error)),
-        )
-    }
-}
-
-// We only have to deal with io::BufWriter<crate::output::OutputFile>,
-// but the genericised code is clearer
-impl<W> From<io::IntoInnerError<W>> for TopiaryError
+pub(crate) fn exit_code<C>(r: Report<C>) -> ExitCode
 where
-    W: io::Write + fmt::Debug + Send + 'static,
+    C: ?Sized,
 {
-    fn from(e: io::IntoInnerError<W>) -> Self {
-        Self::Bin(
-            "Could not flush internal buffer".into(),
-            Some(CLIError::Generic(Box::new(e))),
-        )
+    // Things went well but Topiary needs to answer 'false' in a clean way: Exit 1
+    if r.benign() {
+        return ExitCode::FAILURE;
     }
-}
 
-impl From<tokio::task::JoinError> for TopiaryError {
-    fn from(e: tokio::task::JoinError) -> Self {
-        TopiaryError::Bin(
-            "Could not join parallel formatting tasks".into(),
-            Some(CLIError::Generic(Box::new(e))),
-        )
+    // Anything not explicitly covered returns an ExitCode of 10
+    // Bad arguments: Exit 2
+    // (Handled by clap: https://github.com/clap-rs/clap/issues/3426)
+    let mut code = 10;
+    for rep in r.iter_reports() {
+        if let Some(e) = rep.downcast_current_context::<FormatterError>() {
+            code = match e {
+                // TODO check failed
+                // I/O errors: Exit 3
+                FormatterError::Io => 3,
+                // Query errors: Exit 4
+                FormatterError::Query(_) => 4,
+                // Parsing errors: Exit 5
+                FormatterError::Parsing => 5,
+                // Idempotency errors: Exit 7
+                FormatterError::Idempotence => 7,
+                // Idempotency parsing errors: Exit 8
+                FormatterError::IdempotenceParsing => 8,
+                _ => 10,
+            };
+            break;
+        }
+        if rep.downcast_current_context::<io::Error>().is_some() {
+            // I/O errors: Exit 3
+            code = 3;
+        }
+        // NOTE/TODO: this does not currently handle type erased variants of original types
+        // see
+        // https://docs.rs/rootcause-preformat/latest/rootcause_preformat/struct.PreformattedContext.html#method.original_type_id
+        // for more
+        if let Some(e) = rep.downcast_current_context::<TopiaryConfigError>() {
+            // I/O errors: Exit 3
+            code = match e {
+                TopiaryConfigError::FileNotFound(_)
+                | TopiaryConfigError::QueryFileNotFound(_)
+                | TopiaryConfigError::Io(_)
+                | TopiaryConfigError::Fetching(
+                    FetchError::Io(_) | FetchError::GrammarFileNotFound(_),
+                ) => 3,
+                _ => 10,
+            };
+            break;
+        }
+        if let Some(e) = rep.downcast_current_context::<TopiaryError>() {
+            code = match e {
+                // Multiple errors: Exit 9
+                TopiaryError::Multiple => 9,
+                // Anything else: Exit 10
+                _ => 10,
+            };
+            break;
+        }
     }
+
+    ExitCode::from(code)
 }
 
 // Tells whether an error should raise a message on stderr,
@@ -208,16 +134,30 @@ pub trait Benign {
     fn benign(&self) -> bool;
 }
 
-impl Benign for TopiaryError {
-    #[allow(clippy::match_like_matches_macro)]
+impl<C> Benign for Report<C>
+where
+    C: ?Sized,
+{
     fn benign(&self) -> bool {
-        matches!(self, TopiaryError::Lib(r) if r.current_context() == &FormatterError::PatternDoesNotMatch)
+        iter_downcast_reports::<FormatterError>(self)
+            .any(|fmt_err| *fmt_err == FormatterError::PatternDoesNotMatch)
+    }
+}
+pub(crate) trait ResultPreformat<T, C> {
+    fn preformat_context(self) -> Result<T, Report<PreformattedContext>>;
+}
+
+impl<T, C: 'static> ResultPreformat<T, C> for Result<T, C> {
+    fn preformat_context(self) -> Result<T, Report<PreformattedContext>> {
+        match self {
+            Ok(t) => Ok(t),
+            Err(e) => Err(report!(e).preformat()),
+        }
     }
 }
 
-pub(crate) fn print_error(e: &dyn error::Error) {
-    log::error!("{e}");
-    if let Some(source) = e.source() {
-        log::error!("Cause: {source}");
-    }
+fn iter_downcast_reports<T: 'static>(report: &Report<impl ?Sized>) -> impl Iterator<Item = &T> {
+    report
+        .iter_reports()
+        .filter_map(|r| r.downcast_current_context::<T>())
 }
