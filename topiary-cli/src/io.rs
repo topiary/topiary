@@ -380,11 +380,13 @@ pub(crate) fn to_query_from_language(
         // matching file in a default location. As a final attempt, try the
         // builtin ones. Store the error, return that if we
         // fail to find anything, because the builtin error might be unexpected.
-        Err(_e) => {
+        Err(e) => {
             log::warn!(
                 "No query files found in any of the expected locations. Falling back to compile-time included files."
             );
-            to_query(&language.name).preformat_context()?
+            to_query(&language.name)
+                .local_attach(e)
+                .preformat_context()?
         }
     };
     Ok(query)
