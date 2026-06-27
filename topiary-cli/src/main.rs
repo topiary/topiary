@@ -14,7 +14,7 @@ use std::{
 
 use error::Benign;
 use tabled::{Table, settings::Style};
-use topiary_config::{Configuration, source::Source};
+use topiary_config::{Configuration, error::TopiaryConfigError, source::Source};
 use topiary_core::{
     FormatterError, FormatterResult, Language, Operation, SpanAttachment, check_query_coverage,
     formatter,
@@ -34,6 +34,13 @@ fn resolve_injected_language(
     config: &Configuration,
     name: &str,
 ) -> FormatterResult<Option<Arc<Language>>> {
+    if matches!(
+        config.get_language(name),
+        Err(TopiaryConfigError::UnknownLanguage(_))
+    ) {
+        return Ok(None);
+    }
+
     match cache.fetch_from_config(config, name) {
         Ok(language) => Ok(Some(language)),
         Err(report) => Err(report.context(FormatterError::InjectionLanguageResolution {
