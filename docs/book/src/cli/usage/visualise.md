@@ -48,6 +48,9 @@ Options:
   -M, --merge-configuration
           Enable merging for configuration files
 
+      --query-dir <QUERY_DIR>
+          Override the directory where queries are found
+
   -v, --verbose...
           Logging verbosity (increased per occurrence)
 

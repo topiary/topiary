@@ -14,6 +14,7 @@ Commands:
 Options:
   -C, --configuration <CONFIGURATION>  Configuration file [env: TOPIARY_CONFIG_FILE]
   -M, --merge-configuration            Enable merging for configuration files
+      --query-dir <QUERY_DIR>          Override the directory where queries are found
   -v, --verbose...                     Logging verbosity (increased per occurrence)
   -h, --help                           Print help
 ```
