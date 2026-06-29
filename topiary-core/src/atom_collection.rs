@@ -111,7 +111,7 @@ impl AtomCollection {
             counter: 0,
         };
 
-        atoms.collect_leaves_inner(root, source, &Vec::new(), 0)?;
+        atoms.collect_leaves_inner(root, source, 0)?;
 
         Ok(atoms)
     }
@@ -567,7 +567,6 @@ impl AtomCollection {
     ///
     /// * `node` - The current node to process.
     /// * `source` - The full source code as a byte slice.
-    /// * `parent_ids` - A vector of node ids that are the ancestors of the current node.
     /// * `level` - The depth of the current node in the CST tree.
     ///
     /// # Errors
@@ -577,11 +576,9 @@ impl AtomCollection {
         &mut self,
         node: &Node,
         source: &[u8],
-        parent_ids: &[usize],
         level: usize,
     ) -> FormatterResult<()> {
         let id = node.id();
-        let parent_ids = [parent_ids, &[id]].concat();
 
         log::debug!(
             "CST node: {}{} - Named: {}",
@@ -613,7 +610,7 @@ impl AtomCollection {
             self.mark_leaf_parent(node, node.id());
         } else {
             for child in node.children(&mut node.walk()) {
-                self.collect_leaves_inner(&child, source, &parent_ids, level + 1)?;
+                self.collect_leaves_inner(&child, source, level + 1)?;
             }
         }
 
