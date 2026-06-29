@@ -25,6 +25,15 @@ struct NodesWithLinebreaks {
     after: HashSet<usize>,
 }
 
+/// Mutable references to the three boolean "flag" fields of an [`Atom::Leaf`],
+/// exposed together so leaf-flag directives can flip a single flag without
+/// repeating the leaf-id search loop.
+struct LeafFlagsMut<'a> {
+    single_line_no_indent: &'a mut bool,
+    multi_line_indent_all: &'a mut bool,
+    keep_whitespace: &'a mut bool,
+}
+
 /// Contains Topiary's internal representation parsed document.
 #[derive(Debug)]
 pub struct AtomCollection {
@@ -142,6 +151,29 @@ impl AtomCollection {
         false
     }
 
+    /// Apply `f` to the three boolean flags of every [`Atom::Leaf`] in
+    /// `self.atoms` whose tree-sitter `id` equals `node_id`. Used by the
+    /// leaf-flag directives (`@single_line_no_indent`,
+    /// `@multi_line_indent_all`, `@keep_whitespace`).
+    fn mutate_leaf_flags(&mut self, node_id: usize, mut f: impl FnMut(LeafFlagsMut<'_>)) {
+        for atom in &mut self.atoms {
+            if let Atom::Leaf {
+                id,
+                single_line_no_indent,
+                multi_line_indent_all,
+                keep_whitespace,
+                ..
+            } = atom
+                && *id == node_id
+            {
+                f(LeafFlagsMut {
+                    single_line_no_indent,
+                    multi_line_indent_all,
+                    keep_whitespace,
+                });
+            }
+        }
+    }
     // wrap inside a conditional atom if #single/multi_line_scope_only! is set
     fn wrap(&mut self, atom: Atom, predicates: &QueryPredicates) -> Atom {
         if let Some(scope_id) = &predicates.single_line_scope_only {
@@ -443,47 +475,22 @@ impl AtomCollection {
             }
             // Mark a leaf to be printed on an single line, with no indentation
             "single_line_no_indent" => {
-                for a in &mut self.atoms {
-                    if let Atom::Leaf {
-                        id,
-                        single_line_no_indent,
-                        ..
-                    } = a
-                        && *id == node.id()
-                    {
-                        *single_line_no_indent = true;
-                    }
-                }
-
+                self.mutate_leaf_flags(node.id(), |flags| {
+                    *flags.single_line_no_indent = true;
+                });
                 self.append(Atom::Hardline, node, predicates);
             }
             // Mark a leaf to have all its lines be indented
             "multi_line_indent_all" => {
-                for a in &mut self.atoms {
-                    if let Atom::Leaf {
-                        id,
-                        multi_line_indent_all,
-                        ..
-                    } = a
-                        && *id == node.id()
-                    {
-                        *multi_line_indent_all = true;
-                    }
-                }
+                self.mutate_leaf_flags(node.id(), |flags| {
+                    *flags.multi_line_indent_all = true;
+                });
             }
             // Mark a leaf to disable trimming
             "keep_whitespace" => {
-                for a in &mut self.atoms {
-                    if let Atom::Leaf {
-                        id,
-                        keep_whitespace,
-                        ..
-                    } = a
-                        && *id == node.id()
-                    {
-                        *keep_whitespace = true;
-                    }
-                }
+                self.mutate_leaf_flags(node.id(), |flags| {
+                    *flags.keep_whitespace = true;
+                });
             }
             // Return a query parsing error on unknown capture names
             unknown => {
