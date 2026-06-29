@@ -1,7 +1,8 @@
 use rootcause::{
-    Report,
-    markers::{Dynamic, Mutable, SendSync},
+    Report, ReportRef,
+    markers::{Dynamic, Mutable, SendSync, Uncloneable},
     report,
+    report_collection::ReportCollection,
 };
 use rootcause_preformat::{PreformatReportExt, PreformattedContext};
 use std::{error, fmt, io, process::ExitCode, result};
@@ -117,6 +118,9 @@ where
         }
         if let Some(e) = rep.downcast_current_context::<TopiaryError>() {
             code = match e {
+                // Check mode detected unformatted files: Exit 1
+                // This error is not benign, but we still need to answer `false` without resulting in a typical an error
+                TopiaryError::CheckFailed { .. } => 1,
                 // Multiple errors: Exit 9
                 TopiaryError::Multiple => 9,
                 // Anything else: Exit 10
@@ -140,7 +144,18 @@ where
     C: ?Sized,
 {
     fn benign(&self) -> bool {
-        iter_downcast_reports::<FormatterError>(self)
+        let serious_err_in_collections =
+            iter_downcast_reports::<ReportCollection, _>(self.as_ref())
+                .flat_map(|c| c.iter())
+                .any(|r| {
+                    r.downcast_current_context::<FormatterError>()
+                        != Some(&FormatterError::PatternDoesNotMatch)
+                });
+        if serious_err_in_collections {
+            return false;
+        }
+
+        iter_downcast_reports::<FormatterError, _>(self.as_ref())
             .any(|fmt_err| *fmt_err == FormatterError::PatternDoesNotMatch)
     }
 }
@@ -157,7 +172,12 @@ impl<T, C: 'static> ResultPreformat<T, C> for Result<T, C> {
     }
 }
 
-fn iter_downcast_reports<T: 'static>(report: &Report<impl ?Sized>) -> impl Iterator<Item = &T> {
+fn iter_downcast_reports<T: 'static, C>(
+    report: ReportRef<'_, C, Uncloneable>,
+) -> impl Iterator<Item = &T>
+where
+    C: ?Sized,
+{
     report
         .iter_reports()
         .filter_map(|r| r.downcast_current_context::<T>())
