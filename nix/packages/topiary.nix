@@ -295,10 +295,22 @@ let
     ];
 
     text = ''
-      export COLUMNS=90
       export NO_COLOR=1
 
-      unbuffer topiary "$@"
+      TMPFILE=$(mktemp)
+      cat > "$TMPFILE" <<'EOF'
+      set stty_init "cols 90"
+      eval spawn -noecho topiary $argv
+      set timeout -1
+      expect
+      EOF
+
+      expect "$TMPFILE" "$@"
+
+      # Clean up and preserve exit code
+      EXIT_CODE=$?
+      rm "$TMPFILE"
+      exit $EXIT_CODE
     '';
   };
 
