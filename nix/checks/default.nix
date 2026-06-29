@@ -1,6 +1,9 @@
 {
+  runCommand,
+  lib,
   emptyFile,
   topiaryPkgs,
+  binPkgs,
   gitHook,
 }:
 
@@ -22,4 +25,17 @@ in
   # e2` evaluates `e1` strictly in depth before returning `e2`. We use this
   # trick because checks need to be derivations, which `lib.gitHook` is not.
   gitHook = deepSeq gitHook emptyFile;
+
+  verify-documented-usage =
+    runCommand "verify-documented-usage"
+      {
+        nativeBuildInputs = [ binPkgs.verify-documented-usage ];
+        TOPIARY_WRAPPED = lib.getExe topiaryPkgs.topiary-wrapped;
+      }
+      ''
+        mkdir -p docs/book/src/cli
+        cp -r ${../../docs/book/src/cli/usage} docs/book/src/cli/usage
+        verify-documented-usage
+        touch $out
+      '';
 }

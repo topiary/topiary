@@ -9,10 +9,11 @@ readonly FENCE='```'
 get-cli-usage() {
   # Get the help text from the CLI
   local subcommand="$1"
+  local topiary="${TOPIARY_WRAPPED:-nix run .#topiary-wrapped --}"
 
   case "${subcommand}" in
-    "index") nix run .#topiary-wrapped -- --help;;
-    *)       nix run .#topiary-wrapped -- "${subcommand}" --help;;
+    "index") ${topiary} --help;;
+    *)       ${topiary} "${subcommand}" --help;;
   esac
 }
 
