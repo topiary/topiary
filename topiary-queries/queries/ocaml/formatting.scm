@@ -523,7 +523,7 @@
   ]
   (#single_line_scope_only! "dangling_list_like")
 )
-(typed_label
+(labeled_argument_type
   ":" @append_spaced_softline
 )
 (constructor_declaration
@@ -1089,7 +1089,7 @@
     (function_type)
     (let_expression)
     (object_expression)
-    (product_expression)
+    (tuple_expression)
     (sequence_expression)
     (set_expression)
     (typed_expression)
@@ -1834,26 +1834,26 @@
   .
 )
 ; Parenthesis are optional when using tuples, so scopes must be tied
-; to the `product_expression` inside.
-; Product expressions are nested grammar elements, which means that the syntax tree of
+; to the `tuple_expression` inside.
+; Tuple expressions are nested grammar elements, which means that the syntax tree of
 ; 1, 2, 3
 ; is
-; {Node product_expression}
-;   {Node product_expression}
+; {Node tuple_expression}
+;   {Node tuple_expression}
 ;     {Node number}
 ;     {Node ,}
 ;     {Node number}
 ;   {Node ,}
 ;   {Node number}
-; We only want to define a scope around the outermost `product_expression`,
+; We only want to define a scope around the outermost `tuple_expression`,
 ; which is the one that *isn't* followed by a comma.
 (
-  (product_expression) @prepend_begin_scope @append_end_scope
+  (tuple_expression) @prepend_begin_scope @append_end_scope
   .
   ","? @do_nothing
   (#scope_id! "tuple")
 )
-(product_expression
+(tuple_expression
   "," @append_spaced_scoped_softline
   (#scope_id! "tuple")
 )
