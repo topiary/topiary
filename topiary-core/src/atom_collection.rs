@@ -1092,11 +1092,7 @@ impl AtomCollection {
     ///
     /// A `Cow` enum that wraps a borrowed node.
     fn first_leaf<'tree, 'node: 'tree>(&self, node: &'node Node<'tree>) -> Cow<'node, Node<'tree>> {
-        let mut node = Cow::Borrowed(node);
-        while node.child_count() != 0 && !self.specified_leaf_nodes.contains(&node.id()) {
-            node = Cow::Owned(node.child(0).unwrap());
-        }
-        node
+        self.edge_leaf(node, |n| n.child(0).unwrap())
     }
 
     /// Returns the last leaf node of a given node's subtree.
@@ -1114,9 +1110,20 @@ impl AtomCollection {
     ///
     /// A `Cow` enum that wraps a borrowed node.
     fn last_leaf<'tree, 'node: 'tree>(&self, node: &'node Node<'tree>) -> Cow<'node, Node<'tree>> {
+        self.edge_leaf(node, |n| n.child(n.child_count() - 1).unwrap())
+    }
+
+    /// Iteratively descends from `node` towards a leaf, picking the next child
+    /// via `pick_child` at each step. Stops when the current node has no
+    /// children or is registered in `specified_leaf_nodes`.
+    fn edge_leaf<'tree, 'node: 'tree>(
+        &self,
+        node: &'node Node<'tree>,
+        pick_child: impl Fn(&Node<'tree>) -> Node<'tree>,
+    ) -> Cow<'node, Node<'tree>> {
         let mut node = Cow::Borrowed(node);
         while node.child_count() != 0 && !self.specified_leaf_nodes.contains(&node.id()) {
-            node = Cow::Owned(node.child(node.child_count() - 1).unwrap());
+            node = Cow::Owned(pick_child(&node));
         }
         node
     }
