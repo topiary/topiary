@@ -64,13 +64,7 @@ impl TopiaryQuery {
         grammar: &topiary_tree_sitter_facade::Language,
         query_content: &str,
     ) -> FormatterResult<TopiaryQuery, QueryError> {
-        let query = Query::new(grammar, query_content)
-            .into_report()
-            .map_err(|e| {
-                let range = e.current_context().range;
-                e.attach_range(range)
-            })
-            .attach_source(Some(query_content))?;
+        let query = compile_query(grammar, query_content)?;
 
         Ok(TopiaryQuery {
             query,
@@ -134,22 +128,32 @@ impl InjectionQuery {
         grammar: &topiary_tree_sitter_facade::Language,
         query_content: &str,
     ) -> FormatterResult<InjectionQuery> {
-        let query = Query::new(grammar, query_content)
-            .into_report()
-            .map_err(|e| {
-                let range = e.current_context().range;
-                e.attach_range(range)
-            })
-            .attach_source(Some(query_content))
-            .context(FormatterError::Query(
-                "Error parsing injection query file".into(),
-            ))?;
+        let query = compile_query(grammar, query_content).context(FormatterError::Query(
+            "Error parsing injection query file".into(),
+        ))?;
 
         Ok(InjectionQuery {
             query,
             query_content: query_content.to_owned(),
         })
     }
+}
+
+/// Compile a tree-sitter query against `grammar`, attaching the query source
+/// and the offending range to any parse error so it can be surfaced by the
+/// diagnostic layer. Shared by [`TopiaryQuery::new`] and
+/// [`InjectionQuery::new`].
+fn compile_query(
+    grammar: &topiary_tree_sitter_facade::Language,
+    query_content: &str,
+) -> FormatterResult<Query, QueryError> {
+    Query::new(grammar, query_content)
+        .into_report()
+        .map_err(|e| {
+            let range = e.current_context().range;
+            e.attach_range(range)
+        })
+        .attach_source(Some(query_content))
 }
 
 /// A region of host source text that should be formatted as a different
