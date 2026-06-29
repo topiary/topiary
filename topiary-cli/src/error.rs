@@ -96,6 +96,7 @@ where
         if rep.downcast_current_context::<io::Error>().is_some() {
             // I/O errors: Exit 3
             code = 3;
+            break;
         }
         // NOTE/TODO: this does not currently handle type erased variants of original types
         // see
