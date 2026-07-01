@@ -385,7 +385,7 @@ pub(crate) fn to_query_from_language(
                 "No query files found in any of the expected locations. Falling back to compile-time included files."
             );
             to_query(&language.name)
-                .local_attach(e)
+                .local_context(e)
                 .preformat_context()?
         }
     };
@@ -444,7 +444,7 @@ impl OutputFile {
         match path {
             "-" => Ok(Self::Stdout),
             file => Ok(Self::Disk {
-                staged: tempfile()?,
+                staged: tempfile().context(TopiaryError::Config)?,
                 output: file.into(),
             }),
         }

@@ -4,7 +4,7 @@ use rootcause::{
     report,
     report_collection::ReportCollection,
 };
-use rootcause_preformat::{PreformatReportExt, PreformattedContext};
+use rootcause_preformat::PreformatReportExt;
 use std::{error, fmt, io, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
 
@@ -19,6 +19,7 @@ pub type CLIResult<C, T = SendSync> = result::Result<C, Report<Dynamic, Mutable,
 /// CLI-specific failures.
 #[derive(Debug)]
 pub enum TopiaryError {
+    Io,
     Config,
     Multiple,
     UnsupportedLanguage(String),
@@ -33,15 +34,15 @@ pub enum TopiaryError {
 impl fmt::Display for TopiaryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TopiaryError::Config => write!(f, "Configuration error"),
-            TopiaryError::Multiple => write!(
+            Self::Config => write!(f, "Configuration error"),
+            Self::Multiple => write!(
                 f,
                 "Processing of one or more inputs failed; see below for details"
             ),
-            TopiaryError::UnsupportedLanguage(name) => {
+            Self::UnsupportedLanguage(name) => {
                 write!(f, "The specified language is unsupported: {name}")
             }
-            TopiaryError::CheckFailed {
+            Self::CheckFailed {
                 source_name,
                 original,
                 formatted,
@@ -55,6 +56,9 @@ impl fmt::Display for TopiaryError {
                         .context_radius(3)
                         .header("original", "formatted")
                 )
+            }
+            Self::Io => {
+                write!(f, "I/O Error")
             }
         }
     }
@@ -99,28 +103,14 @@ where
             code = 3;
             break;
         }
-        // NOTE/TODO: this does not currently handle type erased variants of original types
-        // see
-        // https://docs.rs/rootcause-preformat/latest/rootcause_preformat/struct.PreformattedContext.html#method.original_type_id
-        // for more
-        if let Some(e) = rep.downcast_current_context::<TopiaryConfigError>() {
-            // I/O errors: Exit 3
-            code = match e {
-                TopiaryConfigError::FileNotFound(_)
-                | TopiaryConfigError::QueryFileNotFound(_)
-                | TopiaryConfigError::Io(_)
-                | TopiaryConfigError::Fetching(
-                    FetchError::Io(_) | FetchError::GrammarFileNotFound(_),
-                ) => 3,
-                _ => 10,
-            };
-            break;
-        }
+
         if let Some(e) = rep.downcast_current_context::<TopiaryError>() {
             code = match e {
                 // Check mode detected unformatted files: Exit 1
                 // This error is not benign, but we still need to answer `false` without resulting in a typical an error
                 TopiaryError::CheckFailed { .. } => 1,
+                // I/O errors: Exit 3
+                TopiaryError::Io => 3,
                 // Multiple errors: Exit 9
                 TopiaryError::Multiple => 9,
                 // Anything else: Exit 10
@@ -159,15 +149,42 @@ where
             .any(|fmt_err| *fmt_err == FormatterError::PatternDoesNotMatch)
     }
 }
-pub(crate) trait ResultPreformat<T, C> {
-    fn preformat_context(self) -> Result<T, Report<PreformattedContext>>;
+
+impl From<&TopiaryConfigError> for TopiaryError {
+    fn from(value: &TopiaryConfigError) -> Self {
+        match value {
+            TopiaryConfigError::FileNotFound(_)
+            | TopiaryConfigError::QueryFileNotFound(_)
+            | TopiaryConfigError::Io(_)
+            | TopiaryConfigError::Fetching(
+                FetchError::Io(_) | FetchError::GrammarFileNotFound(_),
+            ) => Self::Io,
+            _ => Self::Config,
+        }
+    }
+}
+impl<T, O> From<&Report<TopiaryConfigError, O, T>> for TopiaryError {
+    fn from(value: &Report<TopiaryConfigError, O, T>) -> Self {
+        value.current_context().into()
+    }
 }
 
-impl<T, C: 'static> ResultPreformat<T, C> for Result<T, C> {
-    fn preformat_context(self) -> Result<T, Report<PreformattedContext>> {
+pub(crate) trait ResultPreformat<T, C> {
+    fn preformat_context(self) -> Result<T, Report<TopiaryError>>;
+}
+
+impl<T, C: 'static> ResultPreformat<T, C> for Result<T, C>
+where
+    C: 'static,
+    for<'a> TopiaryError: From<&'a C>,
+{
+    fn preformat_context(self) -> Result<T, Report<TopiaryError>> {
         match self {
             Ok(t) => Ok(t),
-            Err(e) => Err(report!(e).preformat()),
+            Err(e) => {
+                let cli_err = TopiaryError::from(&e);
+                Err(report!(e).preformat().context(cli_err))
+            }
         }
     }
 }
