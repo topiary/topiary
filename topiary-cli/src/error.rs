@@ -236,7 +236,7 @@ mod tests {
     #[test]
     fn preformat_context_exit_code_10() {
         let err: Result<(), TopiaryConfigError> =
-            Err(TopiaryConfigError::UnknownLanguage("nope".to_string()));
+            Err(TopiaryConfigError::UnknownLanguage("other (exit 10)".to_string()));
         let report = err.preformat_context().unwrap_err();
         assert_eq!(exit_code(&report), 10.into());
     }
