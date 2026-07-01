@@ -225,7 +225,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn preformat_context_fetching_io_exits_3() {
+    fn preformat_context_nested_io_exits_3() {
         let err: Result<(), TopiaryConfigError> = Err(TopiaryConfigError::Fetching(
             FetchError::Io(io::Error::new(io::ErrorKind::PermissionDenied, "denied")),
         ));
