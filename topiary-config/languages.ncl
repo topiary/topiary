@@ -1,8 +1,61 @@
 # MAINTAINERS: If the structure of this configuration changes, it may
 # break `prefetchLanguagesNickelFile` in nix/utils/prefetchLanguages.nix
 # Please keep these synchronised.
+let GitSource = {
+  git
+    | String
+    | doc "URL of the Git repository hosting the tree-sitter grammar.",
+  rev
+    | String
+    | doc "Git revision (commit, tag, or branch) to fetch.",
+  subdir
+    | String
+    | optional
+    | doc "Sub-directory of the repository where the grammar lives.",
+  nixHash
+    | String
+    | optional
+    | doc "Pre-computed Nix SHA256 hash; generate using 'TODO add command to generate hash'",
+}
+in
+
+let GrammarSource
+  | doc m%"
+Either a Git source or a local filesystem path. Fields are optional
+at the contract layer so that user configurations can override one
+variant with the other via Nickel record merging (e.g. setting
+`grammar.source.path` on top of a default `grammar.source.git`).
+"%
+  =
+    std.contract.any_of [
+      { git | GitSource },
+      { path | String },
+    ]
+in
+
+let Grammar = {
+  source | GrammarSource,
+  symbol
+    | String
+    | optional
+    | doc "Override for the tree-sitter symbol; defaults to `tree_sitter_<name>`.",
+}
+in
+
+let LanguageConfig = {
+  extensions
+    | Array String
+    | doc "File extensions (without leading dot) associated with this language.",
+  indent
+    | String
+    | optional # NOTE,TODO: remove optional tag to implement error formatting for `nickel_lang_core::error::Error`
+    | doc "Indentation string for this language; defaults to two spaces.",
+  grammar | Grammar,
+}
+in
+
 {
-  languages = {
+  languages | { _ : LanguageConfig } = {
     bash = {
       extensions | default = ["sh", "bash"],
       grammar.source | default = {

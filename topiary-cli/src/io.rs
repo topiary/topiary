@@ -7,7 +7,11 @@ use std::{
     sync::Arc,
 };
 
-use nickel_lang_core::eval::value::NickelValue;
+use nickel_lang_core::{
+    eval::value::NickelValue,
+    term::{Term, record::Field},
+    traverse::{Traverse, TraverseOrder},
+};
 use rootcause::{
     Report,
     markers::{ObjectMarkerFor, SendSync},
@@ -561,12 +565,58 @@ where
     }
 }
 
+// Strip field metadata (doc strings, type/contract annotations, `| default`,
+// `| optional`, priority) and unwrap `Term::Annotated` nodes from a NickelValue
+// so that the pretty printer emits a plain data record.
+fn strip_metadata(value: NickelValue) -> NickelValue {
+    use nickel_lang_core::eval::value::{RecordData, ValueContent};
+    value
+        .traverse(
+            &mut |v: NickelValue| -> std::result::Result<NickelValue, std::convert::Infallible> {
+                let pos_idx = v.pos_idx();
+                match v.content() {
+                    ValueContent::Record(lens) => {
+                        let Some(record) = lens.take().into_opt() else {
+                            return Ok(NickelValue::record_posless(RecordData::empty())
+                                .with_pos_idx(pos_idx));
+                        };
+                        let fields = record
+                            .fields
+                            .into_iter()
+                            .map(|(id, field)| {
+                                let Field { value, .. } = field;
+                                (id, Field::from(value.unwrap_or_else(NickelValue::null)))
+                            })
+                            .collect();
+                        Ok(NickelValue::record(
+                            RecordData::new_shared_tail(fields, record.attrs, record.sealed_tail),
+                            pos_idx,
+                        ))
+                    }
+                    ValueContent::Term(lens) => {
+                        let term = lens.take();
+                        if let Term::Annotated(data) = term {
+                            Ok(data.inner.clone())
+                        } else {
+                            Ok(NickelValue::term(term, pos_idx))
+                        }
+                    }
+                    other => Ok(other.restore()),
+                }
+            },
+            TraverseOrder::BottomUp,
+        )
+        .unwrap_or_else(|never: std::convert::Infallible| match never {})
+}
+
 // convenience function to bundle nickel config formatting errors in one return value
 pub(crate) async fn format_config(
     config: &Configuration,
     nickel_term: &NickelValue,
 ) -> CLIResult<()> {
-    let nickel_config = format!("{nickel_term}");
+    // TODO handle verbose flag
+    let stripped = strip_metadata(nickel_term.clone());
+    let nickel_config = format!("{stripped}");
     let mut formatted_config = BufWriter::new(OutputFile::Stdout);
     // if errors are encountered in formatting, return
     let language = to_language_from_config(config, "nickel").await?;
