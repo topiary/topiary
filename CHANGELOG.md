@@ -52,6 +52,7 @@ This name should be decided amongst the team before the release.
 - [#1232](https://github.com/topiary/topiary/pull/1232) Rework `topiary_core::ErrorSpan` to handle `QueryError`s as well as `Node` errors by introducing `rootcause::Report`
 - [#1249](https://github.com/topiary/topiary/pull/1249) Remove async calls and setup from `format_nickel` benchmark
 - [#1254](https://github.com/topiary/topiary/pull/1254) Topiary now gracefully skips formatting for unknown or unsupported injected languages instead of returning a fatal error, allowing files with unconfigured code blocks (like Markdown) to format successfully.
+- [#1267](https://github.com/topiary/topiary/pull/1267) Add initial injection support (JSON) for Rust
 - [#1139](https://github.com/topiary/topiary/pull/1139) Added `rootcause::Report` handling in topiary-cli.
 
 ### Fixed

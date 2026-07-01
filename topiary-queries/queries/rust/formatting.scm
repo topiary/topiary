@@ -23,6 +23,7 @@
   (struct_item)
   (type_item)
   (use_declaration)
+  (const_item)
 ] @allow_blank_line_before
 
 ; Surround spaces
