@@ -53,10 +53,8 @@ let LanguageConfig = {
   grammar | Grammar,
 }
 in
-
-{ languages | { _ : LanguageConfig } }
-& {
-  languages = {
+{
+  languages | { _ : LanguageConfig } = {
     bash = {
       extensions | default = ["sh", "bash"],
       grammar.source | default = {
@@ -176,7 +174,7 @@ in
 
     rust = {
       extensions | default = ["rs"],
-      indent | priority -1 = "    ", # 4 spaces
+      indent | default = "    ", # 4 spaces
       grammar.source | default = {
         git = {
           git = "https://github.com/tree-sitter/tree-sitter-rust.git",
@@ -224,7 +222,7 @@ in
 
     wit = {
       extensions | default = ["wit"],
-      indent | priority -1 = "    ", # 4 spaces
+      indent | default = "    ", # 4 spaces
       grammar.source | default = {
         git = {
           git = "https://github.com/bytecodealliance/tree-sitter-wit",
