@@ -202,7 +202,15 @@ pub enum ConfigCommand {
 /// Parse CLI arguments and normalise them for the caller
 #[allow(clippy::result_large_err)]
 pub fn get_args() -> CLIResult<Cli> {
-    let mut args = Cli::parse();
+    let mut cmd = Cli::command();
+    if let Ok(w) = std::env::var("TOPIARY_TEST_TERM_WIDTH")
+        && let Ok(width) = w.parse::<usize>()
+    {
+        cmd = cmd.term_width(width);
+    }
+    let mut matches = cmd.get_matches();
+    let mut args = <Cli as clap::FromArgMatches>::from_arg_matches_mut(&mut matches)
+        .unwrap_or_else(|e| e.exit());
 
     // When doing prefetching, we should always output at at least verbosity level two
     if matches!(args.command, Commands::Prefetch { .. }) && args.global.verbose < 2 {

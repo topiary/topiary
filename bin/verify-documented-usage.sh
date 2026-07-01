@@ -4,6 +4,8 @@
 
 set -euo pipefail
 
+export TOPIARY_TEST_TERM_WIDTH=90
+
 readonly FENCE='```'
 
 get-cli-usage() {
