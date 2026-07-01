@@ -54,6 +54,7 @@ individual name). Once included, they can be accessed in Topiary in the
 usual way.
 
 - [Markdown]
+- [Menhir]
 - [Rust]
 
 # Topiary cultivars
@@ -84,6 +85,7 @@ channel][discord].
 [gdscript]: https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/index.html
 [json]: https://www.json.org
 [markdown]: https://commonmark.org
+[menhir]: http://gallium.inria.fr/~fpottier/menhir/
 [nickel]: https://nickel-lang.org
 [nushell]: https://nushell.sh
 [ocaml]: https://ocaml.org
