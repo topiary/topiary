@@ -97,7 +97,6 @@ where
         }
         if let Some(e) = rep.downcast_current_context::<FormatterError>() {
             code = match e {
-                // TODO check failed
                 // I/O errors: Exit 3
                 FormatterError::Io => 3,
                 // Query errors: Exit 4
@@ -225,6 +224,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn check_exits_1() {
+        let report = report!(TopiaryError::CheckFailed {
+            source_name: "source".to_string(),
+            original: "original".to_string(),
+            formatted: "formatted".to_string()
+        })
+        .into_dynamic();
+        // check failed error -> exit code 1
+        assert_eq!(exit_code(&report), 1.into());
+    }
+
+    #[test]
     fn preformat_context_nested_io_exits_3() {
         let err: Result<(), TopiaryConfigError> = Err(TopiaryConfigError::Fetching(
             FetchError::Io(io::Error::new(io::ErrorKind::PermissionDenied, "denied")),
@@ -235,8 +246,9 @@ mod tests {
 
     #[test]
     fn preformat_context_exit_code_10() {
-        let err: Result<(), TopiaryConfigError> =
-            Err(TopiaryConfigError::UnknownLanguage("other (exit 10)".to_string()));
+        let err: Result<(), TopiaryConfigError> = Err(TopiaryConfigError::UnknownLanguage(
+            "other (exit 10)".to_string(),
+        ));
         let report = err.preformat_context().unwrap_err();
         assert_eq!(exit_code(&report), 10.into());
     }
