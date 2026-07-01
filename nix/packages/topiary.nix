@@ -118,20 +118,7 @@ let
         preConfigurePhases = optional prefetchGrammars "prepareTopiaryDefaultConfiguration";
         inherit prepareTopiaryDefaultConfiguration;
 
-        postInstall = ''
-          mkdir -p $out/share/queries
-          cp -r topiary-queries/queries/* $out/share/queries
-        '';
 
-        # Set TOPIARY_LANGUAGE_DIR to the Nix store
-        # for the build
-        TOPIARY_LANGUAGE_DIR = "${placeholder "out"}/share/queries";
-
-        # Set TOPIARY_LANGUAGE_DIR to the working directory
-        # in a development shell
-        shellHook = ''
-          export TOPIARY_LANGUAGE_DIR=$PWD/queries
-        '';
 
         meta.mainProgram = "topiary";
       }

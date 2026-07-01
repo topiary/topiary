@@ -13,8 +13,8 @@ use topiary_core::Language;
 use crate::{
     error::CLIResult,
     io::{
-        InputFile, to_injection_query_from_language, to_language_from_config_sync,
-        to_query_from_language,
+        InputFile, to_injection_query_from_config, to_language_from_config_sync,
+        to_query_from_config,
     },
 };
 
@@ -93,9 +93,9 @@ impl LanguageDefinitionCache {
         config: &Configuration,
         name: &str,
     ) -> CLIResult<Arc<Language>> {
-        let config_language = config.get_language(name)?;
-        let formatting_query = to_query_from_language(config_language)?;
-        let injection_query = to_injection_query_from_language(config_language);
+        config.ensure_language(name)?;
+        let formatting_query = to_query_from_config(config, name)?;
+        let injection_query = to_injection_query_from_config(config, name);
         let key = Self::key_for_parts(name, &formatting_query, injection_query.as_ref());
 
         let mut cache = self.cache.lock().expect("language cache mutex poisoned");

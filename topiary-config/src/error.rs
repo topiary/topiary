@@ -10,7 +10,7 @@ pub enum TopiaryConfigError {
     UnknownExtension(String),
     NoExtension(path::PathBuf),
     #[cfg(not(target_arch = "wasm32"))]
-    QueryFileNotFound(path::PathBuf),
+    QueryFileNotFound(String),
     Io(io::Error),
     Missing,
     TreeSitterFacade(topiary_tree_sitter_facade::LanguageError),
@@ -57,10 +57,10 @@ impl fmt::Display for TopiaryConfigError {
                 path.display()
             ),
             #[cfg(not(target_arch = "wasm32"))]
-            TopiaryConfigError::QueryFileNotFound(path) => write!(
+            TopiaryConfigError::QueryFileNotFound(language_name) => write!(
                 f,
-                "We could not find the query file: \"{}\" anywhere. If you use the TOPIARY_LANGUAGE_DIR environment variable, make sure it set set correctly.",
-                path.display()
+                "We could not find the query file for the language \"{}\" anywhere. Please ensure it exists or use the --query-dir flag to specify the directory.",
+                language_name
             ),
             TopiaryConfigError::Io(error) => write!(f, "We encountered an io error: {error}"),
             TopiaryConfigError::Missing => write!(

@@ -34,12 +34,15 @@ pub use source::Source;
 #[derive(Debug, Clone)]
 pub struct Configuration {
     languages: Vec<Language>,
+    query_dir: Option<PathBuf>,
 }
 
 /// Internal struct to help with deserialisation, converted to the actual Configuration in deserialization
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
 struct SerdeConfiguration {
     languages: HashMap<String, LanguageConfiguration>,
+    #[serde(default)]
+    query_dir: Option<PathBuf>,
 }
 
 impl Configuration {
@@ -65,14 +68,25 @@ impl Configuration {
             // Get all available configuration sources
             let sources: Vec<Source> = Source::fetch_all(file);
 
+            let implicit_query_dir = sources
+                .iter()
+                .find_map(|s| s.queries_dir().filter(|p| p.exists()));
+
             // And ask Nickel to parse and merge them
-            Self::parse_and_merge(&sources)
+            let (mut config, term) = Self::parse_and_merge(&sources)?;
+            config.query_dir = config.query_dir.or(implicit_query_dir);
+            Ok((config, term))
         } else {
             // Get the available configuration with best priority
-            match Source::fetch_one(file) {
-                Source::Builtin => Self::parse(Source::Builtin),
-                source => Self::parse_and_merge(&[source, Source::Builtin]),
-            }
+            let source = Source::fetch_one(file);
+            let implicit_query_dir = source.queries_dir().filter(|p| p.exists());
+
+            let (mut config, term) = match source {
+                Source::Builtin => Self::parse(Source::Builtin)?,
+                source => Self::parse_and_merge(&[source, Source::Builtin])?,
+            };
+            config.query_dir = config.query_dir.or(implicit_query_dir);
+            Ok((config, term))
         }
     }
 
@@ -91,6 +105,70 @@ impl Configuration {
             .iter()
             .find(|language| language.name == name.as_ref())
             .ok_or(TopiaryConfigError::UnknownLanguage(name.to_string()))
+    }
+
+    /// Ensures that a language is configured.
+    ///
+    /// # Errors
+    ///
+    /// If the provided language name cannot be found in the `Configuration`, this
+    /// function returns a `TopiaryConfigError`
+    pub fn ensure_language<T>(&self, name: T) -> TopiaryConfigResult<()>
+    where
+        T: AsRef<str> + fmt::Display,
+    {
+        self.get_language(name).map(|_| ())
+    }
+
+    /// Gets the query directory configured for this Configuration
+    pub fn query_dir(&self) -> Option<&Path> {
+        self.query_dir.as_deref()
+    }
+
+    /// Sets the query directory for this Configuration
+    pub fn set_query_dir(&mut self, query_dir: PathBuf) {
+        self.query_dir = Some(query_dir);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn query_search_paths(&self) -> Vec<PathBuf> {
+        if let Some(query_dir) = &self.query_dir {
+            vec![query_dir.clone()]
+        } else {
+            vec![
+                PathBuf::from("./topiary-queries/queries"),
+                PathBuf::from("../topiary-queries/queries"),
+            ]
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[allow(clippy::result_large_err)]
+    pub fn find_query_file(&self, language_name: &str) -> TopiaryConfigResult<PathBuf> {
+        self.query_search_paths()
+            .into_iter()
+            .flat_map(|path| {
+                [
+                    // New layout: <dir>/<lang>/formatting.scm
+                    path.join(language_name)
+                        .join(topiary_queries::FORMATTING_QUERY),
+                    // Old layout: <dir>/<lang>.scm
+                    path.join(format!("{language_name}.scm")),
+                ]
+            })
+            .find(|path| path.exists())
+            .ok_or_else(|| TopiaryConfigError::QueryFileNotFound(language_name.to_string()))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn find_injections_file(&self, language_name: &str) -> Option<PathBuf> {
+        self.query_search_paths()
+            .into_iter()
+            .map(|path| {
+                path.join(language_name)
+                    .join(topiary_queries::INJECTIONS_QUERY)
+            })
+            .find(|path| path.exists())
     }
 
     /// Prefetch a language per its configuration
@@ -230,8 +308,9 @@ impl Configuration {
         let term = program.eval_full_for_export()?;
 
         let serde_config = SerdeConfiguration::deserialize(term.clone())?;
+        let config: Configuration = serde_config.into();
 
-        Ok((serde_config.into(), term))
+        Ok((config, term))
     }
 
     #[allow(clippy::result_large_err)]
@@ -247,8 +326,9 @@ impl Configuration {
         let term = program.eval_full_for_export()?;
 
         let serde_config = SerdeConfiguration::deserialize(term.clone())?;
+        let config: Configuration = serde_config.into();
 
-        Ok((serde_config.into(), term))
+        Ok((config, term))
     }
 }
 
@@ -296,6 +376,11 @@ impl PartialEq for Configuration {
     }
 }
 
+pub(crate) fn project_dirs() -> directories::ProjectDirs {
+    directories::ProjectDirs::from("", "", "topiary")
+        .expect("Could not access the OS's Home directory")
+}
+
 impl From<SerdeConfiguration> for Configuration {
     fn from(value: SerdeConfiguration) -> Self {
         let languages = value
@@ -304,11 +389,9 @@ impl From<SerdeConfiguration> for Configuration {
             .map(|(name, config)| Language::new(name, config))
             .collect();
 
-        Self { languages }
+        Self {
+            languages,
+            query_dir: value.query_dir,
+        }
     }
-}
-
-pub(crate) fn project_dirs() -> directories::ProjectDirs {
-    directories::ProjectDirs::from("", "", "topiary")
-        .expect("Could not access the OS's Home directory")
 }
