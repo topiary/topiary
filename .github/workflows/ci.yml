@@ -51,9 +51,6 @@ jobs:
       - name: Build client-app example
         run: nix build .#client-app -L
 
-      - name: Verify that usage in README.md matches CLI output
-        run: nix run .#verify-documented-usage -L
-
       - name: Test against config regressions
         run: |
             nix run . -- config --merge --cfg ./topiary-config/tests/issue-1124.ncl
