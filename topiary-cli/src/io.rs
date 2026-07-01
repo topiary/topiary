@@ -625,8 +625,7 @@ where
         .collect();
 
     if !errs.is_empty() {
-        // For multiple inputs, bail out if any failed with a "multiple errors" failure
-        return Err(errs.context(TopiaryError::Multiple).into());
+        return Err(report!(errs).into_dynamic());
     }
     Ok(())
 }

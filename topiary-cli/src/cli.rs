@@ -7,10 +7,7 @@ use std::{io::stdout, path::PathBuf};
 
 use log::LevelFilter;
 
-use crate::{
-    error::{CLIResult, TopiaryError},
-    fs, visualisation,
-};
+use crate::{error::CLIResult, fs, visualisation};
 
 #[derive(Debug, Parser)]
 // NOTE Don't use infer_subcommands, as that could fossilise the interface. We define explicit
@@ -256,7 +253,7 @@ pub fn get_args() -> CLIResult<Cli> {
 
             // if there are only errors and no files, we should propagate the given errors
             if files.is_empty() && !errs.is_empty() {
-                return Err(errs.context(TopiaryError::Multiple).into());
+                return Err(report!(errs).into_dynamic());
             }
 
             files.sort_unstable();

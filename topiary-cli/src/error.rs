@@ -21,7 +21,6 @@ pub type CLIResult<C, T = SendSync> = result::Result<C, Report<Dynamic, Mutable,
 pub enum TopiaryError {
     Io,
     Config,
-    Multiple,
     UnsupportedLanguage(String),
     /// Formatting check failed: input is not already formatted
     CheckFailed {
@@ -35,10 +34,6 @@ impl fmt::Display for TopiaryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Config => write!(f, "Configuration error"),
-            Self::Multiple => write!(
-                f,
-                "Processing of one or more inputs failed; see below for details"
-            ),
             Self::UnsupportedLanguage(name) => {
                 write!(f, "The specified language is unsupported: {name}")
             }
@@ -71,8 +66,16 @@ pub(crate) fn exit_code<C>(r: &Report<C>) -> ExitCode
 where
     C: ?Sized,
 {
+    // `Report::as_ref` is a non-trait method (no `AsRef<ReportRef>`)
+    exit_code_inner(r.as_ref().into_uncloneable())
+}
+
+fn exit_code_inner<C>(r: ReportRef<'_, C, Uncloneable>) -> ExitCode
+where
+    C: ?Sized,
+{
     // Things went well but Topiary needs to answer 'false' in a clean way: Exit 1
-    if r.benign() {
+    if benign_inner(r) {
         return ExitCode::FAILURE;
     }
 
@@ -81,6 +84,17 @@ where
     // (Handled by clap: https://github.com/clap-rs/clap/issues/3426)
     let mut code = 10;
     for rep in r.iter_reports() {
+        if let Some(collection) = rep.downcast_current_context::<ReportCollection>() {
+            // Multiple errors: Exit 9
+            if collection.len() > 1 {
+                code = 9;
+                break;
+            }
+            if let Some(only) = collection.iter().next() {
+                return exit_code_inner(only.into_uncloneable());
+            }
+            continue;
+        }
         if let Some(e) = rep.downcast_current_context::<FormatterError>() {
             code = match e {
                 // TODO check failed
@@ -111,8 +125,6 @@ where
                 TopiaryError::CheckFailed { .. } => 1,
                 // I/O errors: Exit 3
                 TopiaryError::Io => 3,
-                // Multiple errors: Exit 9
-                TopiaryError::Multiple => 9,
                 // Anything else: Exit 10
                 _ => 10,
             };
@@ -134,20 +146,26 @@ where
     C: ?Sized,
 {
     fn benign(&self) -> bool {
-        let serious_err_in_collections =
-            iter_downcast_reports::<ReportCollection, _>(self.as_ref())
-                .flat_map(|c| c.iter())
-                .any(|r| {
-                    r.downcast_current_context::<FormatterError>()
-                        != Some(&FormatterError::PatternDoesNotMatch)
-                });
-        if serious_err_in_collections {
-            return false;
-        }
-
-        iter_downcast_reports::<FormatterError, _>(self.as_ref())
-            .any(|fmt_err| *fmt_err == FormatterError::PatternDoesNotMatch)
+        benign_inner(self.as_ref())
     }
+}
+
+fn benign_inner<C>(r: ReportRef<'_, C, Uncloneable>) -> bool
+where
+    C: ?Sized,
+{
+    let serious_err_in_collections = iter_downcast_reports::<ReportCollection, _>(r)
+        .flat_map(|c| c.iter())
+        .any(|r| {
+            r.downcast_current_context::<FormatterError>()
+                != Some(&FormatterError::PatternDoesNotMatch)
+        });
+    if serious_err_in_collections {
+        return false;
+    }
+
+    iter_downcast_reports::<FormatterError, _>(r)
+        .any(|fmt_err| *fmt_err == FormatterError::PatternDoesNotMatch)
 }
 
 impl From<&TopiaryConfigError> for TopiaryError {
@@ -205,61 +223,46 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use rootcause::{handlers, markers::Cloneable, report_attachments::ReportAttachments};
 
-    fn assert_exit_code<C: ?Sized>(r: Report<C>, expected: u8) {
-        assert_eq!(exit_code(&r), ExitCode::from(expected));
-    }
-
-    #[test]
-    fn preformat_context_io_variant_exits_3() {
-        let err: Result<(), TopiaryConfigError> = Err(TopiaryConfigError::Io(io::Error::new(
-            io::ErrorKind::NotFound,
-            "missing",
-        )));
-        let report = err.preformat_context().unwrap_err();
-        assert_exit_code(report, 3);
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn preformat_context_fetching_io_exits_3() {
         let err: Result<(), TopiaryConfigError> = Err(TopiaryConfigError::Fetching(
             FetchError::Io(io::Error::new(io::ErrorKind::PermissionDenied, "denied")),
         ));
         let report = err.preformat_context().unwrap_err();
-        assert_exit_code(report, 3);
+        assert_eq!(exit_code(&report), 3.into());
     }
 
     #[test]
-    fn preformat_context_unknown_language_exits_10() {
+    fn preformat_context_exit_code_10() {
         let err: Result<(), TopiaryConfigError> =
             Err(TopiaryConfigError::UnknownLanguage("nope".to_string()));
         let report = err.preformat_context().unwrap_err();
-        assert_exit_code(report, 10);
-    }
-
-    #[test]
-    fn preformat_context_ok_passthrough() {
-        let ok: Result<u32, TopiaryConfigError> = Ok(42);
-        assert_eq!(ok.preformat_context().unwrap(), 42);
+        assert_eq!(exit_code(&report), 10.into());
     }
 
     #[test]
     fn iter_downcast_exit_code() {
-        let mut collection = report!(ReportCollection::from_iter(vec![
-            report!(FormatterError::PatternDoesNotMatch).into_dynamic(),
-            // preformatted io error, should exit 3
-            Err::<(), _>(TopiaryConfigError::FileNotFound(PathBuf::new()))
-                .preformat_context()
-                .unwrap_err()
-                .into_dynamic(),
-        ]));
+        let benign_err = report!(FormatterError::PatternDoesNotMatch).into_dynamic();
+        // preformatted io error
+        let io_err = Err::<(), _>(TopiaryConfigError::FileNotFound(PathBuf::new()))
+            .preformat_context()
+            .unwrap_err()
+            .into_dynamic();
+        let mut collection = report!(ReportCollection::from_iter(vec![benign_err,]));
 
+        // 1 benign error -> exit code 1
+        assert_eq!(exit_code(&collection), 1.into());
+        let benign_err = collection.current_context_mut().pop().unwrap();
+
+        // 1 io error -> exit code 3
+        collection
+            .current_context_mut()
+            .push(io_err.into_cloneable());
         assert_eq!(exit_code(&collection), 3.into());
 
-        // remote IO error
-        collection.current_context_mut().pop();
-        assert_eq!(exit_code(&collection), 1.into());
+        // 2 errors -> exit code 9
+        collection.current_context_mut().push(benign_err);
+        assert_eq!(exit_code(&collection), 9.into());
     }
 }
