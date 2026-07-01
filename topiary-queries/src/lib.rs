@@ -34,6 +34,18 @@ pub fn markdown_injections() -> &'static str {
     include_str!("../queries/markdown/injections.scm")
 }
 
+/// Returns the Topiary-compatible query file for menhir.
+#[cfg(feature = "menhir")]
+pub fn menhir() -> &'static str {
+    include_str!("../queries/menhir/formatting.scm")
+}
+
+/// Returns the Topiary-compatible injection query file for menhir.
+#[cfg(feature = "menhir")]
+pub fn menhir_injections() -> &'static str {
+    include_str!("../queries/menhir/injections.scm")
+}
+
 /// Returns the Topiary-compatible query file for Nickel.
 #[cfg(feature = "nickel")]
 pub fn nickel() -> &'static str {

@@ -64,6 +64,17 @@
       },
     },
 
+    menhir = {
+      extensions | default = ["mly"],
+      grammar.source | default = {
+        git = {
+          git = "https://github.com/tmcgilchrist/tree-sitter-menhir.git",
+          rev = "6b4a30ccc542530f7071ea45496ed5c9c74faa54",
+          nixHash = "sha256-wQKcqU0V6gHj84qOkUwdXsBW3f6MNfJMFxuGTucAgh8=",
+        },
+      },
+    },
+
     nickel = {
       extensions | default = ["ncl"],
       grammar.source | default = {
