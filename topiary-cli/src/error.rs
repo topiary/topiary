@@ -67,7 +67,7 @@ impl fmt::Display for TopiaryError {
 // source is handled by `rootcause::Report::current_context_error_source`
 impl error::Error for TopiaryError {}
 
-pub(crate) fn exit_code<C>(r: Report<C>) -> ExitCode
+pub(crate) fn exit_code<C>(r: &Report<C>) -> ExitCode
 where
     C: ?Sized,
 {
@@ -198,4 +198,68 @@ where
     report
         .iter_reports()
         .filter_map(|r| r.downcast_current_context::<T>())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+    use rootcause::{handlers, markers::Cloneable, report_attachments::ReportAttachments};
+
+    fn assert_exit_code<C: ?Sized>(r: Report<C>, expected: u8) {
+        assert_eq!(exit_code(&r), ExitCode::from(expected));
+    }
+
+    #[test]
+    fn preformat_context_io_variant_exits_3() {
+        let err: Result<(), TopiaryConfigError> = Err(TopiaryConfigError::Io(io::Error::new(
+            io::ErrorKind::NotFound,
+            "missing",
+        )));
+        let report = err.preformat_context().unwrap_err();
+        assert_exit_code(report, 3);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn preformat_context_fetching_io_exits_3() {
+        let err: Result<(), TopiaryConfigError> = Err(TopiaryConfigError::Fetching(
+            FetchError::Io(io::Error::new(io::ErrorKind::PermissionDenied, "denied")),
+        ));
+        let report = err.preformat_context().unwrap_err();
+        assert_exit_code(report, 3);
+    }
+
+    #[test]
+    fn preformat_context_unknown_language_exits_10() {
+        let err: Result<(), TopiaryConfigError> =
+            Err(TopiaryConfigError::UnknownLanguage("nope".to_string()));
+        let report = err.preformat_context().unwrap_err();
+        assert_exit_code(report, 10);
+    }
+
+    #[test]
+    fn preformat_context_ok_passthrough() {
+        let ok: Result<u32, TopiaryConfigError> = Ok(42);
+        assert_eq!(ok.preformat_context().unwrap(), 42);
+    }
+
+    #[test]
+    fn iter_downcast_exit_code() {
+        let mut collection = report!(ReportCollection::from_iter(vec![
+            report!(FormatterError::PatternDoesNotMatch).into_dynamic(),
+            // preformatted io error, should exit 3
+            Err::<(), _>(TopiaryConfigError::FileNotFound(PathBuf::new()))
+                .preformat_context()
+                .unwrap_err()
+                .into_dynamic(),
+        ]));
+
+        assert_eq!(exit_code(&collection), 3.into());
+
+        // remote IO error
+        collection.current_context_mut().pop();
+        assert_eq!(exit_code(&collection), 1.into());
+    }
 }

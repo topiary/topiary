@@ -55,7 +55,7 @@ async fn main() -> ExitCode {
         if !e.benign() {
             eprintln!("{e}");
         }
-        return exit_code(e);
+        return exit_code(&e);
     }
 
     ExitCode::SUCCESS
