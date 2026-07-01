@@ -2,7 +2,7 @@ use std::{
     ffi::OsString,
     fmt::{self, Display},
     fs::File,
-    io::{self, BufWriter, Read, Result, Seek, Write},
+    io::{self, BufWriter, Read, Seek, Write},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -12,16 +12,24 @@ use nickel_lang_core::{
     term::{Term, record::Field},
     traverse::{Traverse, TraverseOrder},
 };
-use rootcause::prelude::ResultExt;
+use rootcause::{
+    Report,
+    markers::{ObjectMarkerFor, SendSync},
+    prelude::ResultExt,
+    report,
+    report_collection::ReportCollection,
+};
+use rootcause_preformat::PreformatReportExt;
 use tempfile::tempfile;
 use topiary_config::Configuration;
 use topiary_core::{
-    FormatterError, InjectionQuery, Language, Operation, SpanAttachment, TopiaryQuery, formatter,
+    ErrorSpan, FormatterError, InjectionQuery, Language, Operation, SpanAttachment, TopiaryQuery,
+    formatter,
 };
 
 use crate::{
     cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
-    error::{CLIError, CLIResult, TopiaryError, print_error},
+    error::{CLIResult, ResultPreformat, TopiaryError},
     language::LanguageDefinitionCache,
 };
 
@@ -65,9 +73,7 @@ impl QuerySource {
             QuerySource::BuiltIn(_) => None,
         }
     }
-}
 
-impl QuerySource {
     async fn get_content(&self) -> CLIResult<String> {
         let contents = match self {
             Self::Path(query) => tokio::fs::read_to_string(query).await?,
@@ -190,7 +196,6 @@ pub struct InputFile<'cfg> {
 
 impl InputFile<'_> {
     /// Convert our `InputFile` into a language definition values with blocking I/O.
-    #[allow(clippy::result_large_err)]
     pub fn to_language_sync(&self) -> CLIResult<Language> {
         let grammar = self.language().grammar()?;
         let query_contents = self.formatting_query.get_content_sync()?;
@@ -243,7 +248,7 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
     config: &Configuration,
     name: T,
 ) -> CLIResult<Language> {
-    let config_language = config.get_language(name.as_ref())?;
+    let config_language = config.get_language(name.as_ref()).preformat_context()?;
     let grammar = config_language.grammar()?;
     let query_source = to_query_from_language(config_language)?;
     let query_content = query_source.get_content().await?;
@@ -271,7 +276,7 @@ pub(crate) fn to_language_from_config_sync<T: AsRef<str> + fmt::Display>(
     config: &Configuration,
     name: T,
 ) -> CLIResult<Language> {
-    let config_language = config.get_language(name.as_ref())?;
+    let config_language = config.get_language(name.as_ref()).preformat_context()?;
     let grammar = config_language.grammar()?;
     let query_source = to_query_from_language(config_language)?;
     let query_content = query_source.get_content_sync()?;
@@ -294,16 +299,15 @@ pub(crate) fn to_language_from_config_sync<T: AsRef<str> + fmt::Display>(
         indent: config_language.indent(),
     })
 }
-
 /// Simple helper function to read the full content of an io Read stream
-pub(crate) fn read_input(input: &mut dyn io::Read) -> Result<String> {
+pub(crate) fn read_input(input: &mut dyn io::Read) -> CLIResult<String> {
     let mut content = String::new();
     input.read_to_string(&mut content)?;
     Ok(content)
 }
 
 impl Read for InputFile<'_> {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match &mut self.source {
             InputSource::Stdin => io::stdin().lock().read(buf),
 
@@ -320,7 +324,6 @@ impl Read for InputFile<'_> {
 
 /// `Inputs` is an iterator of fully qualified `InputFile`s, each wrapped in `CLIResult`, which is
 /// populated by its constructor from any type that implements `Into<InputFrom>`
-#[allow(clippy::result_large_err)]
 pub struct Inputs<'cfg>(Vec<CLIResult<InputFile<'cfg>>>);
 
 impl<'cfg, 'i> Inputs<'cfg> {
@@ -331,7 +334,10 @@ impl<'cfg, 'i> Inputs<'cfg> {
         let inputs = match inputs.into() {
             InputFrom::Stdin(language_name, query) => {
                 vec![(|| {
-                    let language = config.get_language(&language_name)?;
+                    let language = config
+                        .get_language(&language_name)
+                        .map_err(|e| report!(e).preformat())
+                        .context(TopiaryError::Config)?;
                     let query_source: QuerySource = match query {
                         // The user specified a query file
                         Some(p) => p,
@@ -351,7 +357,7 @@ impl<'cfg, 'i> Inputs<'cfg> {
             InputFrom::Files(files) => files
                 .into_iter()
                 .map(|path| {
-                    let language = config.detect(&path)?;
+                    let language = config.detect(&path).preformat_context()?;
                     let query: QuerySource = to_query_from_language(language)?;
                     let injection_query = to_injection_query_from_language(language);
 
@@ -369,7 +375,6 @@ impl<'cfg, 'i> Inputs<'cfg> {
     }
 }
 
-#[allow(clippy::result_large_err)]
 pub(crate) fn to_query_from_language(
     language: &topiary_config::language::Language,
 ) -> CLIResult<QuerySource> {
@@ -383,7 +388,9 @@ pub(crate) fn to_query_from_language(
             log::warn!(
                 "No query files found in any of the expected locations. Falling back to compile-time included files."
             );
-            to_query(&language.name).map_err(|_| e)?
+            to_query(&language.name)
+                .local_context(e)
+                .preformat_context()?
         }
     };
     Ok(query)
@@ -415,9 +422,7 @@ where
         _ => None,
     }
 }
-
 impl<'cfg> Iterator for Inputs<'cfg> {
-    #[allow(clippy::result_large_err)]
     type Item = CLIResult<InputFile<'cfg>>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -442,19 +447,17 @@ pub enum OutputFile {
 }
 
 impl OutputFile {
-    #[allow(clippy::result_large_err)]
     pub fn new(path: &str) -> CLIResult<Self> {
         match path {
             "-" => Ok(Self::Stdout),
             file => Ok(Self::Disk {
-                staged: tempfile()?,
+                staged: tempfile().context(TopiaryError::Config)?,
                 output: file.into(),
             }),
         }
     }
 
     // This function must be called to persist the output to disk
-    #[allow(clippy::result_large_err)]
     pub fn persist(self) -> CLIResult<()> {
         if let Self::Disk { mut staged, output } = self {
             // Rewind to the beginning of the staged output
@@ -482,14 +485,14 @@ impl fmt::Display for OutputFile {
 }
 
 impl Write for OutputFile {
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
             Self::Stdout => io::stdout().lock().write(buf),
             Self::Disk { staged, .. } => staged.write(buf),
         }
     }
 
-    fn flush(&mut self) -> Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         match self {
             Self::Stdout => io::stdout().lock().flush(),
             Self::Disk { staged, .. } => staged.flush(),
@@ -501,9 +504,8 @@ impl Write for OutputFile {
 // * stdin maps to stdout
 // * Files map to themselves (i.e., for in-place updates)
 impl TryFrom<&InputFile<'_>> for OutputFile {
-    type Error = TopiaryError;
+    type Error = Report;
 
-    #[allow(clippy::result_large_err)]
     fn try_from(input: &InputFile) -> CLIResult<Self> {
         match &input.source {
             InputSource::Stdin => Ok(Self::Stdout),
@@ -512,7 +514,6 @@ impl TryFrom<&InputFile<'_>> for OutputFile {
     }
 }
 
-#[allow(clippy::result_large_err)]
 fn to_query<T>(name: T) -> CLIResult<QuerySource>
 where
     T: AsRef<str> + fmt::Display,
@@ -560,10 +561,7 @@ where
         #[cfg(feature = "wit")]
         "wit" => Ok(topiary_queries::wit().into()),
 
-        name => Err(TopiaryError::Bin(
-            format!("The specified language is unsupported: {name}"),
-            Some(CLIError::UnsupportedLanguage(name.to_string())),
-        )),
+        name => Err(TopiaryError::UnsupportedLanguage(name.to_string()).into()),
     }
 }
 
@@ -644,10 +642,11 @@ pub(crate) async fn process_inputs<F>(
     cache: Arc<LanguageDefinitionCache>,
 ) -> CLIResult<()>
 where
-    F: Fn(InputFile, Arc<Language>, Arc<LanguageDefinitionCache>) -> CLIResult<()>
+    F: Fn(InputFile, Arc<Language>, Arc<LanguageDefinitionCache>) -> Result<(), Report>
         + Send
         + Sync
         + 'static,
+    ErrorSpan: ObjectMarkerFor<SendSync>,
 {
     let (_, mut results) = async_scoped::TokioScope::scope_and_block(|scope| {
         for input in inputs {
@@ -660,12 +659,8 @@ where
                 let location = input.source().location();
                 tokio::task::block_in_place(|| {
                     let language = cache.fetch_input(&input)?;
-                    process_fn(input, language, cache).map_err(|e| {
-                        if let TopiaryError::Lib(report) = e {
-                            return report.attach_filepath(location.to_path()).into();
-                        }
-                        e
-                    })
+                    process_fn(input, language, cache)
+                        .map_err(|e| e.attach_filepath(location.to_path()))
                 })
             });
         }
@@ -677,17 +672,13 @@ where
     }
 
     // use `.count()` here to ensure eager evaluation of iterator
-    let errs = results
+    let errs: ReportCollection = results
         .into_iter()
-        .filter_map(|r| r.map_err(TopiaryError::from).flatten().err())
-        .inspect(|e| print_error(&e))
-        .count();
-    if errs > 0 {
-        // For multiple inputs, bail out if any failed with a "multiple errors" failure
-        return Err(TopiaryError::Bin(
-            "Processing of some inputs failed; see warning logs for details".into(),
-            Some(CLIError::Multiple),
-        ));
+        .filter_map(|r| r.map_err(|e| report!(e).into_dynamic()).flatten().err())
+        .collect();
+
+    if !errs.is_empty() {
+        return Err(report!(errs).into_dynamic());
     }
     Ok(())
 }

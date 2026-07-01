@@ -2,14 +2,12 @@
 
 use clap::{ArgAction, ArgGroup, Args, CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, shells::Shell};
+use rootcause::{report, report_collection::ReportCollection};
 use std::{io::stdout, path::PathBuf};
 
 use log::LevelFilter;
 
-use crate::{
-    error::{CLIResult, TopiaryError},
-    fs, visualisation,
-};
+use crate::{error::CLIResult, fs, visualisation};
 
 #[derive(Debug, Parser)]
 // NOTE Don't use infer_subcommands, as that could fossilise the interface. We define explicit
@@ -200,7 +198,6 @@ pub enum ConfigCommand {
 }
 
 /// Parse CLI arguments and normalise them for the caller
-#[allow(clippy::result_large_err)]
 pub fn get_args() -> CLIResult<Cli> {
     let mut args = Cli::parse();
 
@@ -245,13 +242,20 @@ pub fn get_args() -> CLIResult<Cli> {
                 },
             ..
         } => {
+            let mut errs = ReportCollection::new();
             // If we're given a list of FILES... then we assume them to all be on disk, even if "-"
             // is passed as an argument (i.e., interpret this as a valid filename, rather than as
             // stdin). We recursively expand directories until we're left with a list of
             // (potential) files, as input sources. This is finally deduplicated to avoid
             // formatting the same file multiple times (e.g., in the case that a symlink points to
             // a file within the set, or if the same file is specified twice at the command line).
-            fs::traverse(files, *follow_symlinks)?;
+            fs::traverse(files, *follow_symlinks, &mut errs)?;
+
+            // if there are only errors and no files, we should propagate the given errors
+            if files.is_empty() && !errs.is_empty() {
+                return Err(report!(errs).into_dynamic());
+            }
+
             files.sort_unstable();
             files.dedup();
         }
@@ -262,22 +266,20 @@ pub fn get_args() -> CLIResult<Cli> {
                 file: Some(file), ..
             },
             ..
-        } if file.is_dir() => {
-            return Err(TopiaryError::Bin(
-                format!(
-                    "Cannot visualise directory \"{}\"; please provide a single file from disk or stdin.",
-                    file.display()
-                ),
-                None,
-            ));
         }
+            // Make sure our FILE is not a directory
+            if file.is_dir() => {
+                return Err(
+                    report!( "Cannot visualise directory \"{}\"", file.display())
+                        .attach("please provide a single file from disk or stdin.")
+                );
+            }
 
         // Attempt to detect shell from environment, when omitted
         Commands::Completion { shell: None } => {
-            let detected_shell = Shell::from_env().ok_or(TopiaryError::Bin(
-                "Cannot detect shell from environment".into(),
-                None,
-            ))?;
+            let detected_shell = Shell::from_env().ok_or(
+                report!("Cannot detect shell from environment"),
+            )?;
 
             args.command = Commands::Completion {
                 shell: Some(detected_shell),

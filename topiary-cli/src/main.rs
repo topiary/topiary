@@ -14,7 +14,7 @@ use std::{
 
 use error::Benign;
 use tabled::{Table, settings::Style};
-use topiary_config::{Configuration, source::Source};
+use topiary_config::{Configuration, error::TopiaryConfigError, source::Source};
 use topiary_core::{
     FormatterError, FormatterResult, Language, Operation, SpanAttachment, check_query_coverage,
     formatter,
@@ -22,34 +22,30 @@ use topiary_core::{
 
 use crate::{
     cli::Commands,
-    error::{CLIResult, TopiaryError, print_error},
+    error::{CLIResult, ResultPreformat, exit_code},
     io::{Inputs, OutputFile, process_inputs, read_input},
     language::LanguageDefinitionCache,
 };
 
-use miette::{NamedSource, Report};
+use miette::NamedSource;
 
 fn resolve_injected_language(
     cache: &LanguageDefinitionCache,
     config: &Configuration,
     name: &str,
 ) -> FormatterResult<Option<Arc<Language>>> {
+    if matches!(
+        config.get_language(name),
+        Err(TopiaryConfigError::UnknownLanguage(_))
+    ) {
+        return Ok(None);
+    }
+
     match cache.fetch_from_config(config, name) {
         Ok(language) => Ok(Some(language)),
-        Err(TopiaryError::Config(topiary_config::error::TopiaryConfigError::UnknownLanguage(
-            _,
-        ))) => Ok(None),
-        Err(TopiaryError::Lib(report)) => {
-            Err(report.context(FormatterError::InjectionLanguageResolution {
-                language: name.to_owned(),
-            }))
-        }
-        Err(err) => Err(
-            rootcause::report!(FormatterError::InjectionLanguageResolution {
-                language: name.to_owned(),
-            })
-            .attach(err.to_string()),
-        ),
+        Err(report) => Err(report.context(FormatterError::InjectionLanguageResolution {
+            language: name.to_owned(),
+        })),
     }
 }
 
@@ -57,9 +53,9 @@ fn resolve_injected_language(
 async fn main() -> ExitCode {
     if let Err(e) = run().await {
         if !e.benign() {
-            print_error(&e)
+            eprintln!("{e}");
         }
-        return e.into();
+        return exit_code(&e);
     }
 
     ExitCode::SUCCESS
@@ -70,7 +66,8 @@ async fn run() -> CLIResult<()> {
 
     let file_config = &args.global.configuration;
     let (config, nickel_config) =
-        topiary_config::Configuration::fetch(args.global.merge_configuration, file_config)?;
+        topiary_config::Configuration::fetch(args.global.merge_configuration, file_config)
+            .preformat_context()?;
 
     // Delegate by subcommand
     match args.command {
@@ -250,8 +247,8 @@ async fn run() -> CLIResult<()> {
         }
 
         Commands::Prefetch { force, language } => match language {
-            Some(l) => config.prefetch_language(l, force)?,
-            _ => config.prefetch_languages(force)?,
+            Some(l) => config.prefetch_language(l, force).preformat_context()?,
+            _ => config.prefetch_languages(force).preformat_context()?,
         },
 
         Commands::Coverage { input } => {
@@ -290,7 +287,7 @@ async fn run() -> CLIResult<()> {
             write!(
                 &mut buf_output,
                 "{:?}",
-                Report::new(coverage_data).with_source_code(query_source)
+                miette::Report::new(coverage_data).with_source_code(query_source)
             )?;
 
             coverage_res?;
