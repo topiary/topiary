@@ -48,11 +48,12 @@ let LanguageConfig = {
     | doc "File extensions (without leading dot) associated with this language.",
   indent
     | String
-    | optional
+    | optional # NOTE,TODO: remove optional tag to implement error formatting for `nickel_lang_core::error::Error`
     | doc "Indentation string for this language; defaults to two spaces.",
   grammar | Grammar,
 }
 in
+
 {
   languages | { _ : LanguageConfig } = {
     bash = {
