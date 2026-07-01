@@ -222,23 +222,21 @@ pub enum Operation {
 ///
 /// ```
 /// # tokio_test::block_on(async {
-/// use std::fs::File;
-/// use std::io::{BufReader, Read};
 /// use topiary_core::{formatter, Language, FormatterError, TopiaryQuery, Operation};
 ///
 /// let input = "[1,2]".to_string();
 /// let mut input = input.as_bytes();
 /// let mut output = Vec::new();
-/// let json = topiary_tree_sitter_facade::Language::from(tree_sitter_json::LANGUAGE);
 ///
-/// let mut query_file = BufReader::new(File::open("../topiary-queries/queries/json/formatting.scm").expect("query file"));
-/// let mut query_content = String::new();
-/// query_file.read_to_string(&mut query_content).expect("read query file");
+/// // The grammar is loaded dynamically via `topiary-config` rather than
+/// // depending on the `tree-sitter-json` crate directly.
+/// let config = topiary_config::Configuration::default();
+/// let grammar = config.get_language("json").unwrap().grammar().unwrap();
 ///
 /// let language: Language = Language {
 ///     name: "json".to_owned(),
-///     formatting_query: TopiaryQuery::new(&json.clone().into(), &query_content).unwrap(),
-///     grammar: json.into(),
+///     formatting_query: TopiaryQuery::new(&grammar, topiary_queries::json()).unwrap(),
+///     grammar,
 ///     indent: None,
 ///     injection_query: None,
 /// };
@@ -569,15 +567,7 @@ mod tests {
     async fn parsing_error_fails_formatting() {
         let mut input = r#"{"foo":{"bar"}}"#.as_bytes();
         let mut output = Vec::new();
-        let query_content = "(#language! json)";
-        let grammar = topiary_tree_sitter_facade::Language::from(tree_sitter_json::LANGUAGE);
-        let language = Language {
-            name: "json".to_owned(),
-            formatting_query: TopiaryQuery::new(&grammar, query_content).unwrap(),
-            grammar,
-            indent: None,
-            injection_query: None,
-        };
+        let language = language("json", "(#language! json)", None);
 
         let mut result = formatter(
             &mut input,
@@ -609,15 +599,7 @@ mod tests {
         let expected = "{ \"one\": {\"bar\"   \"baz\"}, \"two\": \"bar\" }\n";
 
         let mut output = Vec::new();
-        let query_content = topiary_queries::json();
-        let grammar = tree_sitter_json::LANGUAGE.into();
-        let language = Language {
-            name: "json".to_owned(),
-            formatting_query: TopiaryQuery::new(&grammar, query_content).unwrap(),
-            grammar,
-            indent: None,
-            injection_query: None,
-        };
+        let language = language("json", topiary_queries::json(), None);
 
         formatter(
             &mut input,

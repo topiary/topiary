@@ -5,17 +5,16 @@ use topiary_core::{Language, Operation, TopiaryQuery, formatter};
 
 fn setup() -> (String, Language) {
     let input = fs::read_to_string("../topiary-cli/tests/samples/input/nickel.ncl").unwrap();
-    let query_content = fs::read_to_string(format!(
-        "../topiary-queries/queries/nickel/{}",
-        topiary_queries::FORMATTING_QUERY
-    ))
-    .unwrap();
-    let nickel = tree_sitter_nickel::LANGUAGE;
+
+    // The grammar is loaded dynamically via `topiary-config` rather than
+    // depending on the `tree-sitter-nickel` crate directly.
+    let config = topiary_config::Configuration::default();
+    let grammar = config.get_language("nickel").unwrap().grammar().unwrap();
 
     let language: Language = Language {
         name: "nickel".to_owned(),
-        formatting_query: TopiaryQuery::new(&nickel.into(), &query_content).unwrap(),
-        grammar: tree_sitter_nickel::LANGUAGE.into(),
+        formatting_query: TopiaryQuery::new(&grammar, topiary_queries::nickel()).unwrap(),
+        grammar,
         indent: None,
         injection_query: None,
     };
