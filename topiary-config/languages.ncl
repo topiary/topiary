@@ -15,7 +15,14 @@ let GitSource = {
   nixHash
     | String
     | optional
-    | doc "Pre-computed Nix SHA256 hash; generate using 'TODO add command to generate hash'",
+    | doc m%"
+        Pre-computed Nix SHA256 hash.
+        
+        This can be generated with:
+        ```
+        nix run nixpkgs@nix-prefetch-git -- <URL> <REV>
+        ```
+      "%,
 }
 in
 
