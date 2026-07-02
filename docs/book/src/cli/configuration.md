@@ -224,4 +224,4 @@ error: 1 dependencies of derivation '/nix/store/5w15p3b3xfw5nd6mxz58ln09v10kvf8v
 error: 1 dependencies of derivation '/nix/store/7zzyha67jw09kc37valp28bp5h6i7dka-topiary-0.6.0.drv' failed to build
 ```
 
-For an explanation of the schema defined at the top of `languages.ncl`, see the Nickel documentation's explanation of [_Contracts in Nickel_](https://nickel-lang.org/user-manual/contracts/)
+For an explanation of the schema defined at the top of `languages.ncl`, see the Nickel documentation's section on [_Contracts in Nickel_](https://nickel-lang.org/user-manual/contracts/)
