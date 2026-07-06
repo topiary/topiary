@@ -259,7 +259,7 @@ impl GitSource {
     }
 
     /// This function is heavily inspired by the one used in Nickel:
-    /// https://github.com/tweag/nickel/blob/master/git/src/lib.rs
+    /// <https://github.com/tweag/nickel/blob/master/git/src/lib.rs>
     pub fn fetch_and_compile_with_dir(
         &self,
         name: &str,

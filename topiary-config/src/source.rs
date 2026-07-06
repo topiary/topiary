@@ -148,7 +148,10 @@ impl Source {
 
     /// Returns the inlined value of [`topiary-config/languages.ncl`](
     /// https://github.com/topiary/topiary/blob/a18816a891fd3f5265732a94c9049820f70638b0/topiary-config/languages.ncl),
-    /// this should be merged with other configurations using [Nickel's merge operations](https://nickel-lang.org/user-manual/merging/)
+    /// this should be merged with other configurations using Nickel's commutative  [operations][ncl-merging] [^@wiki].
+    ///
+    /// [^@wiki]: <https://en.wikipedia.org/wiki/Commutative_property>
+    /// [ncl-merging]: https://nickel-lang.org/user-manual/merging
     pub const fn builtin_nickel(&self) -> &'static str {
         include_str!("../languages.ncl")
     }
