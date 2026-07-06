@@ -65,7 +65,7 @@ variant with the other via Nickel record merging (e.g. setting
       | doc "File extensions (without leading dot) associated with this language.",
     indent
       | String
-      | optional
+      # | optional
       | doc "Indentation string for this language; defaults to two spaces.",
     grammar | Grammar,
     .. # lang config fields should be non exhaustive for future schemas and end user customizability
@@ -80,7 +80,7 @@ in
         git = {
           git = "https://github.com/tree-sitter/tree-sitter-bash.git",
           rev = "d1a1a3fe7189fdab5bd29a54d1df4a5873db5cb1",
-          nixHash = "ha256-XiiEI7/6b2pCZatO8Z8fBgooKD8Z+SFQJNdR/sGGkgE=",
+          nixHash = "sha256-XiiEI7/6b2pCZatO8Z8fBgooKD8Z+SFQJNdR/sGGkgE=",
         }
       },
     },
