@@ -2,6 +2,21 @@
 # break `prefetchLanguagesNickelFile` in nix/utils/prefetchLanguages.nix
 # Please keep these synchronised.
 let rec
+  NixHash =
+    std.contract.from_validator (fun value =>
+      if !std.is_string value then
+        'Error { message = "expected `NixHash`" }
+      else if !std.string.is_match "^sha256-[A-Za-z0-9+/]{43}=$" value then
+        'Error {
+          message = "invalid nixHash format: %{value}",
+          notes = [
+            "Expected string in this format: 'sha256-[A-Za-z0-9+/]{43}='",
+            "The base64 payload must be exactly 44 characters long."
+          ]
+        }
+      else
+        'Ok
+    ),
   GitSource = {
     git
       | String
@@ -14,7 +29,7 @@ let rec
       | optional
       | doc "Sub-directory of the repository where the grammar lives.",
     nixHash
-      | String
+      | NixHash
       | optional
       | doc m%"
         Pre-computed Nix SHA256 hash.
@@ -65,7 +80,7 @@ in
         git = {
           git = "https://github.com/tree-sitter/tree-sitter-bash.git",
           rev = "d1a1a3fe7189fdab5bd29a54d1df4a5873db5cb1",
-          nixHash = "sha256-XiiEI7/6b2pCZatO8Z8fBgooKD8Z+SFQJNdR/sGGkgE=",
+          nixHash = "sha25-XiiEI7/6b2pCZatO8Z8fBgooKD8Z+SFQJNdR/sGGkgE=",
         }
       },
     },
