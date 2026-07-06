@@ -1,64 +1,60 @@
 # MAINTAINERS: If the structure of this configuration changes, it may
 # break `prefetchLanguagesNickelFile` in nix/utils/prefetchLanguages.nix
 # Please keep these synchronised.
-let GitSource = {
-  git
-    | String
-    | doc "URL of the Git repository hosting the tree-sitter grammar.",
-  rev
-    | String
-    | doc "Git revision (commit, tag, or branch) to fetch.",
-  subdir
-    | String
-    | optional
-    | doc "Sub-directory of the repository where the grammar lives.",
-  nixHash
-    | String
-    | optional
-    | doc m%"
+let rec
+  GitSource = {
+    git
+      | String
+      | doc "URL of the Git repository hosting the tree-sitter grammar.",
+    rev
+      | String
+      | doc "Git revision (commit, tag, or branch) to fetch.",
+    subdir
+      | String
+      | optional
+      | doc "Sub-directory of the repository where the grammar lives.",
+    nixHash
+      | String
+      | optional
+      | doc m%"
         Pre-computed Nix SHA256 hash.
-        
+
         This can be generated with:
         ```
         nix run nixpkgs@nix-prefetch-git -- <URL> <REV>
         ```
       "%,
-}
-in
-
-let GrammarSource
-  | doc m%"
+  },
+  GrammarSource
+    | doc m%"
 Either a Git source or a local filesystem path. Fields are optional
 at the contract layer so that user configurations can override one
 variant with the other via Nickel record merging (e.g. setting
 `grammar.source.path` on top of a default `grammar.source.git`).
 "%
-  =
-    std.contract.any_of [
-      { git | GitSource },
-      { path | String },
-    ]
-in
-
-let Grammar = {
-  source | GrammarSource,
-  symbol
-    | String
-    | optional
-    | doc "Override for the tree-sitter symbol; defaults to `tree_sitter_<name>`.",
-}
-in
-
-let LanguageConfig = {
-  extensions
-    | Array String
-    | doc "File extensions (without leading dot) associated with this language.",
-  indent
-    | String
-    | optional # NOTE,TODO: remove optional tag to implement error formatting for `nickel_lang_core::error::Error`
-    | doc "Indentation string for this language; defaults to two spaces.",
-  grammar | Grammar,
-}
+    =
+      std.contract.any_of [
+        { git | GitSource },
+        { path | String },
+      ],
+  Grammar = {
+    source | GrammarSource,
+    symbol
+      | String
+      | optional
+      | doc "Override for the tree-sitter symbol; defaults to `tree_sitter_<name>`.",
+  },
+  LanguageConfig = {
+    extensions
+      | Array String
+      | doc "File extensions (without leading dot) associated with this language.",
+    indent
+      | String
+      | optional # NOTE,TODO: remove optional tag to implement error formatting for `nickel_lang_core::error::Error`
+      | doc "Indentation string for this language; defaults to two spaces.",
+    grammar | Grammar,
+    .. # lang config fields should be non exhaustive for future schemas and end user customizability
+  }
 in
 
 {
@@ -239,5 +235,6 @@ in
         },
       },
     },
-  }
+  },
+  ..
 }
