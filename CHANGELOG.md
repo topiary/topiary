@@ -56,7 +56,7 @@ This name should be decided amongst the team before the release.
 - [#1267](https://github.com/topiary/topiary/pull/1267) Add initial injection support (JSON) for Rust
 - [#1270](https://github.com/topiary/topiary/pull/1270) Add initial `languages.ncl` Nickel contracts
 - [#1139](https://github.com/topiary/topiary/pull/1139) Added `rootcause::Report` handling in topiary-cli.
-- [#1283](https://github.com/topiary/topiary/pull/1283) Render nickel parsing error diagnostics
+- [#1283](https://github.com/topiary/topiary/pull/1283) Render Nickel parsing error diagnostics
 
 ### Fixed
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
