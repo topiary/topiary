@@ -80,7 +80,7 @@ in
         git = {
           git = "https://github.com/tree-sitter/tree-sitter-bash.git",
           rev = "d1a1a3fe7189fdab5bd29a54d1df4a5873db5cb1",
-          nixHash = "sha25-XiiEI7/6b2pCZatO8Z8fBgooKD8Z+SFQJNdR/sGGkgE=",
+          nixHash = "sha256-XiiEI7/6b2pCZatO8Z8fBgooKD8Z+SFQJNdR/sGGkgE=",
         }
       },
     },
