@@ -139,15 +139,15 @@ impl Source {
     #[allow(clippy::result_large_err)]
     pub fn read(&self) -> TopiaryConfigResult<Vec<u8>> {
         match self {
-            Self::Builtin => Ok(self.builtin_nickel().into_bytes()),
+            Self::Builtin => Ok(self.builtin_nickel().into()),
 
             Self::Directory(dir) => read_to_string(&dir.join("languages.ncl")),
             Self::File(path) => read_to_string(path),
         }
     }
 
-    pub fn builtin_nickel(&self) -> String {
-        include_str!("../languages.ncl").to_string()
+    pub const fn builtin_nickel(&self) -> &'static str {
+        include_str!("../languages.ncl")
     }
 }
 
