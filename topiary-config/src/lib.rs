@@ -227,7 +227,12 @@ impl Configuration {
         }
         let mut program = builder.build::<CacheImpl>()?;
 
-        let term = program.eval_full_for_export()?;
+        let term = program
+            .eval_full_for_export()
+            .map_err(|error| TopiaryConfigError::Nickel {
+                error: Box::new(error),
+                files: Box::new(program.files()),
+            })?;
 
         let serde_config = SerdeConfiguration::deserialize(term.clone())?;
 
@@ -244,7 +249,12 @@ impl Configuration {
             )
             .build::<CacheImpl>()?;
 
-        let term = program.eval_full_for_export()?;
+        let term = program
+            .eval_full_for_export()
+            .map_err(|error| TopiaryConfigError::Nickel {
+                error: Box::new(error),
+                files: Box::new(program.files()),
+            })?;
 
         let serde_config = SerdeConfiguration::deserialize(term.clone())?;
 

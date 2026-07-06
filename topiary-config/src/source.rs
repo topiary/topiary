@@ -146,7 +146,7 @@ impl Source {
         }
     }
 
-    fn builtin_nickel(&self) -> String {
+    pub fn builtin_nickel(&self) -> String {
         include_str!("../languages.ncl").to_string()
     }
 }

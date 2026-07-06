@@ -5,8 +5,10 @@ use rootcause::{
     report_collection::ReportCollection,
 };
 use rootcause_preformat::PreformatReportExt;
-use std::{error, fmt, io, process::ExitCode, result};
+use std::{any::Any, error, fmt, io, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
+
+use nickel_lang_core::error::report::{ColorOpt, report_as_str};
 
 use similar::TextDiff;
 use topiary_core::FormatterError;
@@ -200,7 +202,22 @@ where
             Ok(t) => Ok(t),
             Err(e) => {
                 let cli_err = TopiaryError::from(&e);
-                Err(report!(e).preformat().context(cli_err))
+                let nickel_diagnostic = (&e as &dyn Any)
+                    .downcast_ref::<TopiaryConfigError>()
+                    .and_then(|cfg_err| match cfg_err {
+                        // TODO(mkatychev): use `report_with` to add the report to our `ErrorSpan`s
+                        TopiaryConfigError::Nickel { error, files } => Some(report_as_str(
+                            &mut (**files).clone(),
+                            (**error).clone(),
+                            ColorOpt::Never,
+                        )),
+                        _ => None,
+                    });
+                let mut report = report!(e).preformat();
+                if let Some(diagnostic) = nickel_diagnostic {
+                    report = report.attach(diagnostic);
+                }
+                Err(report.context(cli_err))
             }
         }
     }
