@@ -4,7 +4,7 @@ use std::io;
 use topiary_core::{Language, Operation, TopiaryQuery, formatter};
 
 fn setup() -> (String, Language) {
-    let input = fs::read_to_string("../topiary-cli/tests/samples/input/nickel.ncl").unwrap();
+    let input = fs::read_to_string("../topiary-cli/tests/samples/input/nickel/nickel.ncl").unwrap();
 
     // The grammar is loaded dynamically via `topiary-config` rather than
     // depending on the `tree-sitter-nickel` crate directly.
