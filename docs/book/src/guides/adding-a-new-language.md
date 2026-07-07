@@ -64,8 +64,9 @@ expected output. For the time being, let's stick with the mangled
 output, so we can get the tests to run and pass.
 
 ```sh
-echo 'void main ();' > topiary-cli/tests/samples/input/clang.c
-echo 'voidmain();' > topiary-cli/tests/samples/expected/clang.c
+mkdir -p topiary-cli/tests/samples/{input,expected}/clang
+echo 'void main ();' > topiary-cli/tests/samples/input/clang/clang.c
+echo 'voidmain();' > topiary-cli/tests/samples/expected/clang/clang.c
 ```
 
 ### Add Cargo feature flags
@@ -98,65 +99,6 @@ all = [
 
 ```toml
 clang = []
-```
-
-### Add tests in `topiary-cli/tests/sample-tester.rs`
-
-To register the I/O and coverage tests for the new language, we need to
-add it to the test suite.
-
-#### In `fn get_file_extension`
-
-You will need to add a mapping from the language (feature name) to the
-file extension under test:
-
-```rust
-fn get_file_extension(language: &str) -> &str {
-    match language {
-
-        [...]
-
-        "clang" => "c",
-
-        [...]
-
-    }
-}
-```
-
-#### In `mod test_fmt`
-
-Then you'll need to add the language to the `lang_test!` macro calls in
-the `test_fmt` module, respectively:
-
-```rust
-    lang_test!(
-
-        [...]
-
-        "clang",
-
-        [...]
-
-        fmt_input
-    );
-```
-
-#### In `mod test_coverage`
-
-Likewise in the `test_coverage` module:
-
-```rust
-    lang_test!(
-
-        [...]
-
-        "clang",
-
-        [...]
-
-        coverage_input
-    );
 ```
 
 ### Testing

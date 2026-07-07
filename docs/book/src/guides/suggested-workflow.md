@@ -10,8 +10,8 @@ suggested way to work:
    previous step (or otherwise), there should be two files that drive
    the test suite:
 
-   - `topiary-cli/tests/samples/input/mylanguage.code`
-   - `topiary-cli/tests/samples/expected/mylanguage.code`
+   - `topiary-cli/tests/samples/input/mylanguage/mylanguage.code`
+   - `topiary-cli/tests/samples/expected/mylanguage/mylanguage.code`
 
    These respectively define the input, which will be formatted by
    Topiary when under test, and the expected output, which will be
