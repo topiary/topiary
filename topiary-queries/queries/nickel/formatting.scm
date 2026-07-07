@@ -2,7 +2,6 @@
 
 ; The following nodes in our source text should not be formatted
 [
-  (static_string)
   (str_chunks_single)
   (builtin)
   (quoted_enum_tag)
