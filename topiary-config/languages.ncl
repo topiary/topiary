@@ -138,9 +138,9 @@ in
       extensions | default = ["ncl"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/prednaz/tree-sitter-nickel",
-          rev = "73ccb3a747eaf7b6c236333898c6dba46a667144",
-          nixHash = "sha256-N9KoCe3Vd+U5tGeU0ogY7gV5e3dbrIC9q6xeV0mYczo=",
+          git = "https://github.com/nickel-lang/tree-sitter-nickel",
+          rev = "488ee4e6af15e10dd4be527777c9ba18a817d407",
+          nixHash = "sha256-CMlf80y1te30HwjT9ykHeg6xvQc/lcCCHDMVGs7oVXQ=",
         },
       },
     },
