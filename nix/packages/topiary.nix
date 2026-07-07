@@ -345,6 +345,7 @@ let
       # `{ path = ...; }`), which then resolves both to a store path.
       normaliseGrammar =
         name: g:
+        assert !(g.package != null && g.source.git != null) || throw "topiary: language `${name}` cannot specify both `grammar.package` and `grammar.source.git`";
         {
           source =
             if g.package != null then
