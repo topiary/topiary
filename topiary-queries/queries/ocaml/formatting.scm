@@ -1106,7 +1106,6 @@
     (product_expression)
     (sequence_expression)
     (set_expression)
-    (typed_expression)
     (unit)
     (value_path)
     (variant_declaration)
@@ -1370,6 +1369,26 @@
   .
   ; just doing _ above doesn't work, because it matches the final named node as
   ; well as the final non-named node, causing double indentation.
+)
+
+; The parentheses around a typed expression dangle like a parenthesized
+; expression, with the type ascription onto its own line, such as
+; let _ = (
+;   (module struct type s end)
+;   : t
+; )
+(typed_expression
+  .
+  "(" @append_empty_softline @append_indent_start
+  ")" @prepend_indent_end
+  .
+)
+(typed_expression
+  ")" @prepend_empty_softline
+  .
+)
+(typed_expression
+  ":" @prepend_empty_softline
 )
 
 (value_specification
