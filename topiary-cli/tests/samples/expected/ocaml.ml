@@ -1514,3 +1514,21 @@ let foo = [
   [bar];
   [baz];
 ]
+
+(* A list as the left operand of an infix operator must dangle *)
+let list_left_of_infix =
+  [
+    x;
+    y;
+  ] @
+    z
+
+(* The same, in a more involved context *)
+let items =
+  [
+    li [Button.make ~label: "All" ()];
+    li [hr ()];
+  ] @
+    List.map
+      (fun (key, label) -> li [Button.make ~label ~key ()])
+      [("a", "A"); ("b", "B")]

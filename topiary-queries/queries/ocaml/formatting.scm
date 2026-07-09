@@ -2178,6 +2178,21 @@
   )
   .
 )
+; Also when the list is the left operand of an infix operator, such as
+; let _ =
+;   [
+;     x;
+;     y;
+;   ] @ z
+(infix_expression
+  .
+  (list_expression
+    .
+    "[" @append_indent_start @append_empty_softline
+    "]" @prepend_indent_end @prepend_empty_softline
+    .
+  )
+)
 (list_pattern
   .
   "[" @append_indent_start @append_empty_softline
