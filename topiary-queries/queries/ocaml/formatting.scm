@@ -922,6 +922,20 @@
   )
 )
 
+; Tie the scope to the "." in local opens, so that `A.{x}` is kept dangling
+; from it rather than from an enclosing scope. Otherwise the "." makes the
+; queries above skip it, and `pure A.{x}` gets broken onto several lines.
+(local_open_expression
+  "." @append_begin_scope
+  .
+  [
+    (record_expression)
+    (list_expression)
+    (array_expression)
+  ] @append_end_scope
+  (#scope_id! "dangling_list_like")
+)
+
 ; We want to add a line when the regular scope is multi-line,
 ; But only if the (measured) custom scope is single-line.
 ; In essence, we want to preserve all of the following three:

@@ -1514,3 +1514,10 @@ let foo = [
   [bar];
   [baz];
 ]
+
+(* #1074 Idempotency error on `pure A.{x}` within a function *)
+let () =
+  with_
+    (fun x ->
+      pure A.{x}
+    )
