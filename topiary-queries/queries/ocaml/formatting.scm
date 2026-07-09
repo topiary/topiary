@@ -525,6 +525,8 @@
 )
 (typed_label
   ":" @append_spaced_softline
+  .
+  (parenthesized_type)? @do_nothing
 )
 (constructor_declaration
   ":" @append_spaced_softline
@@ -1833,6 +1835,25 @@
   ")" @prepend_indent_end @prepend_empty_softline
   .
 )
+
+; The parentheses around a type dangle like those around an expression, such as
+; val foo :
+;   named_argument: (
+;     int ->
+;     float
+;   ) ->
+;   result
+(parenthesized_type
+  .
+  "(" @append_empty_softline @append_indent_start
+  ")" @prepend_indent_end
+  .
+)
+(parenthesized_type
+  ")" @prepend_empty_softline
+  .
+)
+
 ; Parenthesis are optional when using tuples, so scopes must be tied
 ; to the `product_expression` inside.
 ; Product expressions are nested grammar elements, which means that the syntax tree of

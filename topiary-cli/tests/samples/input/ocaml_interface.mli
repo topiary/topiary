@@ -5396,3 +5396,13 @@ a ->
 d -> e
 
 include module type of (struct include Time end)
+
+(* #818 Parentheses in type signatures *)
+val foo :
+  named_argument: (
+    int ->
+    float ->
+    string
+  ) ->
+  other_argument ->
+  result

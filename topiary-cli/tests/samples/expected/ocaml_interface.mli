@@ -1124,10 +1124,12 @@ module Global_constants_storage : sig
       'accumulator ->
       'loc Script.michelson_node ->
       ('accumulator -> 'loc Script.michelson_node -> 'return) ->
-      ('accumulator ->
-      'loc Script.michelson_node ->
-      ('accumulator -> 'loc Script.michelson_node -> 'return) ->
-      'return) ->
+      (
+        'accumulator ->
+        'loc Script.michelson_node ->
+        ('accumulator -> 'loc Script.michelson_node -> 'return) ->
+        'return
+      ) ->
       'return
 
     (** [expr_to_address_in_context context expr] converts [expr]
@@ -3451,9 +3453,10 @@ module Sc_rollup : sig
       inbox_message option tzresult
 
     val produce_proof :
-      get_payloads_history:
-      (Inbox_merkelized_payload_hashes.Hash.t ->
-      Inbox_merkelized_payload_hashes.History.t Lwt.t) ->
+      get_payloads_history: (
+        Inbox_merkelized_payload_hashes.Hash.t ->
+        Inbox_merkelized_payload_hashes.History.t Lwt.t
+      ) ->
       get_history: (Hash.t -> history_proof option Lwt.t) ->
       history_proof ->
       Raw_level.t * Z.t ->
@@ -5158,10 +5161,11 @@ end
 val prepare_first_block :
   Chain_id.t ->
   Context.t ->
-  typecheck:
-  (context ->
-  Script.t ->
-  ((Script.t * Lazy_storage.diffs option) * context) tzresult Lwt.t) ->
+  typecheck: (
+    context ->
+    Script.t ->
+    ((Script.t * Lazy_storage.diffs option) * context) tzresult Lwt.t
+  ) ->
   level: Int32.t ->
   timestamp: Time.t ->
   predecessor: Block_hash.t ->
@@ -5447,3 +5451,13 @@ type foo =
   e
 
 include module type of (struct include Time end)
+
+(* #818 Parentheses in type signatures *)
+val foo :
+  named_argument: (
+    int ->
+    float ->
+    string
+  ) ->
+  other_argument ->
+  result
