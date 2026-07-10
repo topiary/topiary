@@ -37,9 +37,12 @@ toml = { workspace = true }
 topiary-core.workspace = true
 topiary-config.workspace = true
 topiary-queries.workspace = true
-miette.workspace = true
+topiary-tree-sitter-facade.workspace = true
+miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 tabled = { workspace = true }
+rootcause.workspace = true
 similar = "3.1"
+rootcause-preformat.workspace = true
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
@@ -69,7 +72,8 @@ contributed = [
 
 # Excluded by default
 experimental = [
-  "rust"
+  "rust",
+  "markdown"
 ]
 
 bash = ["topiary-config/bash", "topiary-queries/bash"]
@@ -84,4 +88,5 @@ rust = ["topiary-config/rust", "topiary-queries/rust"]
 sdml = ["topiary-config/sdml", "topiary-queries/sdml"]
 toml = ["topiary-config/toml", "topiary-queries/toml"]
 tree_sitter_query = ["topiary-config/tree_sitter_query", "topiary-queries/tree_sitter_query"]
+markdown = ["topiary-config/markdown", "topiary-queries/markdown"]
 wit = ["topiary-config/wit", "topiary-queries/wit"]

@@ -54,6 +54,7 @@ rust = []
 sdml = []
 toml = []
 tree_sitter_query = []
+markdown = []
 wit = []
 
 # This a convenience for the sake of downstream applications which don't
@@ -71,5 +72,6 @@ all = [
   "sdml",
   "toml",
   "tree_sitter_query",
+  "markdown",
   "wit",
 ]

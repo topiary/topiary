@@ -5,6 +5,7 @@ use std::{
     ops::Deref,
 };
 
+use rootcause::prelude::ResultExt;
 use topiary_tree_sitter_facade::Node;
 
 use crate::{
@@ -115,6 +116,32 @@ impl AtomCollection {
         Ok(atoms)
     }
 
+    /// Replace the `content` of the [`Atom::Leaf`] whose tree-sitter `id`
+    /// matches `node_id`. Returns whether a matching leaf was found.
+    ///
+    /// Used by the injection flow to splice formatted inner-language text
+    /// into a host leaf atom after the host's atom collection has been
+    /// built but before rendering.
+    pub fn rewrite_injected_leaf_content(&mut self, node_id: usize, new_content: String) -> bool {
+        for atom in &mut self.atoms {
+            if let Atom::Leaf {
+                id,
+                content,
+                original_position,
+                ..
+            } = atom
+                && *id == node_id
+            {
+                *content = new_content;
+                // Injected formatters return column-zero text; let the host
+                // leaf indentation account for the current render column.
+                original_position.column = 1;
+                return true;
+            }
+        }
+        false
+    }
+
     // wrap inside a conditional atom if #single/multi_line_scope_only! is set
     fn wrap(&mut self, atom: Atom, predicates: &QueryPredicates) -> Atom {
         if let Some(scope_id) = &predicates.single_line_scope_only {
@@ -167,12 +194,12 @@ impl AtomCollection {
 
         let requires_delimiter = || {
             predicates.delimiter.as_deref().ok_or_else(|| {
-                FormatterError::Query(format!("@{name} requires a #delimiter! predicate"), None)
+                FormatterError::Query(format!("@{name} requires a #delimiter! predicate"))
             })
         };
         let requires_scope_id = || {
             predicates.scope_id.as_deref().ok_or_else(|| {
-                FormatterError::Query(format!("@{name} requires a #scope_id! predicate"), None)
+                FormatterError::Query(format!("@{name} requires a #scope_id! predicate"))
             })
         };
 
@@ -460,10 +487,9 @@ impl AtomCollection {
             }
             // Return a query parsing error on unknown capture names
             unknown => {
-                return Err(FormatterError::Query(
-                    format!("@{unknown} is not a valid capture name"),
-                    None,
-                ));
+                rootcause::bail!(FormatterError::Query(format!(
+                    "@{unknown} is not a valid capture name"
+                )));
             }
         }
 
@@ -575,7 +601,7 @@ impl AtomCollection {
             || node.kind() == "ERROR"
         {
             self.atoms.push(Atom::Leaf {
-                content: String::from(node.utf8_text(source)?),
+                content: String::from(node.utf8_text(source).context_to()?),
                 id,
                 original_position: node.start_position().into(),
                 single_line_no_indent: false,

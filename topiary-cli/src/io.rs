@@ -2,19 +2,34 @@ use std::{
     ffi::OsString,
     fmt::{self, Display},
     fs::File,
-    io::{self, BufWriter, Read, Result, Seek, Write},
-    path::PathBuf,
+    io::{self, BufWriter, Read, Seek, Write},
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
-use nickel_lang_core::eval::value::NickelValue;
+use nickel_lang_core::{
+    eval::value::NickelValue,
+    term::{Term, record::Field},
+    traverse::{Traverse, TraverseOrder},
+};
+use rootcause::{
+    Report,
+    markers::{ObjectMarkerFor, SendSync},
+    prelude::ResultExt,
+    report,
+    report_collection::ReportCollection,
+};
+use rootcause_preformat::PreformatReportExt;
 use tempfile::tempfile;
 use topiary_config::Configuration;
-use topiary_core::{Language, Operation, TopiaryQuery, formatter};
+use topiary_core::{
+    ErrorSpan, FormatterError, InjectionQuery, Language, Operation, SpanAttachment, TopiaryQuery,
+    formatter,
+};
 
 use crate::{
     cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
-    error::{CLIError, CLIResult, TopiaryError, print_error},
+    error::{CLIResult, ResultPreformat, TopiaryError},
     language::LanguageDefinitionCache,
 };
 
@@ -52,9 +67,24 @@ impl Display for QuerySource {
 }
 
 impl QuerySource {
+    fn filepath(&self) -> Option<&Path> {
+        match self {
+            QuerySource::Path(p) => Some(p.as_path()),
+            QuerySource::BuiltIn(_) => None,
+        }
+    }
+
     async fn get_content(&self) -> CLIResult<String> {
         let contents = match self {
             Self::Path(query) => tokio::fs::read_to_string(query).await?,
+            Self::BuiltIn(contents) => contents.to_owned(),
+        };
+        Ok(contents)
+    }
+
+    fn get_content_sync(&self) -> CLIResult<String> {
+        let contents = match self {
+            Self::Path(query) => std::fs::read_to_string(query)?,
             Self::BuiltIn(contents) => contents.to_owned(),
         };
         Ok(contents)
@@ -117,6 +147,13 @@ impl InputSource {
             InputSource::Disk(path, _) => InputLocation(Some(path.clone())),
         }
     }
+
+    fn filepath(&self) -> Option<&Path> {
+        match self {
+            InputSource::Stdin => None,
+            InputSource::Disk(path, _) => Some(path.as_ref()),
+        }
+    }
 }
 
 impl fmt::Display for InputSource {
@@ -131,6 +168,12 @@ impl fmt::Display for InputSource {
 /// A location for a given [InputSource], `None` represents standard input
 #[derive(Debug)]
 pub struct InputLocation(Option<Arc<PathBuf>>);
+
+impl InputLocation {
+    pub(crate) fn to_path(&self) -> Option<&Path> {
+        self.0.as_ref().map(|p| p.as_path())
+    }
+}
 
 impl fmt::Display for InputLocation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -147,20 +190,30 @@ impl fmt::Display for InputLocation {
 pub struct InputFile<'cfg> {
     source: InputSource,
     language: &'cfg topiary_config::language::Language,
-    pub(crate) query: QuerySource,
+    pub(crate) formatting_query: QuerySource,
+    pub(crate) injection_query: Option<QuerySource>,
 }
 
 impl InputFile<'_> {
-    /// Convert our `InputFile` into language definition values that Topiary can consume
-    #[allow(clippy::result_large_err)]
-    pub async fn to_language(&self) -> CLIResult<Language> {
+    /// Convert our `InputFile` into a language definition values with blocking I/O.
+    pub fn to_language_sync(&self) -> CLIResult<Language> {
         let grammar = self.language().grammar()?;
-        let query_contents = self.query.get_content().await?;
-        let query = TopiaryQuery::new(&grammar, &query_contents)?;
+        let query_contents = self.formatting_query.get_content_sync()?;
+        let injection_query = match &self.injection_query {
+            Some(source) => {
+                let contents = source.get_content_sync()?;
+                Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
+            }
+            None => None,
+        };
+        let formatting_query = TopiaryQuery::new(&grammar, &query_contents)
+            .attach_filepath(self.formatting_query.filepath())
+            .context(FormatterError::Parsing)?;
 
         Ok(Language {
             name: self.language.name.clone(),
-            query,
+            formatting_query,
+            injection_query,
             grammar,
             indent: self.language().indent(),
         })
@@ -171,14 +224,23 @@ impl InputFile<'_> {
         &self.source
     }
 
+    pub(crate) fn filepath(&self) -> Option<&Path> {
+        self.source().filepath()
+    }
+
     /// Expose language for input
     pub fn language(&self) -> &topiary_config::language::Language {
         self.language
     }
 
-    /// Expose query path for input
-    pub fn query(&self) -> &QuerySource {
-        &self.query
+    /// Expose formatting query path for input
+    pub fn formatting_query(&self) -> &QuerySource {
+        &self.formatting_query
+    }
+
+    /// Expose optional injection query path for input
+    pub fn injection_query(&self) -> Option<&QuerySource> {
+        self.injection_query.as_ref()
     }
 }
 
@@ -186,30 +248,66 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
     config: &Configuration,
     name: T,
 ) -> CLIResult<Language> {
-    let config_language = config.get_language(name.as_ref())?;
+    let config_language = config.get_language(name.as_ref()).preformat_context()?;
     let grammar = config_language.grammar()?;
-    let query_content = to_query_from_language(config_language)?
-        .get_content()
-        .await?;
-    let query = TopiaryQuery::new(&grammar, &query_content)?;
+    let query_source = to_query_from_language(config_language)?;
+    let query_content = query_source.get_content().await?;
+    let formatting_query = TopiaryQuery::new(&grammar, &query_content)
+        .attach_filepath(query_source.filepath())
+        .context(FormatterError::Parsing)?;
+    let injection_query = match to_injection_query_from_language(config_language) {
+        Some(source) => {
+            let contents = source.get_content().await?;
+            Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
+        }
+        None => None,
+    };
 
     Ok(Language {
         name: name.as_ref().to_string(),
-        query,
+        formatting_query,
+        injection_query,
         grammar,
         indent: config_language.indent(),
     })
 }
 
+pub(crate) fn to_language_from_config_sync<T: AsRef<str> + fmt::Display>(
+    config: &Configuration,
+    name: T,
+) -> CLIResult<Language> {
+    let config_language = config.get_language(name.as_ref()).preformat_context()?;
+    let grammar = config_language.grammar()?;
+    let query_source = to_query_from_language(config_language)?;
+    let query_content = query_source.get_content_sync()?;
+    let formatting_query = TopiaryQuery::new(&grammar, &query_content)
+        .attach_filepath(query_source.filepath())
+        .context(FormatterError::Parsing)?;
+    let injection_query = match to_injection_query_from_language(config_language) {
+        Some(source) => {
+            let contents = source.get_content_sync()?;
+            Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
+        }
+        None => None,
+    };
+
+    Ok(Language {
+        name: name.as_ref().to_string(),
+        formatting_query,
+        injection_query,
+        grammar,
+        indent: config_language.indent(),
+    })
+}
 /// Simple helper function to read the full content of an io Read stream
-pub(crate) fn read_input(input: &mut dyn io::Read) -> Result<String> {
+pub(crate) fn read_input(input: &mut dyn io::Read) -> CLIResult<String> {
     let mut content = String::new();
     input.read_to_string(&mut content)?;
     Ok(content)
 }
 
 impl Read for InputFile<'_> {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match &mut self.source {
             InputSource::Stdin => io::stdin().lock().read(buf),
 
@@ -226,7 +324,6 @@ impl Read for InputFile<'_> {
 
 /// `Inputs` is an iterator of fully qualified `InputFile`s, each wrapped in `CLIResult`, which is
 /// populated by its constructor from any type that implements `Into<InputFrom>`
-#[allow(clippy::result_large_err)]
 pub struct Inputs<'cfg>(Vec<CLIResult<InputFile<'cfg>>>);
 
 impl<'cfg, 'i> Inputs<'cfg> {
@@ -237,18 +334,22 @@ impl<'cfg, 'i> Inputs<'cfg> {
         let inputs = match inputs.into() {
             InputFrom::Stdin(language_name, query) => {
                 vec![(|| {
-                    let language = config.get_language(&language_name)?;
+                    let language = config
+                        .get_language(&language_name)
+                        .map_err(|e| report!(e).preformat())
+                        .context(TopiaryError::Config)?;
                     let query_source: QuerySource = match query {
                         // The user specified a query file
                         Some(p) => p,
                         // The user did not specify a file, try the default locations
                         None => to_query_from_language(language)?,
                     };
-
+                    let injection_query = to_injection_query_from_language(language);
                     Ok(InputFile {
                         source: InputSource::Stdin,
                         language,
-                        query: query_source,
+                        formatting_query: query_source,
+                        injection_query,
                     })
                 })()]
             }
@@ -256,13 +357,15 @@ impl<'cfg, 'i> Inputs<'cfg> {
             InputFrom::Files(files) => files
                 .into_iter()
                 .map(|path| {
-                    let language = config.detect(&path)?;
+                    let language = config.detect(&path).preformat_context()?;
                     let query: QuerySource = to_query_from_language(language)?;
+                    let injection_query = to_injection_query_from_language(language);
 
                     Ok(InputFile {
                         source: InputSource::Disk(path.into(), None),
                         language,
-                        query,
+                        formatting_query: query,
+                        injection_query,
                     })
                 })
                 .collect(),
@@ -272,8 +375,9 @@ impl<'cfg, 'i> Inputs<'cfg> {
     }
 }
 
-#[allow(clippy::result_large_err)]
-fn to_query_from_language(language: &topiary_config::language::Language) -> CLIResult<QuerySource> {
+pub(crate) fn to_query_from_language(
+    language: &topiary_config::language::Language,
+) -> CLIResult<QuerySource> {
     let query: QuerySource = match language.find_query_file() {
         Ok(p) => p.into(),
         // For some reason, Topiary could not find any
@@ -284,14 +388,41 @@ fn to_query_from_language(language: &topiary_config::language::Language) -> CLIR
             log::warn!(
                 "No query files found in any of the expected locations. Falling back to compile-time included files."
             );
-            to_query(&language.name).map_err(|_| e)?
+            to_query(&language.name)
+                .local_context(e)
+                .preformat_context()?
         }
     };
     Ok(query)
 }
 
+pub(crate) fn to_injection_query_from_language(
+    language: &topiary_config::language::Language,
+) -> Option<QuerySource> {
+    language
+        .find_injections_file()
+        .map(Into::into)
+        .or_else(|| to_injection_query(&language.name))
+}
+
+fn to_injection_query<T>(name: T) -> Option<QuerySource>
+where
+    T: AsRef<str>,
+{
+    match name.as_ref() {
+        #[cfg(feature = "markdown")]
+        "markdown" => Some(topiary_queries::markdown_injections().into()),
+
+        #[cfg(feature = "ocamllex")]
+        "ocamllex" => Some(topiary_queries::ocamllex_injections().into()),
+
+        #[cfg(feature = "rust")]
+        "rust" => Some(topiary_queries::rust_injections().into()),
+
+        _ => None,
+    }
+}
 impl<'cfg> Iterator for Inputs<'cfg> {
-    #[allow(clippy::result_large_err)]
     type Item = CLIResult<InputFile<'cfg>>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -316,19 +447,17 @@ pub enum OutputFile {
 }
 
 impl OutputFile {
-    #[allow(clippy::result_large_err)]
     pub fn new(path: &str) -> CLIResult<Self> {
         match path {
             "-" => Ok(Self::Stdout),
             file => Ok(Self::Disk {
-                staged: tempfile()?,
+                staged: tempfile().context(TopiaryError::Config)?,
                 output: file.into(),
             }),
         }
     }
 
     // This function must be called to persist the output to disk
-    #[allow(clippy::result_large_err)]
     pub fn persist(self) -> CLIResult<()> {
         if let Self::Disk { mut staged, output } = self {
             // Rewind to the beginning of the staged output
@@ -356,14 +485,14 @@ impl fmt::Display for OutputFile {
 }
 
 impl Write for OutputFile {
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
             Self::Stdout => io::stdout().lock().write(buf),
             Self::Disk { staged, .. } => staged.write(buf),
         }
     }
 
-    fn flush(&mut self) -> Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         match self {
             Self::Stdout => io::stdout().lock().flush(),
             Self::Disk { staged, .. } => staged.flush(),
@@ -375,9 +504,8 @@ impl Write for OutputFile {
 // * stdin maps to stdout
 // * Files map to themselves (i.e., for in-place updates)
 impl TryFrom<&InputFile<'_>> for OutputFile {
-    type Error = TopiaryError;
+    type Error = Report;
 
-    #[allow(clippy::result_large_err)]
     fn try_from(input: &InputFile) -> CLIResult<Self> {
         match &input.source {
             InputSource::Stdin => Ok(Self::Stdout),
@@ -386,7 +514,6 @@ impl TryFrom<&InputFile<'_>> for OutputFile {
     }
 }
 
-#[allow(clippy::result_large_err)]
 fn to_query<T>(name: T) -> CLIResult<QuerySource>
 where
     T: AsRef<str> + fmt::Display,
@@ -400,6 +527,9 @@ where
 
         #[cfg(feature = "json")]
         "json" => Ok(topiary_queries::json().into()),
+
+        #[cfg(feature = "markdown")]
+        "markdown" => Ok(topiary_queries::markdown().into()),
 
         #[cfg(feature = "nickel")]
         "nickel" => Ok(topiary_queries::nickel().into()),
@@ -431,11 +561,52 @@ where
         #[cfg(feature = "wit")]
         "wit" => Ok(topiary_queries::wit().into()),
 
-        name => Err(TopiaryError::Bin(
-            format!("The specified language is unsupported: {name}"),
-            Some(CLIError::UnsupportedLanguage(name.to_string())),
-        )),
+        name => Err(TopiaryError::UnsupportedLanguage(name.to_string()).into()),
     }
+}
+
+// Strip field metadata (doc strings, type/contract annotations, `| default`,
+// `| optional`, priority) and unwrap `Term::Annotated` nodes from a NickelValue
+// so that the pretty printer emits a plain data record.
+fn strip_metadata(value: NickelValue) -> NickelValue {
+    use nickel_lang_core::eval::value::{RecordData, ValueContent};
+    value
+        .traverse(
+            &mut |v: NickelValue| -> std::result::Result<NickelValue, std::convert::Infallible> {
+                let pos_idx = v.pos_idx();
+                match v.content() {
+                    ValueContent::Record(lens) => {
+                        let Some(record) = lens.take().into_opt() else {
+                            return Ok(NickelValue::record_posless(RecordData::empty())
+                                .with_pos_idx(pos_idx));
+                        };
+                        let fields = record
+                            .fields
+                            .into_iter()
+                            .map(|(id, field)| {
+                                let Field { value, .. } = field;
+                                (id, Field::from(value.unwrap_or_else(NickelValue::null)))
+                            })
+                            .collect();
+                        Ok(NickelValue::record(
+                            RecordData::new_shared_tail(fields, record.attrs, record.sealed_tail),
+                            pos_idx,
+                        ))
+                    }
+                    ValueContent::Term(lens) => {
+                        let term = lens.take();
+                        if let Term::Annotated(data) = term {
+                            Ok(data.inner.clone())
+                        } else {
+                            Ok(NickelValue::term(term, pos_idx))
+                        }
+                    }
+                    other => Ok(other.restore()),
+                }
+            },
+            TraverseOrder::BottomUp,
+        )
+        .unwrap_or_else(|never: std::convert::Infallible| match never {})
 }
 
 // convenience function to bundle nickel config formatting errors in one return value
@@ -443,7 +614,9 @@ pub(crate) async fn format_config(
     config: &Configuration,
     nickel_term: &NickelValue,
 ) -> CLIResult<()> {
-    let nickel_config = format!("{nickel_term}");
+    // TODO handle verbose flag
+    let stripped = strip_metadata(nickel_term.clone());
+    let nickel_config = format!("{stripped}");
     let mut formatted_config = BufWriter::new(OutputFile::Stdout);
     // if errors are encountered in formatting, return
     let language = to_language_from_config(config, "nickel").await?;
@@ -456,30 +629,38 @@ pub(crate) async fn format_config(
             skip_idempotence: true,
             tolerate_parsing_errors: false,
         },
+        None,
     )?;
 
     Ok(())
 }
 
 // meant to be used in scenarios where multiple inputs are possible
-pub(crate) async fn process_inputs<F>(inputs: Inputs<'_>, process_fn: F) -> CLIResult<()>
+pub(crate) async fn process_inputs<F>(
+    inputs: Inputs<'_>,
+    process_fn: F,
+    cache: Arc<LanguageDefinitionCache>,
+) -> CLIResult<()>
 where
-    F: Fn(InputFile, Arc<Language>) -> CLIResult<()> + Send + Sync + 'static,
+    F: Fn(InputFile, Arc<Language>, Arc<LanguageDefinitionCache>) -> Result<(), Report>
+        + Send
+        + Sync
+        + 'static,
+    ErrorSpan: ObjectMarkerFor<SendSync>,
 {
-    let cache = LanguageDefinitionCache::new();
     let (_, mut results) = async_scoped::TokioScope::scope_and_block(|scope| {
         for input in inputs {
-            scope.spawn(async {
+            let cache = cache.clone();
+            let process_fn = &process_fn;
+            scope.spawn(async move {
                 // This happens when the input resolver cannot establish an input
                 // source, language or query file.
                 let input = input?;
                 let location = input.source().location();
-                let language = cache.fetch(&input).await?;
-                process_fn(input, language).map_err(|e| {
-                    let TopiaryError::Lib(fmt_err) = e else {
-                        return e;
-                    };
-                    fmt_err.with_location(location.to_string()).into()
+                tokio::task::block_in_place(|| {
+                    let language = cache.fetch_input(&input)?;
+                    process_fn(input, language, cache)
+                        .map_err(|e| e.attach_filepath(location.to_path()))
                 })
             });
         }
@@ -491,17 +672,13 @@ where
     }
 
     // use `.count()` here to ensure eager evaluation of iterator
-    let errs = results
+    let errs: ReportCollection = results
         .into_iter()
-        .filter_map(|r| r.map_err(TopiaryError::from).flatten().err())
-        .inspect(|e| print_error(&e))
-        .count();
-    if errs > 0 {
-        // For multiple inputs, bail out if any failed with a "multiple errors" failure
-        return Err(TopiaryError::Bin(
-            "Processing of some inputs failed; see warning logs for details".into(),
-            Some(CLIError::Multiple),
-        ));
+        .filter_map(|r| r.map_err(|e| report!(e).into_dynamic()).flatten().err())
+        .collect();
+
+    if !errs.is_empty() {
+        return Err(report!(errs).into_dynamic());
     }
     Ok(())
 }

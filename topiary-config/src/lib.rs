@@ -13,7 +13,7 @@ use std::{
 
 use language::{Language, LanguageConfiguration};
 use nickel_lang_core::{
-    error::NullReporter, eval::cache::CacheImpl, eval::value::NickelValue, program::Program,
+    error::NullReporter, eval::cache::CacheImpl, eval::value::NickelValue, program::ProgramBuilder,
 };
 use serde::Deserialize;
 
@@ -31,7 +31,7 @@ pub use source::Source;
 /// Contains information on how to format every language the user is interested in, modulo what is
 /// supported. It can be provided by the user of the library, or alternatively, Topiary ships with
 /// default configuration that can be accessed using `Configuration::default`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Configuration {
     languages: Vec<Language>,
 }
@@ -219,12 +219,20 @@ impl Configuration {
 
     #[allow(clippy::result_large_err)]
     fn parse_and_merge(sources: &[Source]) -> TopiaryConfigResult<(Self, NickelValue)> {
-        let inputs = sources.iter().map(|s| s.clone().into());
+        let mut builder = ProgramBuilder::new()
+            .with_trace(std::io::stderr())
+            .with_reporter(NullReporter {});
+        for source in sources {
+            builder = source.clone().add_to(builder);
+        }
+        let mut program = builder.build::<CacheImpl>()?;
 
-        let mut program =
-            Program::<CacheImpl>::new_from_inputs(inputs, std::io::stderr(), NullReporter {})?;
-
-        let term = program.eval_full_for_export()?;
+        let term = program
+            .eval_full_for_export()
+            .map_err(|error| TopiaryConfigError::Nickel {
+                error: Box::new(error),
+                files: Box::new(program.files()),
+            })?;
 
         let serde_config = SerdeConfiguration::deserialize(term.clone())?;
 
@@ -233,13 +241,20 @@ impl Configuration {
 
     #[allow(clippy::result_large_err)]
     fn parse(source: Source) -> TopiaryConfigResult<(Self, NickelValue)> {
-        let mut program = Program::<CacheImpl>::new_from_input(
-            source.into(),
-            std::io::stderr(),
-            NullReporter {},
-        )?;
+        let mut program = source
+            .add_to(
+                ProgramBuilder::new()
+                    .with_trace(std::io::stderr())
+                    .with_reporter(NullReporter {}),
+            )
+            .build::<CacheImpl>()?;
 
-        let term = program.eval_full_for_export()?;
+        let term = program
+            .eval_full_for_export()
+            .map_err(|error| TopiaryConfigError::Nickel {
+                error: Box::new(error),
+                files: Box::new(program.files()),
+            })?;
 
         let serde_config = SerdeConfiguration::deserialize(term.clone())?;
 
@@ -251,16 +266,14 @@ impl Default for Configuration {
     /// Return the built-in configuration
     // This is particularly useful for testing
     fn default() -> Self {
-        let mut program = Program::<CacheImpl>::new_from_source(
-            Source::Builtin
-                .read()
-                .expect("Evaluating the builtin configuration should be safe")
-                .as_slice(),
-            "built-in",
-            std::io::empty(),
-            NullReporter {},
-        )
-        .expect("Evaluating the builtin configuration should be safe");
+        let mut program = Source::Builtin
+            .add_to(
+                ProgramBuilder::new()
+                    .with_trace(std::io::empty())
+                    .with_reporter(NullReporter {}),
+            )
+            .build::<CacheImpl>()
+            .expect("Evaluating the builtin configuration should be safe");
         let term = program
             .eval_full_for_export()
             .expect("Evaluating the builtin configuration should be safe");

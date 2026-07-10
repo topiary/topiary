@@ -45,18 +45,30 @@ This name should be decided amongst the team before the release.
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.7.3...HEAD)
 
 ### Changed
+- [#1032](https://github.com/topiary/topiary/pull/1032) Replaced the `topiary-core` test and benchmark dependencies on the `tree-sitter-json` and `tree-sitter-nickel` grammar crates with dynamic loading via `topiary-config`.
 - [#1172](https://github.com/topiary/topiary/pull/1172) Split out `mdbook-manmunge` into its own repository.
 - [#1174](https://github.com/topiary/topiary/pull/1174) Split out the Topiary Playground into its own repository.
 - [#1191](https://github.com/topiary/topiary/pull/1191) Split out the Topiary website into its own repository.
 - [#1226](https://github.com/topiary/topiary/pull/1226) Query files moved from `queries/<lang>.scm` to `queries/<lang>/formatting.scm` in preparation for language injection support. The old flat layout is still supported as a fallback.
+- [#1232](https://github.com/topiary/topiary/pull/1232) Rework `topiary_core::ErrorSpan` to handle `QueryError`s as well as `Node` errors by introducing `rootcause::Report`
+- [#1249](https://github.com/topiary/topiary/pull/1249) Remove async calls and setup from `format_nickel` benchmark
+- [#1254](https://github.com/topiary/topiary/pull/1254) Topiary now gracefully skips formatting for unknown or unsupported injected languages instead of returning a fatal error, allowing files with unconfigured code blocks (like Markdown) to format successfully.
+- [#1267](https://github.com/topiary/topiary/pull/1267) Add initial injection support (JSON) for Rust
+- [#1270](https://github.com/topiary/topiary/pull/1270) Add initial `languages.ncl` Nickel contracts
+- [#1139](https://github.com/topiary/topiary/pull/1139) Added `rootcause::Report` handling in topiary-cli.
+- [#1283](https://github.com/topiary/topiary/pull/1283) Render Nickel parsing error diagnostics
 
 ### Fixed
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
+- [#1253](https://github.com/topiary/topiary/pull/1253) Handle linebreak preservation in OpenSCAD let chains
+- [#1255](https://github.com/topiary/topiary/pull/1255) Unpinned outdated wasm-bindgen dependency
 
 ### Added
 - [#1200](https://github.com/topiary/topiary/pull/1200) Build and deploy Topiary Docker images to ghcr.io.
 - [#1217](https://github.com/topiary/topiary/pull/1217) Add `--check` flag to `topiary fmt` for CI formatting verification.
 - [#1227](https://github.com/topiary/topiary/pull/1227) Add `@append_empty_input_softline` and `@prepend_empty_input_softline` captures, thanks to @BirdeeHub
+- [#1244](https://github.com/topiary/topiary/pull/1244) Add language injection support for injection languages known at query writing.
+- [#1254](https://github.com/topiary/topiary/pull/1254) Add Markdown formatting support with dynamic language injections for fenced code blocks (via the `@injection.language` capture).
 
 ### Removed
 - [#1217](https://github.com/topiary/topiary/pull/1217) The `check` alias for the `check-grammar` subcommand, to avoid confusion with `topiary fmt --check`.

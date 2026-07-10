@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up build dependencies
         uses: ./.github/actions/nix-build
@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up build dependencies
         uses: ./.github/actions/nix-build
@@ -51,9 +51,6 @@ jobs:
       - name: Build client-app example
         run: nix build .#client-app -L
 
-      - name: Verify that usage in README.md matches CLI output
-        run: nix run .#verify-documented-usage -L
-
       - name: Test against config regressions
         run: |
             nix run . -- config --merge --cfg ./topiary-config/tests/issue-1124.ncl
@@ -68,7 +65,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up build dependencies
         uses: ./.github/actions/nix-build
@@ -85,7 +82,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Init rust-cache
         uses: Swatinem/rust-cache@v2

@@ -72,6 +72,11 @@ mod native {
         pub fn version(&self) -> u32 {
             u32::try_from(self.inner.abi_version()).unwrap()
         }
+
+        #[inline]
+        pub fn name(&self) -> Option<&'static str> {
+            self.inner.name()
+        }
     }
 
     impl std::fmt::Debug for Language {

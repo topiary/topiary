@@ -2,11 +2,12 @@
 
 use std::{
     env::current_dir,
-    ffi::OsString,
     fmt,
     io::Cursor,
     path::{Path, PathBuf},
 };
+
+use nickel_lang_core::program::ProgramBuilder;
 
 use crate::error::{TopiaryConfigError, TopiaryConfigResult};
 
@@ -18,17 +19,17 @@ pub enum Source {
     File(PathBuf),
 }
 
-impl From<Source> for nickel_lang_core::program::Input<Cursor<String>, OsString> {
-    fn from(source: Source) -> Self {
+impl Source {
+    /// Register this source as an input on the given [`ProgramBuilder`].
+    pub fn add_to<R, W>(self, builder: ProgramBuilder<R, W>) -> ProgramBuilder<R, W> {
         use nickel_lang_core::cache::InputFormat;
-        match source {
-            Source::Builtin => Self::Source(
-                Cursor::new(source.builtin_nickel()),
-                "built-in".into(),
+        match self {
+            Source::Builtin => builder.add_source_with_format(
+                Cursor::new(Self::Builtin.builtin_nickel()),
+                "built-in",
                 InputFormat::Nickel,
             ),
-            Source::Directory(path) => Self::Path(path.into()),
-            Source::File(path) => Self::Path(path.into()),
+            Source::Directory(path) | Source::File(path) => builder.add_path(path.into_os_string()),
         }
     }
 }
@@ -138,15 +139,21 @@ impl Source {
     #[allow(clippy::result_large_err)]
     pub fn read(&self) -> TopiaryConfigResult<Vec<u8>> {
         match self {
-            Self::Builtin => Ok(self.builtin_nickel().into_bytes()),
+            Self::Builtin => Ok(self.builtin_nickel().into()),
 
             Self::Directory(dir) => read_to_string(&dir.join("languages.ncl")),
             Self::File(path) => read_to_string(path),
         }
     }
 
-    fn builtin_nickel(&self) -> String {
-        include_str!("../languages.ncl").to_string()
+    /// Returns the inlined value of [`topiary-config/languages.ncl`](
+    /// https://github.com/topiary/topiary/blob/a18816a891fd3f5265732a94c9049820f70638b0/topiary-config/languages.ncl),
+    /// this should be merged with other configurations using Nickel's commutative  [operations][ncl-merging] [^@wiki].
+    ///
+    /// [ncl-merging]: https://nickel-lang.org/user-manual/merging
+    /// [^@wiki]: <https://en.wikipedia.org/wiki/Commutative_property>
+    pub const fn builtin_nickel(&self) -> &'static str {
+        include_str!("../languages.ncl")
     }
 }
 

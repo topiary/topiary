@@ -24,6 +24,8 @@ tokio = { workspace = true, features = ["macros", "rt"] }
 topiary-tree-sitter-facade = { workspace = true }
 tree-sitter = { workspace = true }
 rayon = { workspace = true }
+thiserror = { workspace = true }
+rootcause = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 topiary-web-tree-sitter-sys.workspace = true
@@ -33,10 +35,13 @@ criterion = { workspace = true, features = ["async_futures"] }
 env_logger = { workspace = true }
 test-log = { workspace = true }
 tokio-test = { workspace = true }
-topiary-queries.workspace = true
-tree-sitter-json.workspace = true
-tree-sitter-nickel.workspace = true
+topiary-config = { workspace = true, features = ["json", "nickel", "ocaml", "ocamllex"] }
+topiary-queries = { workspace = true, features = ["json", "nickel", "ocaml", "ocamllex"] }
 
 [[bench]]
 name = "benchmark"
+harness = false
+
+[[bench]]
+name = "injections"
 harness = false

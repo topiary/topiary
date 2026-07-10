@@ -4,15 +4,18 @@
 
 set -euo pipefail
 
+export __TOPIARY_TERM_WIDTH=90
+
 readonly FENCE='```'
 
 get-cli-usage() {
   # Get the help text from the CLI
   local subcommand="$1"
+  local topiary="${TOPIARY:-cargo run -q --bin topiary --}"
 
   case "${subcommand}" in
-    "index") nix run .#topiary-wrapped -- --help;;
-    *)       nix run .#topiary-wrapped -- "${subcommand}" --help;;
+    "index") ${topiary} --help;;
+    *)       ${topiary} "${subcommand}" --help;;
   esac
 }
 
@@ -45,7 +48,7 @@ main() {
   # NOTE "index" is for the top-level usage documentation.
   # Each element in this array should correspond with a Markdown file in
   # docs/book/src/cli/usage
-  local -a subcommands=(index format visualise config completion coverage prefetch)
+  local -a subcommands=(index format visualise config completion coverage prefetch check-grammar)
 
   local _diff
   local _subcommand

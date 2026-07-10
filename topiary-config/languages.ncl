@@ -1,9 +1,79 @@
 # MAINTAINERS: If the structure of this configuration changes, it may
 # break `prefetchLanguagesNickelFile` in nix/utils/prefetchLanguages.nix
 # Please keep these synchronised.
+let rec
+  NixHash =
+    std.contract.from_validator (fun value =>
+      if !std.is_string value then
+        'Error { message = "expected `NixHash`" }
+      else if !std.string.is_match "^sha256-[A-Za-z0-9+/]{43}=$" value then
+        'Error {
+          message = "invalid nixHash format: %{value}",
+          notes = [
+            "Expected string in this format: 'sha256-[A-Za-z0-9+/]{43}='",
+            "The base64 payload must be exactly 44 characters long."
+          ]
+        }
+      else
+        'Ok
+    ),
+  GitSource = {
+    git
+      | String
+      | doc "URL of the Git repository hosting the tree-sitter grammar.",
+    rev
+      | String
+      | doc "Git revision (commit, tag, or branch) to fetch.",
+    subdir
+      | String
+      | optional
+      | doc "Sub-directory of the repository where the grammar lives.",
+    nixHash
+      | NixHash
+      | optional
+      | doc m%"
+        Pre-computed Nix SHA256 hash.
+
+        This can be generated with:
+        ```
+        nix run nixpkgs@nix-prefetch-git -- <URL> <REV>
+        ```
+      "%,
+  },
+  GrammarSource
+    | doc m%"
+Either a Git source or a local filesystem path. Fields are optional
+at the contract layer so that user configurations can override one
+variant with the other via Nickel record merging (e.g. setting
+`grammar.source.path` on top of a default `grammar.source.git`).
+"%
+    =
+      std.contract.any_of [
+        { git | GitSource },
+        { path | String },
+      ],
+  Grammar = {
+    source | GrammarSource,
+    symbol
+      | String
+      | optional
+      | doc "Override for the tree-sitter symbol; defaults to `tree_sitter_<name>`.",
+  },
+  LanguageConfig = {
+    extensions
+      | Array String
+      | doc "File extensions (without leading dot) associated with this language.",
+    indent
+      | String
+      | optional
+      | doc "Indentation string for this language; defaults to two spaces.",
+    grammar | Grammar,
+    .. # lang config fields should be non exhaustive for future schemas and end user customizability
+  }
+in
 
 {
-  languages = {
+  languages | { _ : LanguageConfig } = {
     bash = {
       extensions | default = ["sh", "bash"],
       grammar.source | default = {
@@ -48,6 +118,18 @@
           git = "https://github.com/tree-sitter/tree-sitter-json.git",
           rev = "v0.24.8",
           nixHash = "sha256-DNZC2cTy1C8OaMOpEHM6NoRtOIbLaBf0CLXXWCKODlw=",
+        },
+      },
+    },
+
+    markdown = {
+      extensions | default = ["md"],
+      grammar.source | default = {
+        git = {
+          git = "https://github.com/tree-sitter-grammars/tree-sitter-markdown.git",
+          rev = "c3570720f7f7bbad22fe96603f106276618e0cf5",
+          subdir = "tree-sitter-markdown",
+          nixHash = "sha256-wQKcqU0V6gHj84qOkUwdXsBW3f6MNfJMFxuGTucAgh8=",
         },
       },
     },
@@ -168,5 +250,6 @@
         },
       },
     },
-  }
+  },
+  ..
 }

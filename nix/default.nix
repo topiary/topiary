@@ -61,8 +61,8 @@ let
   };
 
   checks = callPackageNoOverrides ./checks {
-    inherit (pkgs') emptyFile;
-    inherit topiaryPkgs;
+    inherit (pkgs') emptyFile runCommand lib;
+    inherit topiaryPkgs binPkgs;
     inherit (topiaryLib) gitHook;
   };
 

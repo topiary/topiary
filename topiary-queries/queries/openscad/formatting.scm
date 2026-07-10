@@ -204,7 +204,8 @@
 ; Let child nodes handle indentation
 (var_declaration . (assignment . (identifier) . "=" @append_input_softline))
 
-(assignments) @append_space
+; we want the node following an assignment to determine space/newline separation
+((assignments) . (_) @prepend_input_softline)
 ; OS2021 does not support trailing commas in assignments
 ; https://github.com/Leathong/openscad-LSP/issues/51#issuecomment-2891821939
 ; (assignments

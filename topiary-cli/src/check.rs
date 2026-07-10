@@ -1,9 +1,10 @@
 use std::io::BufReader;
 
-use topiary_core::{Language, Operation, formatter};
+use rootcause::report;
+use topiary_core::{Language, LanguageResolver, Operation, formatter};
 
 use crate::{
-    error::{CLIError, CLIResult, TopiaryError},
+    error::{CLIResult, TopiaryError},
     io::{InputFile, read_input},
 };
 
@@ -15,6 +16,7 @@ pub fn check_input(
     language: &Language,
     skip_idempotence: bool,
     tolerate_parsing_errors: bool,
+    resolve: Option<&LanguageResolver<'_>>,
 ) -> CLIResult<()> {
     let source_name = input.source().to_string();
 
@@ -30,19 +32,18 @@ pub fn check_input(
             skip_idempotence,
             tolerate_parsing_errors,
         },
+        resolve,
     )?;
 
     let formatted = String::from_utf8_lossy(&formatted_bytes).into_owned();
 
     if original != formatted {
-        return Err(TopiaryError::Bin(
-            format!("{source_name} is not formatted"),
-            Some(CLIError::CheckFailed {
-                source_name,
-                original,
-                formatted,
-            }),
-        ));
+        return Err(report!(TopiaryError::CheckFailed {
+            source_name,
+            original,
+            formatted,
+        })
+        .into_dynamic());
     }
 
     Ok(())

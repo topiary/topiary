@@ -1,5 +1,9 @@
 use std::{fmt, sync::Once};
-#[cfg(any(feature = "json", feature = "toml"))]
+#[cfg(any(
+    feature = "json",
+    feature = "toml",
+    all(feature = "ocamllex", feature = "ocaml")
+))]
 use {
     std::{fs, fs::File, io::Write, path::PathBuf},
     tempfile::TempDir,
@@ -293,6 +297,61 @@ fn test_fmt_invalid() {
         .arg("/path/to/query")
         .assert()
         .failure();
+}
+
+#[test]
+#[cfg(all(feature = "ocamllex", feature = "ocaml"))]
+fn test_fmt_ocamllex_invalid_inner_ocaml_fails() {
+    use predicates::str::contains;
+
+    let input = fs::read_to_string("tests/samples/input/ocamllex_invalid_inner.mll").unwrap();
+
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("fmt")
+        .arg("--language")
+        .arg("ocamllex")
+        .write_stdin(input)
+        .assert()
+        .failure()
+        .stderr(contains("Parsing"));
+}
+
+#[test]
+#[cfg(all(feature = "ocamllex", feature = "ocaml"))]
+fn test_fmt_ocamllex_broken_inner_language_resolution_fails() {
+    use predicates::{prelude::PredicateBooleanExt, str::contains};
+
+    let tmp_dir = TempDir::new().unwrap();
+    let ocaml_dir = tmp_dir.path().join("ocaml");
+    fs::create_dir_all(&ocaml_dir).unwrap();
+    fs::write(
+        ocaml_dir.join("formatting.scm"),
+        "this is not a tree-sitter query",
+    )
+    .unwrap();
+
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", tmp_dir.path())
+        .arg("fmt")
+        .arg("--language")
+        .arg("ocamllex")
+        .write_stdin(r#"rule token = parse | "x" { let values=[1;2;3] in values }"#)
+        .assert()
+        .failure()
+        .stderr(
+            contains(r#"Could not resolve injected language "ocaml""#)
+                .and(contains("Query error"))
+                .and(contains(format!(
+                    "ocaml{}formatting.scm",
+                    std::path::MAIN_SEPARATOR
+                )))
+                .and(contains("this is not a tree-sitter query")),
+        );
 }
 
 #[test]

@@ -52,6 +52,10 @@ let
     ];
   };
 
+  prepareTopiaryDefaultConfiguration = ''
+    cp ${prefetchLanguagesNickelFile ../../topiary-config/languages.ncl} topiary-config/languages.ncl
+  '';
+
   cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
   clippy = craneLib.cargoClippy (
@@ -76,6 +80,8 @@ let
     // {
       inherit cargoArtifacts;
       cargoTestCommand = "cargo bench --profile release";
+      preConfigurePhases = [ "prepareTopiaryDefaultConfiguration" ];
+      inherit prepareTopiaryDefaultConfiguration;
     }
   );
 
@@ -94,6 +100,8 @@ let
       inherit cargoArtifacts;
       pname = "topiary-core";
       cargoExtraArgs = "-p topiary-core";
+      preConfigurePhases = [ "prepareTopiaryDefaultConfiguration" ];
+      inherit prepareTopiaryDefaultConfiguration;
     }
   );
 
@@ -110,10 +118,7 @@ let
         cargoTestExtraArgs = "--no-default-features";
 
         preConfigurePhases = optional prefetchGrammars "prepareTopiaryDefaultConfiguration";
-
-        prepareTopiaryDefaultConfiguration = optional prefetchGrammars (
-          "cp ${prefetchLanguagesNickelFile ../../topiary-config/languages.ncl} topiary-config/languages.ncl"
-        );
+        inherit prepareTopiaryDefaultConfiguration;
 
         postInstall = ''
           mkdir -p $out/share/queries

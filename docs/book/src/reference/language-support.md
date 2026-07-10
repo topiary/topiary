@@ -53,6 +53,7 @@ feature flag (either `experimental`, for all of them, or by their
 individual name). Once included, they can be accessed in Topiary in the
 usual way.
 
+- [Markdown]
 - [Rust]
 
 # Topiary cultivars
@@ -64,8 +65,15 @@ are the ones we know about!
 - **[topiary-nushell]**, by @blindFS \
   A formatter for the [Nushell] shell language.
 
-- [**Godot GDScript Formatter**][gdscript-formatter], by GDQuest \
+- **[Godot GDScript Formatter][gdscript-formatter]**, by GDQuest \
   A formatter for Godot's [GDScript] programming language.
+
+- **[tree-sitter-sieve]**, by Tristan Maat \
+  A Tree-sitter grammar and Topiary formatting query for the [Sieve
+  e-mail filtering language](https://en.wikipedia.org/wiki/Sieve_(mail_filtering_language)).
+
+- **[faustfmt]**, by Grame, centre national de création musicale \
+  A formatter for the [Faust](https://faust.grame.fr/) programming language.
 
 <div class="warning">
 
@@ -79,9 +87,11 @@ channel][discord].
 [bash]: https://www.gnu.org/software/bash
 [css]: https://en.wikipedia.org/wiki/CSS
 [discord]: https://discord.gg/FSnkvNyyzC
+[faustfmt]: https://github.com/grame-cncm/faustfmt
 [gdscript-formatter]: https://gdquest.com/library/gdscript_formatter
 [gdscript]: https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/index.html
 [json]: https://www.json.org
+[markdown]: https://commonmark.org
 [nickel]: https://nickel-lang.org
 [nushell]: https://nushell.sh
 [ocaml]: https://ocaml.org
@@ -92,4 +102,5 @@ channel][discord].
 [toml]: https://toml.io
 [topiary-nushell]: https://github.com/blindFS/topiary-nushell/
 [tree-sitter-query]: https://tree-sitter.github.io/tree-sitter/using-parsers#pattern-matching-with-queries
+[tree-sitter-sieve]: https://github.com/TLATER/tree-sitter-sieve
 [wit]: https://component-model.bytecodealliance.org/design/wit.html
