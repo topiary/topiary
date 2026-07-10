@@ -272,10 +272,12 @@ nl_or_stmt:
 | stmt { $1 }
 
 sgrep_spatch_pattern:
-| stmt NEWLINE? EOF { match $1 with
-                      | [ExprStmt x] -> Expr x
-                      | [x] -> Stmt x
-                      | xs -> Stmts xs }
+| stmt NEWLINE? EOF {
+  match $1 with
+  | [ExprStmt x] -> Expr x
+  | [x] -> Stmt x
+  | xs -> Stmts xs
+}
 | stmt stmt+ NEWLINE? EOF { Stmts ($1 @ (List.flatten $2)) }
 
 (*************************************************************************)
@@ -286,11 +288,13 @@ import_stmt:
 | import_name { $1 }
 | import_from { $1 }
 
-import_name: IMPORT list_sep(dotted_as_name, ",") { $2
-                                                    |> List.map (fun (v1, v2) ->
-                                                        let dots = None in
-                                                        ImportAs ($1, (v1, dots), v2)
-                                                      ) }
+import_name: IMPORT list_sep(dotted_as_name, ",") {
+  $2
+  |> List.map (fun (v1, v2) ->
+      let dots = None in
+      ImportAs ($1, (v1, dots), v2)
+    )
+}
 
 dotted_as_name:
 | dotted_name { $1, None }
@@ -306,9 +310,11 @@ import_from:
 | FROM name_and_level IMPORT list_comma(import_as_name) { [ImportFrom ($1, $2, $4)] }
 
 name_and_level:
-| dot_level dotted_name { match $1 with
-                          | [] -> $2, None
-                          | dl -> $2, Some dl }
+| dot_level dotted_name {
+  match $1 with
+  | [] -> $2, None
+  | dl -> $2, Some dl
+}
 | "." dot_level { [("", $1 (*TODO*))], Some ($1 :: $2) }
 | "..." dot_level { [("", $1 (*TODO*))], Some ($1 :: $2) }
 
@@ -574,15 +580,21 @@ compound_stmt:
 | async_stmt { $1 }
 
 decorated:
-| decorator+ classdef { match $2 with
-                        | ClassDef (t, a, b, c, d) -> ClassDef (t, a, b, c, $1 @ d)
-                        | _ -> raise Impossible }
-| decorator+ funcdef { match $2 with
-                       | FunctionDef (t, a, b, c, d, e) -> FunctionDef (t, a, b, c, d, $1 @ e)
-                       | _ -> raise Impossible }
-| decorator+ async_funcdef { match $2 with
-                             | FunctionDef (t, a, b, c, d, e) -> FunctionDef (t, a, b, c, d, $1 @ e)
-                             | _ -> raise Impossible }
+| decorator+ classdef {
+  match $2 with
+  | ClassDef (t, a, b, c, d) -> ClassDef (t, a, b, c, $1 @ d)
+  | _ -> raise Impossible
+}
+| decorator+ funcdef {
+  match $2 with
+  | FunctionDef (t, a, b, c, d, e) -> FunctionDef (t, a, b, c, d, $1 @ e)
+  | _ -> raise Impossible
+}
+| decorator+ async_funcdef {
+  match $2 with
+  | FunctionDef (t, a, b, c, d, e) -> FunctionDef (t, a, b, c, d, $1 @ e)
+  | _ -> raise Impossible
+}
 
 (* this is always preceded by a ":" *)
 suite:
@@ -691,10 +703,12 @@ atom_and_trailers:
 | atom { $1 }
 | atom_and_trailers "(" ")" { Call ($1, ($2, [], $3)) }
 | atom_and_trailers "(" list_comma(argument) ")" { Call ($1, ($2, $3, $4)) }
-| atom_and_trailers "[" list_comma(subscript) "]" { match $3 with
-                                                    (* TODO test* => Index (Tuple (elts)) *)
-                                                    | [s] -> Subscript ($1, ($2, [s], $4), Load)
-                                                    | l -> Subscript ($1, ($2, l, $4), Load) }
+| atom_and_trailers "[" list_comma(subscript) "]" {
+  match $3 with
+  (* TODO test* => Index (Tuple (elts)) *)
+  | [s] -> Subscript ($1, ($2, [s], $4), Load)
+  | l -> Subscript ($1, ($2, l, $4), Load)
+}
 | atom_and_trailers "." NAME { Attribute ($1, $2, $3, Load) }
 
 (*----------------------------*)
@@ -709,10 +723,12 @@ atom:
 | TRUE { Bool (true, $1) }
 | FALSE { Bool (false, $1) }
 | NONE { None_ $1 }
-| string+ { match $1 with
-            | [] -> raise Common.Impossible
-            | [x] -> x
-            | xs -> ConcatenatedString xs }
+| string+ {
+  match $1 with
+  | [] -> raise Common.Impossible
+  | [x] -> x
+  | xs -> ConcatenatedString xs
+}
 | atom_tuple { $1 }
 | atom_list { $1 }
 | atom_dict { $1 }
@@ -733,8 +749,10 @@ testlist1:
 (*----------------------------*)
 
 string:
-STR { let (s, pre, tok) = $1 in
-      if pre = "" then Str (s, tok) else EncodedStr ((s, tok), pre) }
+STR {
+  let (s, pre, tok) = $1 in
+  if pre = "" then Str (s, tok) else EncodedStr ((s, tok), pre)
+}
 | FSTRING_START interpolated* FSTRING_END { InterpolatedString $2 }
 
 interpolated:
@@ -893,9 +911,11 @@ testlist_comp:
  * in parenthesis, e.g., (1) in a regular expr, not a tuple *)
 testlist_comp_or_expr:
 | namedexpr_or_star_expr comp_for { Tuple (CompForIf ($1, $2), Load) }
-| tuple(namedexpr_or_star_expr) { match $1 with
-                                  | Single e -> e
-                                  | Tup l -> Tuple (CompList (PI.fake_bracket l), Load) }
+| tuple(namedexpr_or_star_expr) {
+  match $1 with
+  | Single e -> e
+  | Tup l -> Tuple (CompList (PI.fake_bracket l), Load)
+}
 
 (* supports comp_for when used generically -- not inside atom_list
  * Note that the division here is necessary to solve a shift-reduce conflict between:
@@ -918,7 +938,9 @@ listcomp_for:
 | ASYNC listsync_comp_for { (* TODO *) $2 }
 
 list_for:
-or_test "," list_for_rest { List (CompList (PI.fake_bracket ($1 :: $3)), Load) }
+or_test "," list_for_rest {
+  List (CompList (PI.fake_bracket ($1 :: $3)), Load)
+}
 
 list_for_rest:
 | or_test { [$1] }
@@ -962,9 +984,11 @@ argument:
 (* sgrep-ext: difficult to move in atom without s/r conflict so restricted
    * to argument for now *)
 | NAME ":" test { Flag_parsing.sgrep_guard (Arg (TypedMetavar ($1, $2, $3))) }
-| test "=" test { match $1 with
-                  | Name (id, _, _) -> ArgKwd (id, $3)
-                  | _ -> raise Parsing.Parse_error }
+| test "=" test {
+  match $1 with
+  | Name (id, _, _) -> ArgKwd (id, $3)
+  | _ -> raise Parsing.Parse_error
+}
 // This is a line comment for coverage
 %public%inline dummy_rule(X):
 | a = AT; X { () };

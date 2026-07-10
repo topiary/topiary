@@ -177,7 +177,8 @@
 ; `@multi_line_indent_all` so that if the OCaml code spans multiple lines,
 ; it shifts appropriately to follow the grammar's indentation depth.
 (action
-  "{" @append_space
+  (#scope_id! "action")
+  "{" @append_indent_start @append_spaced_scoped_softline
   (ocaml) @multi_line_indent_all
-  "}" @prepend_space
-)
+  "}" @prepend_indent_end @prepend_spaced_scoped_softline
+) @prepend_begin_scope @append_end_scope
