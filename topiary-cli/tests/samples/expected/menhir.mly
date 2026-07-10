@@ -40,8 +40,8 @@ type single_or_tuple =
   | Tup of expr list
 
 let cons e = function
-  | Single e' -> Tup (e::[e'])
-  | Tup l -> Tup (e::l)
+  | Single e' -> Tup (e :: [e'])
+  | Tup l -> Tup (e :: l)
 
 let tuple_expr = function
   | Single e -> e
@@ -56,17 +56,15 @@ let to_list = function
 *)
 let rec set_expr_ctx ctx = function
   | Name (id, _, x) ->
-      Name (id, ctx, x)
+    Name (id, ctx, x)
   | Attribute (value, t, attr, _) ->
-      Attribute (value, t, attr, ctx)
+    Attribute (value, t, attr, ctx)
   | Subscript (value, slice, _) ->
-      Subscript (value, slice, ctx)
-
+    Subscript (value, slice, ctx)
   | List (CompList (t1, elts, t2), _) ->
-      List (CompList ((t1, List.map (set_expr_ctx ctx) elts, t2)), ctx)
+    List (CompList ((t1, List.map (set_expr_ctx ctx) elts, t2)), ctx)
   | Tuple (CompList (t1, elts, t2), _) ->
-      Tuple (CompList ((t1, List.map (set_expr_ctx ctx) elts, t2)), ctx)
-
+    Tuple (CompList ((t1, List.map (set_expr_ctx ctx) elts, t2)), ctx)
   | e -> e
 
 let expr_store = set_expr_ctx Store
@@ -74,9 +72,9 @@ and expr_del = set_expr_ctx Del
 
 let tuple_expr_store l =
   let e = tuple_expr l in
-    match AST_python.context_of_expr e with
-    | Some Param -> e
-    | _ -> expr_store e
+  match AST_python.context_of_expr e with
+  | Some Param -> e
+  | _ -> expr_store e
 
 let mk_str ii =
   let s = Parse_info.str_of_info ii in
@@ -111,36 +109,105 @@ let mk_str ii =
 (*-----------------------------------------*)
 (* Keyword tokens *)
 (*-----------------------------------------*)
-%token <AST_python.tok> IF ELSE ELIF WHILE FOR RETURN CONTINUE BREAK PASS DEF LAMBDA CLASS GLOBAL TRY FINALLY EXCEPT RAISE AND NOT OR IMPORT FROM AS DEL IN IS WITH YIELD ASSERT NONE TRUE FALSE ASYNC AWAIT NONLOCAL
-(* python2: *)
-PRINT EXEC
+%token <AST_python.tok>
+    IF
+    ELSE
+    ELIF
+    WHILE
+    FOR
+    RETURN
+    CONTINUE
+    BREAK
+    PASS
+    DEF
+    LAMBDA
+    CLASS
+    GLOBAL
+    TRY
+    FINALLY
+    EXCEPT
+    RAISE
+    AND
+    NOT
+    OR
+    IMPORT
+    FROM
+    AS
+    DEL
+    IN
+    IS
+    WITH
+    YIELD
+    ASSERT
+    NONE
+    TRUE
+    FALSE
+    ASYNC
+    AWAIT
+    NONLOCAL
+    (* python2: *)
+    PRINT
+    EXEC
 
 (*-----------------------------------------*)
 (* Punctuation tokens *)
 (*-----------------------------------------*)
 
 (* syntax *)
-%token <AST_python.tok> LPAREN"(" RPAREN")" LBRACK"[" RBRACK"]" LBRACE"{" RBRACE"}" COLON":" SEMICOL";" DOT"." COMMA"," BACKQUOTE"`" AT"@" ELLIPSES"..." LDots"<..." RDots"...>"
+%token <AST_python.tok>
+    LPAREN "("
+    RPAREN ")"
+    LBRACK "["
+    RBRACK "]"
+    LBRACE "{"
+    RBRACE "}"
+    COLON ":"
+    SEMICOL ";"
+    DOT "."
+    COMMA ","
+    BACKQUOTE "`"
+    AT "@"
+    ELLIPSES "..."
+    LDots "<..."
+    RDots "...>"
 
 (* operators *)
-%token <AST_python.tok> ADD (* + *) SUB (* - *)
-MULT"*" (* * *) DIV"/" (* / *)
-MOD (* % *)
-POW"**" (* ** *) FDIV (* // *)
-BITOR (* | *) BITAND (* & *) BITXOR (* ^ *)
-BITNOT (* ~ *) LSHIFT (* << *) RSHIFT (* >> *)
+%token <AST_python.tok>
+    ADD (* + *)
+    SUB (* - *)
+    MULT "*" (* * *)
+    DIV "/" (* / *)
+    MOD (* % *)
+    POW "**" (* ** *)
+    FDIV (* // *)
+    BITOR (* | *)
+    BITAND (* & *)
+    BITXOR (* ^ *)
+    BITNOT (* ~ *)
+    LSHIFT (* << *)
+    RSHIFT (* >> *)
 
-%token <AST_python.tok> EQ"=" (* = *)
-COLONEQ":=" (* := *)
-ADDEQ (* += *) SUBEQ (* -= *)
-MULTEQ (* *= *) DIVEQ (* /= *)
-MODEQ (* %= *)
-POWEQ (* **= *) FDIVEQ (* //= *)
-ANDEQ (* &= *) OREQ (* |= *) XOREQ (* ^= *)
-LSHEQ (* <<= *) RSHEQ (* >>= *)
-EQUAL (* == *) NOTEQ (* !=, <> *)
-LT (* < *) GT (* > *)
-LEQ (* <= *) GEQ (* >= *)
+%token <AST_python.tok>
+    EQ "=" (* = *)
+    COLONEQ ":=" (* := *)
+    ADDEQ (* += *)
+    SUBEQ (* -= *)
+    MULTEQ (* *= *)
+    DIVEQ (* /= *)
+    MODEQ (* %= *)
+    POWEQ (* **= *)
+    FDIVEQ (* //= *)
+    ANDEQ (* &= *)
+    OREQ (* |= *)
+    XOREQ (* ^= *)
+    LSHEQ (* <<= *)
+    RSHEQ (* >>= *)
+    EQUAL (* == *)
+    NOTEQ (* !=, <> *)
+    LT (* < *)
+    GT (* > *)
+    LEQ (* <= *)
+    GEQ (* >= *)
 
 (*-----------------------------------------*)
 (* Extra tokens: *)
@@ -176,7 +243,7 @@ list_sep(X,Sep):
 list_sep_term(X,Sep):
 | X { [$1] }
 | X Sep { [$1] }
-| X Sep list_sep_term(X, Sep) { $1::$3 }
+| X Sep list_sep_term(X, Sep) { $1 :: $3 }
 
 list_comma(X): list_sep_term(X, ",") { $1 }
 
@@ -208,8 +275,7 @@ sgrep_spatch_pattern:
 | stmt NEWLINE? EOF { match $1 with
                       | [ExprStmt x] -> Expr x
                       | [x] -> Stmt x
-                      | xs -> Stmts xs
-                    }
+                      | xs -> Stmts xs }
 | stmt stmt+ NEWLINE? EOF { Stmts ($1 @ (List.flatten $2)) }
 
 (*************************************************************************)
@@ -220,8 +286,11 @@ import_stmt:
 | import_name { $1 }
 | import_from { $1 }
 
-import_name: IMPORT list_sep(dotted_as_name, ",") { $2 |> List.map (fun (v1, v2) -> let dots = None in
-                                                         ImportAs ($1, (v1, dots), v2))   }
+import_name: IMPORT list_sep(dotted_as_name, ",") { $2
+                                                    |> List.map (fun (v1, v2) ->
+                                                        let dots = None in
+                                                        ImportAs ($1, (v1, dots), v2)
+                                                      ) }
 
 dotted_as_name:
 | dotted_name { $1, None }
@@ -229,7 +298,7 @@ dotted_as_name:
 
 dotted_name:
 | NAME { [$1] }
-| NAME "." dotted_name { $1::$3 }
+| NAME "." dotted_name { $1 :: $3 }
 
 import_from:
 | FROM name_and_level IMPORT "*" { [ImportAll ($1, $2, $4)] }
@@ -239,15 +308,14 @@ import_from:
 name_and_level:
 | dot_level dotted_name { match $1 with
                           | [] -> $2, None
-                          | dl -> $2, Some dl
-                        }
-| "." dot_level { [("",$1(*TODO*))], Some ($1 :: $2) }
-| "..." dot_level { [("",$1(*TODO*))], Some ($1:: $2) }
+                          | dl -> $2, Some dl }
+| "." dot_level { [("", $1 (*TODO*))], Some ($1 :: $2) }
+| "..." dot_level { [("", $1 (*TODO*))], Some ($1 :: $2) }
 
 dot_level:
 | (*empty *) { [] }
-| "." dot_level { $1::$2 }
-| "..." dot_level { $1::$2 }
+| "." dot_level { $1 :: $2 }
+| "..." dot_level { $1 :: $2 }
 
 import_as_name:
 | NAME { $1, None }
@@ -268,7 +336,7 @@ expr_stmt:
 | tuple(test_or_star_expr) ":" test "=" test { Assign ([TypedExpr (tuple_expr_store $1, $3)], $4, $5) }
 | tuple(test_or_star_expr) augassign yield_expr { AugAssign (tuple_expr_store $1, $2, $3) }
 | tuple(test_or_star_expr) augassign tuple(test) { AugAssign (tuple_expr_store $1, $2, tuple_expr $3) }
-| tuple(test_or_star_expr) "=" expr_stmt_rhs_list { Assign ((tuple_expr_store $1)::(fst $3), $2, snd $3) }
+| tuple(test_or_star_expr) "=" expr_stmt_rhs_list { Assign ((tuple_expr_store $1) :: (fst $3), $2, snd $3) }
 
 namedexpr_or_star_expr:
 | namedexpr_test { $1 }
@@ -286,7 +354,7 @@ exprlist: tuple(expr_or_star_expr) { $1 }
 
 expr_stmt_rhs_list:
 | expr_stmt_rhs { [], $1 }
-| expr_stmt_rhs "=" expr_stmt_rhs_list { (expr_store $1)::(fst $3), snd $3 }
+| expr_stmt_rhs "=" expr_stmt_rhs_list { (expr_store $1) :: (fst $3), snd $3 }
 
 expr_stmt_rhs:
 | yield_expr { $1 }
@@ -328,7 +396,7 @@ parameters: "(" typedargslist ")" { $2 }
 typedargslist:
 | (*empty*) { [] }
 | typed_parameter { [$1] }
-| typed_parameter "," typedargslist { $1::$3 }
+| typed_parameter "," typedargslist { $1 :: $3 }
 
 (* the original grammar enforces more restrictions on the order between
    * Param, ParamStar, and ParamPow, but each language version relaxed it *)
@@ -361,7 +429,7 @@ tfpdef_or_fpdef:
 varargslist:
 | (*empty*) { [] }
 | parameter { [$1] }
-| parameter "," varargslist { $1::$3 }
+| parameter "," varargslist { $1 :: $3 }
 
 (* python3-ext: can be in any order, ParamStar before or after Classic *)
 parameter:
@@ -378,7 +446,7 @@ fpdef:
 
 fplist:
 | fpdef { [$1] }
-| fpdef "," fplist { $1::$3 }
+| fpdef "," fplist { $1 :: $3 }
 
 (*************************************************************************)
 (* Class definition *)
@@ -439,14 +507,14 @@ small_stmt:
 (* python2: *)
 print_stmt:
 | PRINT { Print ($1, None, [], true) }
-| PRINT test print_testlist { Print ($1, None, $2::(fst $3), snd $3) }
+| PRINT test print_testlist { Print ($1, None, $2 :: (fst $3), snd $3) }
 | PRINT RSHIFT test { Print ($1, Some $3, [], true) }
-| PRINT RSHIFT test "," test print_testlist { Print ($1, Some $3, $5::(fst $6), snd $6) }
+| PRINT RSHIFT test "," test print_testlist { Print ($1, Some $3, $5 :: (fst $6), snd $6) }
 
 print_testlist:
 | (* empty *) { [], true }
 | "," { [], false }
-| "," test print_testlist { $2::(fst $3), snd $3 }
+| "," test print_testlist { $2 :: (fst $3), snd $3 }
 
 exec_stmt:
 | EXEC expr { Exec ($1, $2, None, None) }
@@ -464,7 +532,7 @@ flow_stmt:
 | raise_stmt { $1 }
 | yield_stmt { $1 }
 
-break_stmt: BREAK { Break $1  }
+break_stmt: BREAK { Break $1 }
 continue_stmt: CONTINUE { Continue $1 }
 
 return_stmt:
@@ -508,16 +576,13 @@ compound_stmt:
 decorated:
 | decorator+ classdef { match $2 with
                         | ClassDef (t, a, b, c, d) -> ClassDef (t, a, b, c, $1 @ d)
-                        | _ -> raise Impossible
-                      }
+                        | _ -> raise Impossible }
 | decorator+ funcdef { match $2 with
                        | FunctionDef (t, a, b, c, d, e) -> FunctionDef (t, a, b, c, d, $1 @ e)
-                       | _ -> raise Impossible
-                     }
+                       | _ -> raise Impossible }
 | decorator+ async_funcdef { match $2 with
                              | FunctionDef (t, a, b, c, d, e) -> FunctionDef (t, a, b, c, d, $1 @ e)
-                             | _ -> raise Impossible
-                          }
+                             | _ -> raise Impossible }
 
 (* this is always preceded by a ":" *)
 suite:
@@ -549,7 +614,7 @@ try_stmt:
 excepthandler:
 | EXCEPT ":" suite { ExceptHandler ($1, None, None, $3) }
 | EXCEPT test ":" suite { ExceptHandler ($1, Some $2, None, $4) }
-| EXCEPT test AS NAME ":" suite { ExceptHandler ($1, Some $2, Some $4, $6)}
+| EXCEPT test AS NAME ":" suite { ExceptHandler ($1, Some $2, Some $4, $6) }
 (* python2: *)
 | EXCEPT test "," NAME ":" suite { ExceptHandler ($1, Some $2, Some $4, $6) }
 
@@ -573,25 +638,25 @@ async_stmt:
 
 expr:
 | xor_expr { $1 }
-| expr BITOR xor_expr { BinOp ($1, (BitOr,$2), $3) }
+| expr BITOR xor_expr { BinOp ($1, (BitOr, $2), $3) }
 
 xor_expr:
 | and_expr { $1 }
-| xor_expr BITXOR and_expr { BinOp ($1, (BitXor,$2), $3) }
+| xor_expr BITXOR and_expr { BinOp ($1, (BitXor, $2), $3) }
 
 and_expr:
 | shift_expr { $1 }
-| shift_expr BITAND and_expr { BinOp ($1, (BitAnd,$2), $3) }
+| shift_expr BITAND and_expr { BinOp ($1, (BitAnd, $2), $3) }
 
 shift_expr:
 | arith_expr { $1 }
-| shift_expr LSHIFT arith_expr { BinOp ($1, (LShift,$2), $3) }
-| shift_expr RSHIFT arith_expr { BinOp ($1, (RShift,$2), $3) }
+| shift_expr LSHIFT arith_expr { BinOp ($1, (LShift, $2), $3) }
+| shift_expr RSHIFT arith_expr { BinOp ($1, (RShift, $2), $3) }
 
 arith_expr:
 | term { $1 }
-| arith_expr ADD term { BinOp ($1, (Add,$2), $3) }
-| arith_expr SUB term { BinOp ($1, (Sub,$2), $3) }
+| arith_expr ADD term { BinOp ($1, (Add, $2), $3) }
+| arith_expr SUB term { BinOp ($1, (Sub, $2), $3) }
 
 term:
 | factor { $1 }
@@ -605,14 +670,14 @@ term_op:
 | "@" { MatMult, $1 }
 
 factor:
-| ADD factor { UnaryOp ((UAdd,$1), $2) }
-| SUB factor { UnaryOp ((USub,$1), $2) }
-| BITNOT factor { UnaryOp ((Invert,$1), $2) }
+| ADD factor { UnaryOp ((UAdd, $1), $2) }
+| SUB factor { UnaryOp ((USub, $1), $2) }
+| BITNOT factor { UnaryOp ((Invert, $1), $2) }
 | power { $1 }
 
 power:
 | atom_expr { $1 }
-| atom_expr "**" factor { BinOp ($1, (Pow,$2), $3) }
+| atom_expr "**" factor { BinOp ($1, (Pow, $2), $3) }
 
 (*----------------------------*)
 (* Atom expr *)
@@ -624,10 +689,10 @@ atom_expr:
 
 atom_and_trailers:
 | atom { $1 }
-| atom_and_trailers "(" ")" { Call ($1, ($2,[],$3)) }
-| atom_and_trailers "(" list_comma(argument) ")" { Call ($1, ($2,$3,$4)) }
+| atom_and_trailers "(" ")" { Call ($1, ($2, [], $3)) }
+| atom_and_trailers "(" list_comma(argument) ")" { Call ($1, ($2, $3, $4)) }
 | atom_and_trailers "[" list_comma(subscript) "]" { match $3 with
-                                                      (* TODO test* => Index (Tuple (elts)) *)
+                                                    (* TODO test* => Index (Tuple (elts)) *)
                                                     | [s] -> Subscript ($1, ($2, [s], $4), Load)
                                                     | l -> Subscript ($1, ($2, l, $4), Load) }
 | atom_and_trailers "." NAME { Attribute ($1, $2, $3, Load) }
@@ -638,18 +703,16 @@ atom_and_trailers:
 
 atom:
 | NAME { Name ($1, Load, ref NotResolved) }
-| INT { Num (Int ($1)) }
-| LONGINT { Num (LongInt ($1)) }
+| INT { Num (Int ($1)) } | LONGINT { Num (LongInt ($1)) }
 | FLOAT { Num (Float ($1)) }
 | IMAG { Num (Imag ($1)) }
 | TRUE { Bool (true, $1) }
 | FALSE { Bool (false, $1) }
 | NONE { None_ $1 }
 | string+ { match $1 with
-            | [] ->  raise Common.Impossible
+            | [] -> raise Common.Impossible
             | [x] -> x
-            | xs -> ConcatenatedString xs
-          }
+            | xs -> ConcatenatedString xs }
 | atom_tuple { $1 }
 | atom_list { $1 }
 | atom_dict { $1 }
@@ -670,24 +733,22 @@ testlist1:
 (*----------------------------*)
 
 string:
-| STR { let (s, pre, tok) = $1 in
-        if pre = "" then Str (s, tok) else EncodedStr ((s, tok), pre) }
+STR { let (s, pre, tok) = $1 in
+      if pre = "" then Str (s, tok) else EncodedStr ((s, tok), pre) }
 | FSTRING_START interpolated* FSTRING_END { InterpolatedString $2 }
 
 interpolated:
 | FSTRING_STRING { Str $1 }
-| FSTRING_LBRACE interpolant fstring_print_spec "}" { InterpolatedString ($2::$3) }
+| FSTRING_LBRACE interpolant fstring_print_spec "}" { InterpolatedString ($2 :: $3) }
 
-fstring_print_spec:
-| fstring_format_clause { $1 }
-| "=" fstring_format_clause { mk_str $1::$2 }
+fstring_print_spec: fstring_format_clause { $1 }
+| "=" fstring_format_clause { mk_str $1 :: $2 }
 
 fstring_format_clause:
 | (*empty*) { [] }
-| fstring_format_delimeter format_specifier { mk_str $1::$2 }
+| fstring_format_delimeter format_specifier { mk_str $1 :: $2 }
 
-fstring_format_delimeter:
-| ":" { $1 }
+fstring_format_delimeter: | ":" { $1 }
 | BANG { $1 }
 
 interpolant:
@@ -776,23 +837,23 @@ test:
 
 or_test:
 | and_test { $1 }
-| and_test OR list_sep(and_test, OR) { BoolOp ((Or,$2), $1::$3) }
+| and_test OR list_sep(and_test, OR) { BoolOp ((Or, $2), $1 :: $3) }
 
 and_test:
 | not_test { $1 }
-| not_test AND list_sep(not_test, AND) { BoolOp ((And,$2), $1::$3) }
+| not_test AND list_sep(not_test, AND) { BoolOp ((And, $2), $1 :: $3) }
 
 not_test:
-| NOT not_test { UnaryOp ((Not,$1), $2) }
+| NOT not_test { UnaryOp ((Not, $1), $2) }
 | comparison { $1 }
 
 comparison:
 | expr { $1 }
-| expr comp_op comparison_list { Compare ($1, ($2)::(fst $3), snd $3) }
+| expr comp_op comparison_list { Compare ($1, ($2) :: (fst $3), snd $3) }
 
 comparison_list:
 | expr { [], [$1] }
-| expr comp_op comparison_list { ($2)::(fst $3), $1::(snd $3) }
+| expr comp_op comparison_list { ($2) :: (fst $3), $1 :: (snd $3) }
 
 comp_op:
 | EQUAL { Eq, $1 }
@@ -834,8 +895,7 @@ testlist_comp_or_expr:
 | namedexpr_or_star_expr comp_for { Tuple (CompForIf ($1, $2), Load) }
 | tuple(namedexpr_or_star_expr) { match $1 with
                                   | Single e -> e
-                                  | Tup l -> Tuple (CompList (PI.fake_bracket l), Load)
-                                 }
+                                  | Tup l -> Tuple (CompList (PI.fake_bracket l), Load) }
 
 (* supports comp_for when used generically -- not inside atom_list
  * Note that the division here is necessary to solve a shift-reduce conflict between:
@@ -858,17 +918,16 @@ listcomp_for:
 | ASYNC listsync_comp_for { (* TODO *) $2 }
 
 list_for:
-or_test "," list_for_rest { List (CompList (PI.fake_bracket ($1::$3)), Load)
-                          }
+or_test "," list_for_rest { List (CompList (PI.fake_bracket ($1 :: $3)), Load) }
 
 list_for_rest:
 | or_test { [$1] }
-| or_test "," list_for_rest { $1::$3 }
+| or_test "," list_for_rest { $1 :: $3 }
 
 listsync_comp_for:
 | sync_comp_for { $1 }
 (* python2-ext: [x for x in 1, 2] *)
-| FOR exprlist IN list_for { [CompFor (tuple_expr_store $2, $4) ] }
+| FOR exprlist IN list_for { [CompFor (tuple_expr_store $2, $4)] }
 
 (* /comp_for *)
 
@@ -898,15 +957,14 @@ argument:
 (* python3-ext: *)
 | test COLONEQ test { Arg (NamedExpr ($1, $2, $3)) }
 | "*" test { ArgStar ($1, $2) }
-| "**" test { ArgPow  ($1, $2) }
+| "**" test { ArgPow ($1, $2) }
 
 (* sgrep-ext: difficult to move in atom without s/r conflict so restricted
    * to argument for now *)
 | NAME ":" test { Flag_parsing.sgrep_guard (Arg (TypedMetavar ($1, $2, $3))) }
 | test "=" test { match $1 with
                   | Name (id, _, _) -> ArgKwd (id, $3)
-                  | _ -> raise Parsing.Parse_error
-                }
+                  | _ -> raise Parsing.Parse_error }
 // This is a line comment for coverage
 %public%inline dummy_rule(X):
 | a = AT; X { () };

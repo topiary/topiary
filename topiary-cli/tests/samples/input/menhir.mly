@@ -55,8 +55,8 @@ let to_list = function
  * CompForIf though is not an lvalue.
 *)
 let rec set_expr_ctx ctx = function
-  | Name (id, _, x) ->
-      Name (id, ctx, x)
+  | Name(id, _,x) ->
+      Name(id,ctx,x)
   | Attribute (value, t, attr, _) ->
       Attribute (value, t, attr, ctx)
   | Subscript (value, slice, _) ->
@@ -651,7 +651,7 @@ xor_expr:
 
 and_expr:
   | shift_expr                 { $1 }
-  | shift_expr BITAND and_expr { BinOp ($1, (BitAnd,$2), $3) }
+  |shift_expr BITAND and_expr{BinOp($1,(BitAnd,$2),$3)}
 
 
 shift_expr:
@@ -715,8 +715,7 @@ atom_and_trailers:
 atom:
   | NAME        { Name ($1, Load, ref NotResolved) }
 
-  | INT         { Num (Int ($1)) }
-  | LONGINT     { Num (LongInt ($1)) }
+  | INT         { Num (Int ($1)) } | LONGINT     { Num (LongInt ($1)) }
   | FLOAT       { Num (Float ($1)) }
   | IMAG        { Num (Imag ($1)) }
 
@@ -753,7 +752,7 @@ testlist1:
 (*----------------------------*)
 
 string:
-  | STR { let (s, pre, tok) = $1 in
+  STR { let (s, pre, tok) = $1 in
           if pre = "" then Str (s, tok) else EncodedStr ((s, tok), pre) }
   | FSTRING_START interpolated* FSTRING_END { InterpolatedString $2 }
 
@@ -761,16 +760,14 @@ interpolated:
   | FSTRING_STRING { Str $1 }
   | FSTRING_LBRACE interpolant fstring_print_spec "}" { InterpolatedString ($2::$3) }
 
-fstring_print_spec:
-  |     fstring_format_clause { $1 }
+fstring_print_spec: fstring_format_clause { $1 }
   | "=" fstring_format_clause { mk_str $1::$2 }
 
 fstring_format_clause:
   | (*empty*) { [] }
   | fstring_format_delimeter format_specifier { mk_str $1::$2 }
 
-fstring_format_delimeter:
-  | ":" { $1 }
+fstring_format_delimeter: | ":" { $1 }
   | BANG { $1 }
 
 interpolant:
@@ -962,7 +959,8 @@ list_for_rest:
 listsync_comp_for:
   | sync_comp_for { $1 }
   (* python2-ext: [x for x in 1, 2] *)
-  | FOR exprlist IN list_for { [CompFor (tuple_expr_store $2, $4) ] }
+  | FOR exprlist IN
+list_for { [CompFor (tuple_expr_store $2, $4) ] }
 
 (* /comp_for *)
 
