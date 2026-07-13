@@ -160,6 +160,58 @@ pub struct InjectionSpan<'a> {
     pub node_id: usize,
 }
 
+pub fn get_2_captures<'a>(
+    query_match: &tree_sitter::QueryMatch<'a, '_>,
+    name: &str,
+    capture_names: &Vec<&str>,
+) -> Vec<QueryCapture<'a>> {
+    query_match
+        .captures()
+        .filter(|c| c.name(capture_names.as_slice()) == "multi_line_string")
+        .take(2)
+        .collect::<Vec<_>>()
+}
+
+pub fn collect_multi_line_strings(tree: &Tree, input_content: &str, query: &Query) {
+    let root = tree.root_node();
+    let source = input_content.as_bytes();
+    let capture_names = query.capture_names();
+
+    let mut cursor = QueryCursor::new();
+
+    let mut matches = query.matches(&root, source, &mut cursor);
+    #[allow(clippy::while_let_on_iterator)] // Not a normal iterator
+    while let Some(query_match) = matches.next() {
+        let id =
+            match get_2_captures(query_match, "multi_line_string", &capture_names).as_slice() {
+                [] => continue,
+                [capture] => capture,
+                _ => todo!(),
+            }
+            .node()
+            .id();
+        let start = match get_2_captures(query_match, "multi_line_string_start", &capture_names)
+            .as_slice()
+        {
+            [] => todo!(),
+            [capture] => capture,
+            _ => todo!(),
+        }
+        .node()
+        .utf8_text(source)
+        .expect("to do");
+        let end =
+            match get_2_captures(query_match, "multi_line_string_end", &capture_names).as_slice() {
+                [] => todo!(),
+                [capture] => capture,
+                _ => todo!(),
+            }
+            .node()
+            .utf8_text(source)
+            .expect("to do");
+    }
+}
+
 /// Run an [`InjectionQuery`] against a parsed `tree`, returning every
 /// `@injection.content` capture paired with the language declared by its
 /// pattern's `#injection_language!` predicate.
@@ -459,6 +511,17 @@ pub fn apply_query_tree(
     apply_query_tree_with_forced_leaves(tree, input_content, query, std::iter::empty())
 }
 
+fn partition_captures<'a>(
+    captures: impl ExactSizeIterator<Item = QueryCapture<'a>>,
+    capture_names: &[&str],
+) -> (LocalQueryMatch<'a>, usize) {
+    // let mut local_captures = Vec::new();
+    for capture in captures {
+        if capture.name(capture_names) == "multi_line_string" {}
+    }
+    todo!()
+}
+
 pub(crate) fn apply_query_tree_with_forced_leaves(
     tree: Tree,
     input_content: &str,
@@ -488,6 +551,16 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
     // We want to avoid recursing into them in the collect_leaves function.
     let mut specified_leaf_nodes: HashSet<usize> =
         collect_leaf_ids(&matches, &capture_names);
+    // add the ids of all tree-sitter nodes that were identified as a multi line string.
+    // we want to treat them as a leaf too.
+    specified_leaf_nodes.extend(
+        matches
+            .iter()
+            .flat_map(|m| &m.captures)
+            .filter(|c| c.name(&capture_names) == "multi_line_string")
+            .map(|c| c.node().id()),
+    );
+    // add the ids of all tree-sitter nodes that the call site wants us to treat as a leaf.
     specified_leaf_nodes.extend(forced_leaf_nodes);
 
     // The Flattening: collects all terminal nodes of the tree-sitter tree in a Vec
