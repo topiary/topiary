@@ -71,7 +71,7 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                     content.trim_end_matches('\n')
                 };
 
-                let mut content = match *multi_line_indent_all {
+                let mut content = match multi_line_indent_all {
                     MultiLineIndent::None => content.into(),
                     MultiLineIndent::RelativeIndentation => {
                         let cursor = current_column(&buffer) as i32;
@@ -175,19 +175,25 @@ fn try_removing_spaces_after_newlines(s: &str, n: i32) -> String {
 /// `content_input` is the source code inbetween the delimiters of the multi line construct like `''` in the example of nix multi line strings or `"""` in the example of c# multi line strings.
 /// the returned `String` differs only in white space from `content_input`.
 fn render_absolute_indentation(
-    absolute_indentation: AbsoluteIndentation,
+    absolute_indentation: &AbsoluteIndentation,
     content_input: &str,
     indent_level: usize,
     indent: &str,
 ) -> String {
     let AbsoluteIndentation::ClosingColumnInsignificant {
         last_line_break_significant,
+        start,
+        end,
     } = absolute_indentation
     else {
         todo!()
     };
 
     let content_collected: Vec<&str> = content_input
+        .strip_prefix(start)
+        .expect(todo!())
+        .strip_suffix(end)
+        .expect(todo!())
         .split("\n")
         .map(|s| s.strip_suffix("\r").unwrap_or(s)) // to do. remove this?
         .collect(); // because we need `DoubleEndedIterator`.
@@ -310,8 +316,10 @@ mod tests {
     fn test_render_absolute_indentation0() {
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
-                    last_line_break_significant: false
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "\t
     a
@@ -333,8 +341,10 @@ mod tests {
     fn test_render_absolute_indentation1() {
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "x
     a
@@ -358,8 +368,10 @@ mod tests {
         for line in ["", " ", " a"] {
             assert_eq!(
                 render_absolute_indentation(
-                    AbsoluteIndentation::ClosingColumnInsignificant {
+                    &AbsoluteIndentation::ClosingColumnInsignificant {
                         last_line_break_significant: false,
+                        start: "m%\"".to_owned(),
+                        end: "\"%".to_owned(),
                     },
                     line,
                     3,
@@ -375,8 +387,10 @@ mod tests {
         for line in ["", " ", " a"] {
             assert_eq!(
                 render_absolute_indentation(
-                    AbsoluteIndentation::ClosingColumnInsignificant {
+                    &AbsoluteIndentation::ClosingColumnInsignificant {
                         last_line_break_significant: true,
+                        start: "m%\"".to_owned(),
+                        end: "\"%".to_owned(),
                     },
                     line,
                     3,
@@ -393,7 +407,7 @@ mod tests {
         for line in ["", " ", " a"] {
             assert_eq!(
                 render_absolute_indentation(
-                    AbsoluteIndentation::ClosingColumnSignificant,
+                    &AbsoluteIndentation::ClosingColumnSignificant,
                     line,
                     3,
                     "    ",
@@ -408,7 +422,7 @@ mod tests {
     fn test_render_absolute_indentation_1_line3() {
         for line in ["", " ", " a"] {
             assert_eq!(
-                render_absolute_indentation(AbsoluteIndentation::Comment, line, 3, "    "),
+                render_absolute_indentation(&AbsoluteIndentation::Comment, line, 3, "    "),
                 line.trim_end()
             );
         }
@@ -418,8 +432,10 @@ mod tests {
     fn test_render_absolute_indentation_2_lines0() {
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "
 ",
@@ -430,8 +446,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 " 
 ",
@@ -442,8 +460,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "    a
 ",
@@ -456,8 +476,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "
     ",
@@ -468,8 +490,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 " 
     ",
@@ -480,8 +504,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "    a
     ",
@@ -494,8 +520,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "
     a",
@@ -508,8 +536,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 " 
     a",
@@ -522,8 +552,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "        a
     a",
@@ -541,8 +573,10 @@ mod tests {
     fn test_render_absolute_indentation_2_lines1() {
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "
 ",
@@ -553,8 +587,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 " 
 ",
@@ -565,8 +601,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "    a
 ",
@@ -579,8 +617,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "
     ",
@@ -591,8 +631,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 " 
     ",
@@ -603,8 +645,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "    a
     ",
@@ -617,8 +661,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "
     a",
@@ -630,8 +676,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 " 
     a",
@@ -643,8 +691,10 @@ mod tests {
         );
         assert_eq!(
             render_absolute_indentation(
-                AbsoluteIndentation::ClosingColumnInsignificant {
+                &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
+                    start: "m%\"".to_owned(),
+                    end: "\"%".to_owned(),
                 },
                 "        a
     a",

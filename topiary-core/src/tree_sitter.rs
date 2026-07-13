@@ -281,7 +281,7 @@ pub fn collect_injections<'a>(
             spans.push(InjectionSpan {
                 content: input_content
                     .get(node.byte_range())
-                    .expect("`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range."),
+                    .expect("`tree-sitter::Node::{start_byte, end_byte}`"), // should always return a valid string slice indexes range."),
                 language: language_name.clone(),
                 node_id: node.id(),
             });
@@ -549,8 +549,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
 
     // Find the ids of all tree-sitter nodes that were identified as a leaf
     // We want to avoid recursing into them in the collect_leaves function.
-    let mut specified_leaf_nodes: HashSet<usize> =
-        collect_leaf_ids(&matches, &capture_names);
+    let mut specified_leaf_nodes: HashSet<usize> = collect_leaf_ids(&matches, &capture_names);
     // add the ids of all tree-sitter nodes that were identified as a multi line string.
     // we want to treat them as a leaf too.
     specified_leaf_nodes.extend(
@@ -592,7 +591,15 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
         for p in query.query.general_predicates(m.pattern_index) {
             predicates = handle_predicate(&p, &predicates)?;
         }
-        m.captures.iter().filter(|c| matches!(c.name(&capture_names).deref(), "multi_line_string_start" | "multi_line_string_end"));
+        predicates.multi_line_string_delimiters = Option::zip(
+            last_capture_content(input_content,
+            m.captures
+                .iter()
+                .filter(|c| c.name(&capture_names).deref() == "multi_line_string_start")),
+            last_capture_content(input_content, m.captures
+                .iter()
+                .filter(|c| c.name(&capture_names).deref() == "multi_line_string_end")),
+        );
         check_predicates(&predicates)?;
 
         // NOTE: Only performed if logging is enabled to avoid unnecessary computation of Position
@@ -814,6 +821,19 @@ fn check_predicates(predicates: &QueryPredicates) -> FormatterResult<()> {
     } else {
         Ok(())
     }
+}
+
+fn last_capture_content<'a>(
+    input_content: &str,
+    captures: impl DoubleEndedIterator<Item = &'a QueryCapture<'a>>,
+) -> Option<String> {
+    let byte_range_post_condition = "`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range.";
+    captures.rev().next().map(|c| {
+        input_content
+            .get(c.node().byte_range())
+            .expect(byte_range_post_condition)
+            .to_owned()
+    })
 }
 
 #[cfg(not(target_arch = "wasm32"))]
