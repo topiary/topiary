@@ -202,6 +202,11 @@ impl AtomCollection {
                 FormatterError::Query(format!("@{name} requires a #scope_id! predicate"))
             })
         };
+        let requires_multi_line_string_delimiters = || {
+            predicates.scope_id.as_deref().ok_or_else(|| {
+                FormatterError::Query(format!("@{name} requires a #scope_id! predicate"))
+            })
+        };
 
         // For the {prepend/append}_scope_{begin/end} captures we need this information,
         // instead of creating it for both branches, create them once here.

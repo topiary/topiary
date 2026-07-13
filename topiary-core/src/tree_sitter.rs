@@ -281,7 +281,7 @@ pub fn collect_injections<'a>(
             spans.push(InjectionSpan {
                 content: input_content
                     .get(node.byte_range())
-                    .expect("`tree-sitter::Node::{start_byte, end_byte}`"), // should always return a valid string slice indexes range."),
+                    .expect("`tree-sitter::Node::{start_byte, end_byte}`"), // should always return a valid string slice indexes range."), // to do
                 language: language_name.clone(),
                 node_id: node.id(),
             });
@@ -592,13 +592,18 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
             predicates = handle_predicate(&p, &predicates)?;
         }
         predicates.multi_line_string_delimiters = Option::zip(
-            last_capture_content(input_content,
             m.captures
                 .iter()
-                .filter(|c| c.name(&capture_names).deref() == "multi_line_string_start")),
-            last_capture_content(input_content, m.captures
+                .filter(|c| c.name(&capture_names).deref() == "multi_line_string_start")
+                .rev()
+                .next()
+                .map(capture_content(input_content)),
+            m.captures
                 .iter()
-                .filter(|c| c.name(&capture_names).deref() == "multi_line_string_end")),
+                .filter(|c| c.name(&capture_names).deref() == "multi_line_string_end")
+                .rev()
+                .next()
+                .map(capture_content(input_content)),
         );
         check_predicates(&predicates)?;
 
@@ -823,17 +828,13 @@ fn check_predicates(predicates: &QueryPredicates) -> FormatterResult<()> {
     }
 }
 
-fn last_capture_content<'a>(
-    input_content: &str,
-    captures: impl DoubleEndedIterator<Item = &'a QueryCapture<'a>>,
-) -> Option<String> {
-    let byte_range_post_condition = "`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range.";
-    captures.rev().next().map(|c| {
+fn capture_content(input_content: &str) -> impl Fn(&QueryCapture<'_>) -> String {
+    |capture| {
         input_content
-            .get(c.node().byte_range())
-            .expect(byte_range_post_condition)
+            .get(capture.node().byte_range())
+            .expect("`tree-sitter::Node::{start_byte, end_byte}`") // should always return a valid string slice indexes range.") // to do
             .to_owned()
-    })
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
