@@ -1014,3 +1014,10 @@ dummy_rule2:
   | dummy_rule(AT) { () }
 ;
 (*e: pfff/lang_python/parsing/Parser_python.mly *)
+
+let new_rule_syntax :=
+  | A; { 1 }
+  | B; { 2 }
+
+let inline_rule_syntax ==
+  | C; { 3 }

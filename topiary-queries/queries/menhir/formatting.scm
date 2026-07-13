@@ -114,7 +114,10 @@
 ; -------------------------------------------------------------------------
 ; Grammar rules form the core logic of the file. They must begin on a new line
 ; and can optionally be separated by blank lines for visual clarity.
-(old_rule) @append_hardline @allow_blank_line_before
+[
+  (old_rule)
+  (new_rule)
+] @append_indent_end @append_hardline @allow_blank_line_before
 
 ; Optional rule flags (like `public`, `inline`) should be separated from
 ; the rule name by a space.
@@ -124,7 +127,19 @@
 ; input_softline. This allows the author to choose whether to put the first
 ; production on the same line or on a new line.
 (old_rule
-  ":" @append_input_softline
+  ":" @append_indent_start @append_input_softline
+)
+
+(new_rule
+  "let" @append_space
+)
+
+(new_rule
+  (equality_symbol) @prepend_space @append_indent_start @append_input_softline
+)
+
+(new_rule
+  (expression) @prepend_input_softline
 )
 
 ; -------------------------------------------------------------------------
@@ -140,6 +155,14 @@
 
 (production_group
   "|" @prepend_input_softline @append_space
+)
+
+(expression
+  "|" @prepend_input_softline @append_space
+)
+
+(seq_expression
+  ";" @append_space
 )
 
 ; -------------------------------------------------------------------------
