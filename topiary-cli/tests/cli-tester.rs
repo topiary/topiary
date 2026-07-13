@@ -304,7 +304,8 @@ fn test_fmt_invalid() {
 fn test_fmt_ocamllex_invalid_inner_ocaml_fails() {
     use predicates::str::contains;
 
-    let input = fs::read_to_string("tests/samples/input/ocamllex_invalid_inner.mll").unwrap();
+    let input =
+        fs::read_to_string("tests/samples/input/ocamllex/ocamllex_invalid_inner.mll").unwrap();
 
     let mut topiary = cargo_bin_cmd!("topiary");
 

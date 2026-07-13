@@ -77,7 +77,7 @@ example:
 CARGO_PROFILE_RELEASE_DEBUG=true \
 cargo flamegraph -p topiary-cli -- \
   format --language ocaml \
-  < topiary-cli/tests/samples/input/ocaml.ml \
+  < topiary-cli/tests/samples/input/ocaml/ocaml.ml \
   > /dev/null
 ```
 
