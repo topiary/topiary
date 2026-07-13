@@ -1169,6 +1169,8 @@ pub struct QueryPredicates {
     pub multi_line_scope_only: Option<String>,
     /// A query name, for debugging/logging purposes
     pub query_name: Option<String>,
+    /// multi line string delimiters
+    pub multi_line_string_delimiters: Option<(String, String)>,
 }
 
 /// Collapses spaces before antispace atoms in a vector of atoms.

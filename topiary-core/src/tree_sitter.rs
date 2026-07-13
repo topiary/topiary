@@ -2,7 +2,7 @@
 // streaming_iterator::StreamingIterator
 #![cfg_attr(target_arch = "wasm32", allow(unused_imports))]
 
-use std::{collections::HashSet, fmt::Display};
+use std::{collections::HashSet, fmt::Display, ops::Deref as _};
 
 use miette::{LabeledSpan, Severity, SourceSpan};
 use rootcause::{prelude::ResultExt, report};
@@ -592,6 +592,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
         for p in query.query.general_predicates(m.pattern_index) {
             predicates = handle_predicate(&p, &predicates)?;
         }
+        m.captures.iter().filter(|c| matches!(c.name(&capture_names).deref(), "multi_line_string_start" | "multi_line_string_end"));
         check_predicates(&predicates)?;
 
         // NOTE: Only performed if logging is enabled to avoid unnecessary computation of Position
