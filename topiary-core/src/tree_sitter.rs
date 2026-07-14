@@ -459,17 +459,6 @@ pub fn apply_query_tree(
     apply_query_tree_with_forced_leaves(tree, input_content, query, std::iter::empty())
 }
 
-fn partition_captures<'a>(
-    captures: impl ExactSizeIterator<Item = QueryCapture<'a>>,
-    capture_names: &[&str],
-) -> (LocalQueryMatch<'a>, usize) {
-    // let mut local_captures = Vec::new();
-    for capture in captures {
-        if capture.name(capture_names) == "multi_line_string" {}
-    }
-    todo!()
-}
-
 pub(crate) fn apply_query_tree_with_forced_leaves(
     tree: Tree,
     input_content: &str,
