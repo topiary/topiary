@@ -160,58 +160,6 @@ pub struct InjectionSpan<'a> {
     pub node_id: usize,
 }
 
-pub fn get_2_captures<'a>(
-    query_match: &tree_sitter::QueryMatch<'a, '_>,
-    name: &str,
-    capture_names: &Vec<&str>,
-) -> Vec<QueryCapture<'a>> {
-    query_match
-        .captures()
-        .filter(|c| c.name(capture_names.as_slice()) == "multi_line_string")
-        .take(2)
-        .collect::<Vec<_>>()
-}
-
-pub fn collect_multi_line_strings(tree: &Tree, input_content: &str, query: &Query) {
-    let root = tree.root_node();
-    let source = input_content.as_bytes();
-    let capture_names = query.capture_names();
-
-    let mut cursor = QueryCursor::new();
-
-    let mut matches = query.matches(&root, source, &mut cursor);
-    #[allow(clippy::while_let_on_iterator)] // Not a normal iterator
-    while let Some(query_match) = matches.next() {
-        let id =
-            match get_2_captures(query_match, "multi_line_string", &capture_names).as_slice() {
-                [] => continue,
-                [capture] => capture,
-                _ => todo!(),
-            }
-            .node()
-            .id();
-        let start = match get_2_captures(query_match, "multi_line_string_start", &capture_names)
-            .as_slice()
-        {
-            [] => todo!(),
-            [capture] => capture,
-            _ => todo!(),
-        }
-        .node()
-        .utf8_text(source)
-        .expect("to do");
-        let end =
-            match get_2_captures(query_match, "multi_line_string_end", &capture_names).as_slice() {
-                [] => todo!(),
-                [capture] => capture,
-                _ => todo!(),
-            }
-            .node()
-            .utf8_text(source)
-            .expect("to do");
-    }
-}
-
 /// Run an [`InjectionQuery`] against a parsed `tree`, returning every
 /// `@injection.content` capture paired with the language declared by its
 /// pattern's `#injection_language!` predicate.
