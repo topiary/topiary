@@ -238,11 +238,13 @@ fn render_absolute_indentation(
 
     let whitespace_prefixes = content
         .clone()
-        .filter(|s| s.chars().any(|c| !c.is_whitespace()))
+        .filter(|s| !s.chars().all(char::is_whitespace))
         .map(str::chars)
         .map(|s| s.take_while(|c| c.is_whitespace()));
     let common_whitespace_prefix = common_prefix(whitespace_prefixes.clone())
         .expect("`next().is_none()` should still not hold because it just did for a `clone()`.");
+
+    // purely for warning generation. to do
     match common_whitespace_prefix.clone().count().cmp(
         &whitespace_prefixes.map(Iterator::count).min().expect(
             "`next().is_none()` should still not hold because it just did for a `clone()`.",
@@ -254,6 +256,7 @@ fn render_absolute_indentation(
             "the common whitespace prefix should be a substring of the shortest whitespace prefix."
         ),
     }
+
     let common_whitespace_prefix_len_utf8: usize =
         common_whitespace_prefix.map(char::len_utf8).sum();
     let content = content.map(|line| {
