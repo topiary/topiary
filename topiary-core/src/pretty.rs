@@ -172,11 +172,11 @@ fn try_removing_spaces_after_newlines(s: &str, n: i32) -> String {
 /// formats multi line source code constructs like multi line strings.
 ///
 /// `absolute_indentation` contains configuration. at this stage we assume that it is a `ClosingColumnInsignificant` constructor.
-/// `content_input` is the source code inbetween the delimiters of the multi line construct like `''` in the example of nix multi line strings or `"""` in the example of c# multi line strings.
-/// the returned `String` differs only in white space from `content_input`.
+/// `content_original` is the source code inbetween the delimiters of the multi line construct like `''` in the example of nix multi line strings or `"""` in the example of c# multi line strings.
+/// the returned `String` differs only in white space from `content_original`.
 fn render_absolute_indentation(
     absolute_indentation: &AbsoluteIndentation,
-    content_input: &str,
+    content_original: &str,
     indent_level: usize,
     indent: &str,
 ) -> String {
@@ -189,33 +189,37 @@ fn render_absolute_indentation(
         todo!()
     };
 
-    let content_collected: Vec<&str> = content_input
+    let content: Vec<&str> = content_original
         .strip_prefix(start)
         .expect("to do")
         .strip_suffix(end)
         .expect("to do")
         .split("\n")
         .map(|s| s.strip_suffix("\r").unwrap_or(s)) // to do. remove this?
-        .collect(); // because we need `DoubleEndedIterator`.
+        .collect(); // because we need `DoubleEndedIterator::next_back`.
 
-    if content_collected.len() == 1 {
-        return content_input.to_owned();
+    if content.len() == 1 {
+        return content_original.to_owned();
     }
 
-    let mut content = content_collected.iter().copied();
+    let mut content = content.iter().copied();
     let mut buffer = String::new();
     write!(buffer, "{start}").unwrap();
 
-    let first_line = content
+    // skip potential empty first line
+    if content
         .clone()
         .next()
-        .expect("`split` should not produce empty iterators.");
-    if first_line.chars().all(char::is_whitespace) {
+        .expect("`split` should not produce empty iterators.")
+        .chars()
+        .all(char::is_whitespace)
+    {
         content
             .next()
             .expect("`split` should not produce empty iterators.");
     }
 
+    // skip potential empty last line
     let last_line_is_whitespace = content
         .clone()
         .next_back()
@@ -267,7 +271,7 @@ fn render_absolute_indentation(
             write!(buffer, "\n{}{line}", indent.repeat(indent_level + 1)).unwrap();
         }
     }
-    if last_line_is_whitespace || !last_line_break_significant {
+    if !last_line_break_significant || last_line_is_whitespace {
         write!(buffer, "\n{}", indent.repeat(indent_level)).unwrap();
     }
     write!(buffer, "{end}").unwrap();

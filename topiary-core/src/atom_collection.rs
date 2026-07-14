@@ -208,7 +208,7 @@ impl AtomCollection {
                 .as_ref()
                 .ok_or_else(|| {
                     FormatterError::Query(format!(
-                        "@{name} requires both a @multi_line_string_start and a @multi_line_string_end capture in the same query"
+                        "@{name} requires both a @multi_line_string_start and a @multi_line_string_end directive in the same query"
                     ))
                 })
         };

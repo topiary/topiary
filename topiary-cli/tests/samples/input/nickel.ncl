@@ -5,9 +5,8 @@
       a =
         std.string.split
           " "
-m%"
-line one with trailing space 
-line two
+m%"line one with trailing space 
+ line two
 "%
         |> std.array.at 6
     },
@@ -220,7 +219,8 @@ doc "hello" | optional,
 
   array = {
     NonEmpty
-      | doc m%"Enforces that an array is not empty.
+      | doc m%"
+          Enforces that an array is not empty.
 
           # Examples
 
