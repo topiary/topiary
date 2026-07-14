@@ -203,9 +203,14 @@ impl AtomCollection {
             })
         };
         let requires_multi_line_string_delimiters = || {
-            predicates.multi_line_string_delimiters.as_ref().ok_or_else(|| {
-                FormatterError::Query(format!("@{name} requires a #scope_id! predicate"))
-            })
+            predicates
+                .multi_line_string_delimiters
+                .as_ref()
+                .ok_or_else(|| {
+                    FormatterError::Query(format!(
+                        "@{name} requires both a @multi_line_string_start and a @multi_line_string_end capture in the same query"
+                    ))
+                })
         };
 
         // For the {prepend/append}_scope_{begin/end} captures we need this information,
@@ -476,7 +481,7 @@ impl AtomCollection {
                             AbsoluteIndentation::ClosingColumnInsignificant {
                                 last_line_break_significant: false,
                                 start,
-                                end
+                                end,
                             },
                         );
                     }

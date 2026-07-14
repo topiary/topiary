@@ -191,9 +191,9 @@ fn render_absolute_indentation(
 
     let content_collected: Vec<&str> = content_input
         .strip_prefix(start)
-        .expect(todo!())
+        .expect("to do")
         .strip_suffix(end)
-        .expect(todo!())
+        .expect("to do")
         .split("\n")
         .map(|s| s.strip_suffix("\r").unwrap_or(s)) // to do. remove this?
         .collect(); // because we need `DoubleEndedIterator`.
@@ -204,6 +204,7 @@ fn render_absolute_indentation(
 
     let mut content = content_collected.iter().copied();
     let mut buffer = String::new();
+    write!(buffer, "{start}").unwrap();
 
     let first_line = content
         .clone()
@@ -263,12 +264,13 @@ fn render_absolute_indentation(
         if line.chars().all(char::is_whitespace) {
             writeln!(buffer).unwrap();
         } else {
-            write!(buffer, "\n{}{}", indent.repeat(indent_level + 1), line).unwrap();
+            write!(buffer, "\n{}{line}", indent.repeat(indent_level + 1)).unwrap();
         }
     }
     if last_line_is_whitespace || !last_line_break_significant {
         write!(buffer, "\n{}", indent.repeat(indent_level)).unwrap();
     }
+    write!(buffer, "{end}").unwrap();
     buffer
 }
 

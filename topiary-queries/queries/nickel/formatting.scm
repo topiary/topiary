@@ -9,7 +9,7 @@
 
 (static_string
   (multstr_start) @multi_line_string_start
-  (multstr_end) @multi_line_string_start
+  (multstr_end) @multi_line_string_end
 ) @multi_line_string
 (str_chunks_multi
   start: (multstr_start) @multi_line_string_start
