@@ -229,7 +229,7 @@ pub fn collect_injections<'a>(
             spans.push(InjectionSpan {
                 content: input_content
                     .get(node.byte_range())
-                    .expect("`tree-sitter::Node::{start_byte, end_byte}`"), // should always return a valid string slice indexes range."), // to do
+                    .expect("`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range."),
                 language: language_name.clone(),
                 node_id: node.id(),
             });
@@ -531,7 +531,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
         let capture_content = |capture: &QueryCapture<'_>| {
             input_content
                 .get(capture.node().byte_range())
-                .expect("`tree-sitter::Node::{start_byte, end_byte}`") // should always return a valid string slice indexes range.") // to do
+                .expect("`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range.")
                 .to_owned()
         };
         predicates.multi_line_string_delimiters = Option::zip(
@@ -574,7 +574,8 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
             log::debug!("Processing match{query_name_info}: {m} at location {pos}");
         }
 
-        m.captures = m.captures
+        m.captures = m
+            .captures
             .into_iter()
             .filter(|c| {
                 !matches!(
