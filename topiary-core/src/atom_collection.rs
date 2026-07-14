@@ -203,7 +203,7 @@ impl AtomCollection {
             })
         };
         let requires_multi_line_string_delimiters = || {
-            predicates.scope_id.as_deref().ok_or_else(|| {
+            predicates.multi_line_string_delimiters.as_ref().ok_or_else(|| {
                 FormatterError::Query(format!("@{name} requires a #scope_id! predicate"))
             })
         };
@@ -471,9 +471,12 @@ impl AtomCollection {
                     } = a
                         && *id == node.id()
                     {
+                        let (start, end) = requires_multi_line_string_delimiters()?.clone();
                         *multi_line_indent_all = MultiLineIndent::AbsoluteIndentation(
                             AbsoluteIndentation::ClosingColumnInsignificant {
                                 last_line_break_significant: false,
+                                start,
+                                end
                             },
                         );
                     }
