@@ -385,17 +385,12 @@ struct LocalQueryMatch<'a> {
 
 impl Display for LocalQueryMatch<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        fmt_local_query_match(self.pattern_index, &self.captures, f)
-    }
-}
-
-fn fmt_local_query_match(pattern_index: usize, captures: &Vec<QueryCapture<'_>>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
             "LocalQueryMatch {{ pattern_index: {}, captures: [ ",
-            pattern_index
+            self.pattern_index
         )?;
-        for (index, capture) in captures.iter().enumerate() {
+        for (index, capture) in self.captures.iter().enumerate() {
             if index > 0 {
                 write!(f, ", ")?;
             }
@@ -406,6 +401,7 @@ fn fmt_local_query_match(pattern_index: usize, captures: &Vec<QueryCapture<'_>>,
         }
         write!(f, " ] }}")?;
         Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -589,8 +585,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
     // )
     // means we want to append a hardline at
     // the end, but we don't know if we get a line_comment capture or not.
-    for m in matches {
-        let captures = m.captures;
+    for mut m in matches {
         let mut predicates = QueryPredicates::default();
 
         for p in query.query.general_predicates(m.pattern_index) {
@@ -603,28 +598,19 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
                 .to_owned()
         };
         predicates.multi_line_string_delimiters = Option::zip(
-            captures
+            m.captures
                 .iter()
                 .filter(|c| c.name(&capture_names).deref() == "multi_line_string_start")
                 .rev()
                 .next()
                 .map(capture_content),
-            captures
+            m.captures
                 .iter()
                 .filter(|c| c.name(&capture_names).deref() == "multi_line_string_end")
                 .rev()
                 .next()
                 .map(capture_content),
         );
-        let captures = captures
-            .into_iter()
-            .filter(|c| {
-                !matches!(
-                    c.name(&capture_names).deref(),
-                    "multi_line_string_end" | "multi_line_string_end"
-                )
-            })
-            .collect::<Vec<_>>();
         check_predicates(&predicates)?;
 
         // NOTE: Only performed if logging is enabled to avoid unnecessary computation of Position
@@ -648,18 +634,28 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
                 "".into()
             };
 
-            log::debug!("Processing match{query_name_info}: {} at location {pos}", fmt_local_query_match(m.pattern_index, &captures, f));
+            log::debug!("Processing match{query_name_info}: {m} at location {pos}");
         }
 
+        m.captures = m.captures
+            .into_iter()
+            .filter(|c| {
+                !matches!(
+                    c.name(&capture_names).deref(),
+                    "multi_line_string_start" | "multi_line_string_end"
+                )
+            })
+            .collect();
+
         // If any capture is a do_nothing, then do nothing.
-        if captures
+        if m.captures
             .iter()
             .any(|c| c.name(&capture_names) == "do_nothing")
         {
             continue;
         }
 
-        for c in captures {
+        for c in m.captures {
             let name = c.name(&capture_names);
             atoms.resolve_capture(&name, &c.node(), &predicates)?;
         }
