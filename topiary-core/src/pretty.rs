@@ -233,7 +233,7 @@ fn render_absolute_indentation(
     }
 
     if content.clone().next().is_none() {
-        return "".to_owned();
+        return format!("{start}{end}");
     }
 
     let whitespace_prefixes = content
@@ -327,22 +327,22 @@ mod tests {
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "\t
+                "''\t
     a
    b
      c
-            ",
+            ''",
                 3,
                 "    ",
             ),
-            "
+            "''
                  a
                 b
                   c
-            ",
+            ''",
         );
     }
 
@@ -352,35 +352,35 @@ mod tests {
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "x
+                "''x
     a
    b
      c
-            ",
+            ''",
                 3,
                 "    "
             ),
-            "
+            "''
                 x
                     a
                    b
                      c
-            "
+            ''"
         );
     }
 
     #[test]
     fn test_render_absolute_indentation_1_line0() {
-        for line in ["", " ", " a"] {
+        for line in ["''''", "'' ''", "'' a''"] {
             assert_eq!(
                 render_absolute_indentation(
                     &AbsoluteIndentation::ClosingColumnInsignificant {
                         last_line_break_significant: false,
-                        start: "m%\"".to_owned(),
-                        end: "\"%".to_owned(),
+                        start: "''".to_owned(),
+                        end: "''".to_owned(),
                     },
                     line,
                     3,
@@ -393,13 +393,13 @@ mod tests {
 
     #[test]
     fn test_render_absolute_indentation_1_line1() {
-        for line in ["", " ", " a"] {
+        for line in ["''''", "'' ''", "'' a''"] {
             assert_eq!(
                 render_absolute_indentation(
                     &AbsoluteIndentation::ClosingColumnInsignificant {
                         last_line_break_significant: true,
-                        start: "m%\"".to_owned(),
-                        end: "\"%".to_owned(),
+                        start: "''".to_owned(),
+                        end: "''".to_owned(),
                     },
                     line,
                     3,
@@ -411,170 +411,143 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    fn test_render_absolute_indentation_1_line2() {
-        for line in ["", " ", " a"] {
-            assert_eq!(
-                render_absolute_indentation(
-                    &AbsoluteIndentation::ClosingColumnSignificant,
-                    line,
-                    3,
-                    "    ",
-                ),
-                line,
-            );
-        }
-    }
-
-    #[test]
-    #[ignore]
-    fn test_render_absolute_indentation_1_line3() {
-        for line in ["", " ", " a"] {
-            assert_eq!(
-                render_absolute_indentation(&AbsoluteIndentation::Comment, line, 3, "    "),
-                line.trim_end()
-            );
-        }
-    }
-
-    #[test]
     fn test_render_absolute_indentation_2_lines0() {
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "
-",
+                "''
+''",
                 3,
                 "    ",
             ),
-            "",
+            "''''",
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                " 
-",
+                "'' 
+''",
                 3,
                 "    ",
             ),
-            "",
+            "''''",
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "    a
-",
+                "''    a
+''",
                 3,
                 "    ",
             ),
-            "
+            "''
                 a
-            ",
+            ''",
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "
-    ",
+                "''
+    ''",
                 3,
                 "    ",
             ),
-            "",
+            "''''",
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                " 
-    ",
+                "'' 
+    ''",
                 3,
                 "    ",
             ),
-            "",
+            "''''",
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "    a
-    ",
+                "''    a
+    ''",
                 3,
                 "    ",
             ),
-            "
+            "''
                 a
-            "
+            ''"
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "
-    a",
+                "''
+    a''",
                 3,
                 "    ",
             ),
-            "
+            "''
                 a
-            "
+            ''"
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                " 
-    a",
+                "'' 
+    a''",
                 3,
                 "    ",
             ),
-            "
+            "''
                 a
-            "
+            ''"
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: false,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "        a
-    a",
+                "''        a
+    a''",
                 3,
                 "    ",
             ),
-            "
+            "''
                     a
                 a
-            "
+            ''"
         );
     }
 
@@ -584,135 +557,135 @@ mod tests {
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "
-",
+                "''
+''",
                 3,
                 "    ",
             ),
-            "",
+            "''''",
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                " 
-",
+                "'' 
+''",
                 3,
                 "    ",
             ),
-            "",
+            "''''",
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "    a
-",
+                "''    a
+''",
                 3,
                 "    ",
             ),
-            "
+            "''
                 a
-            ",
+            ''",
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "
-    ",
+                "''
+    ''",
                 3,
                 "    ",
             ),
-            "",
+            "''''",
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                " 
-    ",
+                "'' 
+    ''",
                 3,
                 "    ",
             ),
-            "",
+            "''''",
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "    a
-    ",
+                "''    a
+    ''",
                 3,
                 "    ",
             ),
-            "
+            "''
                 a
-            "
+            ''"
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "
-    a",
+                "''
+    a''",
                 3,
                 "    ",
             ),
-            "
-                a"
+            "''
+                a''"
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                " 
-    a",
+                "'' 
+    a''",
                 3,
                 "    ",
             ),
-            "
-                a"
+            "''
+                a''"
         );
         assert_eq!(
             render_absolute_indentation(
                 &AbsoluteIndentation::ClosingColumnInsignificant {
                     last_line_break_significant: true,
-                    start: "m%\"".to_owned(),
-                    end: "\"%".to_owned(),
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
                 },
-                "        a
-    a",
+                "''        a
+    a''",
                 3,
                 "    ",
             ),
-            "
+            "''
                     a
-                a"
+                a''"
         );
     }
 }
