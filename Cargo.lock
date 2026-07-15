@@ -4420,6 +4420,7 @@ dependencies = [
  "topiary-config",
  "topiary-core",
  "topiary-queries",
+ "topiary-resolver",
  "topiary-tree-sitter-facade",
 ]
 
@@ -4473,6 +4474,18 @@ dependencies = [
 [[package]]
 name = "topiary-queries"
 version = "0.7.3"
+
+[[package]]
+name = "topiary-resolver"
+version = "0.7.3"
+dependencies = [
+ "log",
+ "rootcause",
+ "tokio",
+ "topiary-config",
+ "topiary-core",
+ "topiary-queries",
+]
 
 [[package]]
 name = "topiary-tree-sitter-facade"

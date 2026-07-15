@@ -14,11 +14,12 @@ members = [
   "topiary-cli",
   "topiary-queries",
   "topiary-config",
+  "topiary-resolver",
   "topiary-web-tree-sitter-sys",
   "topiary-tree-sitter-facade",
   "examples/*",
 ]
-default-members = ["topiary-core", "topiary-cli"]
+default-members = ["topiary-core", "topiary-cli", "topiary-resolver"]
 resolver = "2"
 
 [profile.release]
@@ -76,6 +77,7 @@ tree-sitter-loader = "0.26"  # NOTE Align with tree-sitter
 
 # NOTE Update these appropriately
 topiary-config = { version = "0.7.3", path = "./topiary-config" }
+topiary-resolver = { version = "0.7.3", path = "./topiary-resolver" }
 topiary-core = { version = "0.7.3", path = "./topiary-core" }
 topiary-queries = { version = "0.7.3", path = "./topiary-queries" }
 topiary-tree-sitter-facade = { version = "0.7.3", path = "./topiary-tree-sitter-facade" }

@@ -7,15 +7,14 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use rootcause::prelude::ResultExt;
+
 use topiary_config::Configuration;
 use topiary_core::Language;
 
 use crate::{
     error::{CLIResult, ResultPreformat},
-    io::{
-        InputFile, to_injection_query_from_language, to_language_from_config_sync,
-        to_query_from_language,
-    },
+    io::{InputFile, to_language_from_config_sync},
 };
 
 /// Thread-safe language definition cache
@@ -94,8 +93,9 @@ impl LanguageDefinitionCache {
         name: &str,
     ) -> CLIResult<Arc<Language>> {
         let config_language = config.get_language(name).preformat_context()?;
-        let formatting_query = to_query_from_language(config_language)?;
-        let injection_query = to_injection_query_from_language(config_language);
+        let formatting_query = topiary_resolver::query_for_language(config_language)
+            .context(crate::error::TopiaryError::Config)?;
+        let injection_query = topiary_resolver::injection_query_for_language(config_language);
         let key = Self::key_for_parts(name, &formatting_query, injection_query.as_ref());
 
         let mut cache = self.cache.lock().expect("language cache mutex poisoned");

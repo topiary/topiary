@@ -43,6 +43,7 @@ tabled = { workspace = true }
 rootcause.workspace = true
 similar = "3.1"
 rootcause-preformat.workspace = true
+topiary-resolver.workspace = true
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
