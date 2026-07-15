@@ -1,2 +1,0 @@
-{abcd=/* comment */ ''
- abcd'';}
