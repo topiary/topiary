@@ -241,37 +241,40 @@ fn render_absolute_indentation(
         .filter(|s| !s.chars().all(char::is_whitespace))
         .map(str::chars)
         .map(|s| s.take_while(|c| c.is_whitespace()));
-    let common_whitespace_prefix = common_prefix(whitespace_prefixes.clone())
-        .expect("`next().is_none()` should still not hold because it just did for a `clone()`.");
-
-    // purely for warning generation. to do
-    match common_whitespace_prefix.clone().count().cmp(
-        &whitespace_prefixes.map(Iterator::count).min().expect(
-            "`next().is_none()` should still not hold because it just did for a `clone()`.",
-        ),
-    ) {
-        Ordering::Less => println!("warning"), // to do
-        Ordering::Equal => (),
-        Ordering::Greater => panic!(
-            "the common whitespace prefix should be a substring of the shortest whitespace prefix."
-        ),
-    }
-
-    let common_whitespace_prefix_len_utf8: usize =
-        common_whitespace_prefix.map(char::len_utf8).sum();
-    let content = content.map(|line| {
-        if common_whitespace_prefix_len_utf8 < line.len() {
-            &line[common_whitespace_prefix_len_utf8..]
-        } else {
-            ""
+    if let Some(common_whitespace_prefix) = common_prefix(whitespace_prefixes.clone()) {
+        // purely for warning generation. to do
+        match common_whitespace_prefix.clone().count().cmp(
+            &whitespace_prefixes.map(Iterator::count).min().expect(
+                "whitespace_prefixes should not be empty if `common_prefix` returns `Some`.",
+            ),
+        ) {
+            Ordering::Less => println!("warning"), // to do
+            Ordering::Equal => (),
+            Ordering::Greater => panic!(
+                "the common whitespace prefix should be a substring of the shortest whitespace prefix."
+            ),
         }
-    });
 
-    for line in content {
-        if line.chars().all(char::is_whitespace) {
+        let common_whitespace_prefix_len_utf8: usize =
+            common_whitespace_prefix.map(char::len_utf8).sum();
+        let content = content.map(|line| {
+            if common_whitespace_prefix_len_utf8 < line.len() {
+                &line[common_whitespace_prefix_len_utf8..]
+            } else {
+                ""
+            }
+        });
+
+        for line in content {
+            if line.chars().all(char::is_whitespace) {
+                writeln!(buffer).unwrap();
+            } else {
+                write!(buffer, "\n{}{line}", indent.repeat(indent_level + 1)).unwrap();
+            }
+        }
+    } else {
+        for _ in content {
             writeln!(buffer).unwrap();
-        } else {
-            write!(buffer, "\n{}{line}", indent.repeat(indent_level + 1)).unwrap();
         }
     }
     if !last_line_break_significant || last_line_is_whitespace {
@@ -686,6 +689,959 @@ mod tests {
             "''
                     a
                 a''"
+        );
+    }
+
+    #[test]
+    fn test_render_absolute_indentation_3_lines0() {
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+
+''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+
+''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    a
+
+''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+    
+''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+    
+''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    a
+    
+''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+    a
+''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+    a
+''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''        a
+    a
+''",
+                3,
+                "    ",
+            ),
+            "''
+                    a
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    a
+
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+    
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+    
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    a
+    
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+    a
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+    a
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''        a
+    a
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+                    a
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''        a
+
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+                    a
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+    
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+    
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''        a
+    
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+                    a
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+        a
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+                    a
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+        a
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+                    a
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''            a
+        a
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+                        a
+                    a
+                a
+            ''",
+        );
+    }
+
+    #[test]
+    fn test_render_absolute_indentation_3_lines1() {
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+
+''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+
+''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    a
+
+''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+    
+''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+    
+''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    a
+    
+''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+    a
+''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+    a
+''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''        a
+    a
+''",
+                3,
+                "    ",
+            ),
+            "''
+                    a
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    a
+
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+    
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+    
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    a
+    
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+    a
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+    a
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''        a
+    a
+    ''",
+                3,
+                "    ",
+            ),
+            "''
+                    a
+                a
+            ''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+
+                a''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+
+                a''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''        a
+
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+                    a
+
+                a''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+    
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+
+                a''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+    
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+
+                a''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''        a
+    
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+                    a
+
+                a''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+        a
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+                    a
+                a''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''    
+        a
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+                    a
+                a''",
+        );
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''            a
+        a
+    a''",
+                3,
+                "    ",
+            ),
+            "''
+                        a
+                    a
+                a''",
         );
     }
 }
