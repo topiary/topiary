@@ -6,9 +6,9 @@
         std.string.split
           " "
           m%"
-            line one with trailing space 
-            line two
-          "%
+          line one with trailing space 
+          line two
+        "%
         |> std.array.at 6
     },
     # Issue 680
@@ -24,24 +24,22 @@
       ]
     },
     {
-      id
-        | a -> a
+      id |
+        a -> a
     },
     #571
     {
-      b =
-        {
-          kind = 'ReplicationController,
-        } | KubernetesConfig,
-      c =
-        {
-          kind = 'ReplicationController,
-        }
-          | KubernetesConfig
+      b = {
+        kind = 'ReplicationController,
+      } | KubernetesConfig,
+      c = {
+        kind = 'ReplicationController,
+      }
+      | KubernetesConfig
     },
 
-    # Interpolated record operation chains (in
-    # a multi-line comment)
+# Interpolated record operation chains (in
+# a multi-line comment)
     {
       # This is fine
       good = "%{interpolated}",
@@ -89,13 +87,11 @@
     # Patterns formatting
     match {
       {
-        x = y,
+          x = y,
         z = { foo, bar, baz },
-        i = {
-          a,
-          b
-            | String
-            | String,
+        i = { a,
+          b | String
+          | String,
           c = 'Food z,
         }
       } => null,
@@ -104,126 +100,121 @@
 
     # Extended pattern formatting
     match {
-      { foo, bar } if foo == 'Hello
-        && bar == 'Goodbye =>
-        "multi"
-        ++ "line"
-        ++ "result",
-      { foo, bar } if foo == 'Hello
-        && bar == 'Goodbye => "single line result",
-      { x, y, ..rest }
-      or { x }
-      or { y } => null,
-      {
-        foo = [
-          x,
-          _,
-          z,
-          ..rest
-        ],
-        bar = [
-          1,
-          2,
-          _
-        ]
-      } => null,
-    },
+        {foo, bar}
+if
+foo == 'Hello &&
+bar == 'Goodbye
+=>
+    "multi"
+    ++ "line"
+    ++ "result",
+
+        {foo, bar}
+if
+foo == 'Hello &&
+bar == 'Goodbye
+=> "single line result",
+
+    {x, y, ..rest} or {x} or
+    {y} => null,
+
+    {foo = [x, _,
+    z, ..rest], bar = [1,
+    2, _]} => null,
+},
 
     # multiline multi-ary application
-    foo
-      (fun x y =>
-        x + y
-      )
-      1
-      2,
+    foo (fun x y =>
+        x + y) 1   2,
 
     # multiline unary application
-    foo (
-      test
-      && value
-      || other_value
-    ),
+    foo (test
+&& value
+|| other_value),
 
     # multiline unary application with indented form
-    foo (fun x =>
-      if x == 1 then
-        1
-      else
-        3
-    ),
+    foo
+      (fun x =>
+          if x == 1 then
+              1
+else
+    3),
 
     # regression tests for https://github.com/topiary/topiary/issues/743
     let foo
-      | Number
+    | Number
+    =
+[
+    1,
+    2,
+    3
+]
+in
+foo
+@ [],
+
+    let x | Number   =    1 + 1 in x,
+    let x | Number = 1 + 1
+      in x,
+
+    let x | Number | std.number.PosNat = 1
++ 1
+      in x,
+
+
+    let x | Number
+      = 1 + 1
+      in
+    x,
+
+    let x | Array String
+      =
+        ["a","b"]
+      in x,
+
+    let x | Array Number
       = [
-        1,
-        2,
-        3
-      ]
-    in
-    foo
-    @ [],
-    let x | Number = 1 + 1 in x,
-    let x | Number = 1 + 1
-    in x,
-    let x | Number | std.number.PosNat =
-      1
-      + 1
-    in x,
-    let x | Number = 1 + 1
-    in
-    x,
-    let x | Array String = ["a", "b"]
-    in x,
-    let x | Array Number = [
-      1,
-      2,
-      3
+    1,
+    2,
+    3
     ]
-    in
+      in
     x,
+
     let x
       | Array Number
-      = [
-        1 + 1,
-        2 + 2,
-        3 + 3,
-      ]
-    in
+      =
+        [1 + 1,
+2+2,
+3+3,]
+      in
     x,
 
     # let blocks
+
     let x = 1, y = 2 in x + y,
-    let
-      x = 1,
-      y = 2,
+
+    let x = 1,
+    y = 2,
     in x + y,
-    let rec
-      x = 1,
-      y = 2,
+
+    let
+    rec x = 1,
+    y = 2,
     in
     x + y,
   ],
 
   # Include expressions
 
-  includes =
-    let
-      x = 1,
-      y = 2,
-      z = 3,
-      a = 4,
-    in
-    {
-      include x,
-      include y,
-      include [x, y, z],
-      include a | String | doc "hello",
-      include a
-        | String
-        | doc "hello"
-        | optional,
-    },
+  includes = let x = 1,
+  y = 2, z = 3, a = 4, in
+{include x,include y,
+include [x,  y,   z],
+  include a | String | doc "hello",
+  include a | String |
+doc "hello" | optional,
+},
 
   # Nickel standard library as of 44aef1672a09a76a71946fbf822713747ab7b9df
 
@@ -242,15 +233,17 @@
         ```
       "%
       =
-        %contract/custom% (fun _label value =>
-          if %typeof% value == 'Array then
-            if %array/length% value != 0 then
-              'Ok value
-            else
-              'Error { message = "empty array" }
-          else
-            'Error { message = "not a array" }
-        ),
+        %contract/custom%
+          (
+            fun _label value =>
+              if %typeof% value == 'Array then
+                if %array/length% value != 0 then
+                  'Ok value
+                else
+                  'Error { message = "empty array" }
+              else
+                'Error { message = "not a array" }
+          ),
 
     first
       : forall a. Array a -> a
@@ -1082,23 +1075,23 @@
   contract = {
     Equal
       | doc m%"
-        `Equal` is a delayed contract enforcing equality to a given constant.
+      `Equal` is a delayed contract enforcing equality to a given constant.
 
-        `Equal` is lazy over arrays and records. When checking such values,
-        `Equal` doesn't test for equality of elements right away (it just tests
-        that the size is the same for arrays and that fields are the same for
-        records), but returns a new value where equality subcontracts have been
-        pushed inside each element.
+      `Equal` is lazy over arrays and records. When checking such values,
+      `Equal` doesn't test for equality of elements right away (it just tests
+      that the size is the same for arrays and that fields are the same for
+      records), but returns a new value where equality subcontracts have been
+      pushed inside each element.
 
-        # Example
+      # Example
 
-        ```nickel
-        1 + 4 | std.contract.Equal 5
-          => 5
-        4 | std.contract.Equal 5
-          => error: contract broken by a value
-        ```
-      "%
+      ```nickel
+      1 + 4 | std.contract.Equal 5
+        => 5
+      4 | std.contract.Equal 5
+        => error: contract broken by a value
+      ```
+    "%
       =
         let blame_fields_differ = fun qualifier fields ctr_label =>
           let plural = if %array/length% fields == 1 then "" else "s" in
@@ -1159,8 +1152,9 @@
                   %contract/record_lazy_apply%
                     ctr_label
                     value
-                    (fun field =>
-                      contract_map."%{field}"
+                    (
+                      fun field =>
+                        contract_map."%{field}"
                     ),
             'Array =>
               fun ctr_label value =>
@@ -1169,9 +1163,10 @@
                 if value_length == %array/length% constant then
                   %array/generate%
                     value_length
-                    (fun i =>
-                      %array/at% value i
-                      |> std.contract.apply (Equal (%array/at% constant i)) ctr_label
+                    (
+                      fun i =>
+                        %array/at% value i
+                        |> std.contract.apply (Equal (%array/at% constant i)) ctr_label
                     )
                 else
                   ctr_label
@@ -1329,12 +1324,14 @@
         ```
       "%
       = fun pred =>
-        %contract/custom% (fun _label value =>
-          if pred value then
-            'Ok value
-          else
-            'Error {}
-        ),
+        %contract/custom%
+          (
+            fun _label value =>
+              if pred value then
+                'Ok value
+              else
+                'Error {}
+          ),
 
     from_validator
       | (
@@ -1391,14 +1388,16 @@
       # A validator turns out to be a valid custom contract as well (which just
       # never returns a value with delayed checks)
       = fun validator =>
-        %contract/custom% (fun label value =>
-          let result = validator value in
+        %contract/custom%
+          (
+            fun label value =>
+              let result = validator value in
 
-          if result == 'Ok then
-            'Ok value
-          else
-            result
-        ),
+              if result == 'Ok then
+                'Ok value
+              else
+                result
+          ),
 
     Sequence
       | Array Dyn -> Dyn
@@ -1435,12 +1434,14 @@
         ```
       "%
       = fun contracts =>
-        %contract/custom% (fun label value =>
-          std.array.try_fold_left
-            (fun acc Contract => std.contract.check Contract label acc)
-            value
-            contracts
-        ),
+        %contract/custom%
+          (
+            fun label value =>
+              std.array.try_fold_left
+                (fun acc Contract => std.contract.check Contract label acc)
+                value
+                contracts
+          ),
 
     label
       | doc m%"
@@ -1801,32 +1802,35 @@
         ```
       "%
       = fun contracts =>
-        %contract/custom% (fun label value =>
-          std.array.try_fold_left
-            (fun _acc Contract =>
-              let label =
-                %label/with_message%
-                  "any_of: a delayed check of the picked branch failed"
-                  label
-              in
-              std.contract.check Contract label value
-              # We want to short-circuit on contract success. Since try_fold_left
-              # short-circuits on failure, we need to flip the two.
+        %contract/custom%
+          (
+            fun label value =>
+              std.array.try_fold_left
+                (
+                  fun _acc Contract =>
+                    let label =
+                      %label/with_message%
+                        "any_of: a delayed check of the picked branch failed"
+                        label
+                    in
+                    std.contract.check Contract label value
+                    # We want to short-circuit on contract success. Since try_fold_left
+                    # short-circuits on failure, we need to flip the two.
+                    |> match {
+                      'Ok value => 'Error value,
+                      'Error msg => 'Ok msg
+                    }
+                )
+                ('Ok null)
+                contracts
               |> match {
-                'Ok value => 'Error value,
-                'Error msg => 'Ok msg
+                'Ok _ =>
+                  'Error {
+                    message = "any_of: value didn't match any of the contracts",
+                  },
+                'Error value => 'Ok value,
               }
-            )
-            ('Ok null)
-            contracts
-          |> match {
-            'Ok _ =>
-              'Error {
-                message = "any_of: value didn't match any of the contracts",
-              },
-            'Error value => 'Ok value,
-          }
-        ),
+          ),
 
     all_of
       : Array Dyn -> Dyn
@@ -1870,14 +1874,16 @@
         ```
       "%
       = fun Contract =>
-        %contract/custom% (fun label value =>
-          value
-          |> std.contract.check Contract label
-          |> match {
-            'Ok _ => 'Error { message = "not: value matched the immediate part of the contract" },
-            error => 'Ok value,
-          }
-        ),
+        %contract/custom%
+          (
+            fun label value =>
+              value
+              |> std.contract.check Contract label
+              |> match {
+                'Ok _ => 'Error { message = "not: value matched the immediate part of the contract" },
+                error => 'Ok value,
+              }
+          ),
 
     unstable
       | doc m%"
@@ -1909,14 +1915,17 @@
             ```
           "%
           = fun Domain Codomain =>
-            %contract/custom% (fun label function =>
-              'Ok (fun arg =>
-                let arg_with_ctr = std.contract.apply Domain label arg in
+            %contract/custom%
+              (
+                fun label function =>
+                  'Ok (
+                    fun arg =>
+                      let arg_with_ctr = std.contract.apply Domain label arg in
 
-                function arg_with_ctr
-                |> std.contract.apply (Codomain arg_with_ctr) label
-              )
-            ),
+                      function arg_with_ctr
+                      |> std.contract.apply (Codomain arg_with_ctr) label
+                  )
+              ),
 
         RangeStep
           | doc m%"
@@ -1930,15 +1939,17 @@
             checked by an associated static type annotation.
           "%
           =
-            %contract/custom% (fun _label value =>
-              if %typeof% value == 'Number && value < 0 then
-                'Error {
-                  message = "invalid range step",
-                  notes = ["Expected a positive number, got %{%to_string% value}"],
-                }
-              else
-                'Ok value
-            ),
+            %contract/custom%
+              (
+                fun _label value =>
+                  if %typeof% value == 'Number && value < 0 then
+                    'Error {
+                      message = "invalid range step",
+                      notes = ["Expected a positive number, got %{%to_string% value}"],
+                    }
+                  else
+                    'Ok value
+              ),
 
         RangeFun
           | doc m%"
@@ -1957,22 +1968,24 @@
           "%
           = fun Codomain =>
             let RangeSecond = fun start =>
-              %contract/custom% (fun _label value =>
-                if %typeof% start == 'Number
-                && %typeof% value == 'Number
-                && start > value then
-                  let start_as_str = %to_string% start in
-                  let end_as_str = %to_string% value in
+              %contract/custom%
+                (
+                  fun _label value =>
+                    if %typeof% start == 'Number
+                    && %typeof% value == 'Number
+                    && start > value then
+                      let start_as_str = %to_string% start in
+                      let end_as_str = %to_string% value in
 
-                  'Error {
-                    message = "invalid range",
-                    notes = [
-                      "Expected a range end greater than %{start_as_str} (range start), got %{end_as_str}"
-                    ]
-                  }
-                else
-                  'Ok value
-              )
+                      'Error {
+                        message = "invalid range",
+                        notes = [
+                          "Expected a range end greater than %{start_as_str} (range start), got %{end_as_str}"
+                        ]
+                      }
+                    else
+                      'Ok value
+                )
             in
 
             fun label value =>
@@ -2009,49 +2022,53 @@
             let attach_message = label_module.with_message "invalid array indexing" in
 
             let ArrayIndexFirst =
-              %contract/custom% (fun label value =>
-                if %typeof% value == 'Number then
-                  let label =
-                    label
-                    |> attach_message
-                    |> label_module.append_note "Expected array index to be a positive integer, got %{%to_string% value} "
-                  in
-                  std.contract.check std.number.Nat label value
-                else
-                  'Ok value
-              )
+              %contract/custom%
+                (
+                  fun label value =>
+                    if %typeof% value == 'Number then
+                      let label =
+                        label
+                        |> attach_message
+                        |> label_module.append_note "Expected array index to be a positive integer, got %{%to_string% value} "
+                      in
+                      std.contract.check std.number.Nat label value
+                    else
+                      'Ok value
+                )
             in
 
             let ArrayIndexSecond = fun type min_size =>
-              %contract/custom% (fun _label value =>
-                if %typeof% min_size == 'Number && %typeof% value == 'Array then
-                  let max_idx =
-                    type
-                    |> match {
-                      'Index => %array/length% value - 1,
-                      'Split => %array/length% value
-                    }
-                  in
+              %contract/custom%
+                (
+                  fun _label value =>
+                    if %typeof% min_size == 'Number && %typeof% value == 'Array then
+                      let max_idx =
+                        type
+                        |> match {
+                          'Index => %array/length% value - 1,
+                          'Split => %array/length% value
+                        }
+                      in
 
-                  if min_size > max_idx then
-                    let index_as_str = %to_string% min_size in
-                    let max_as_str = %to_string% max_idx in
-                    let note =
-                      if %array/length% value == 0 then
-                        "Can't index into an empty array"
+                      if min_size > max_idx then
+                        let index_as_str = %to_string% min_size in
+                        let max_as_str = %to_string% max_idx in
+                        let note =
+                          if %array/length% value == 0 then
+                            "Can't index into an empty array"
+                          else
+                            "Expected an array index between 0 and %{max_as_str} (included), got %{index_as_str}"
+                        in
+
+                        'Error {
+                          message = "invalid array indexing",
+                          notes = [note],
+                        }
                       else
-                        "Expected an array index between 0 and %{max_as_str} (included), got %{index_as_str}"
-                    in
-
-                    'Error {
-                      message = "invalid array indexing",
-                      notes = [note],
-                    }
-                  else
-                    'Ok value
-                else
-                  'Ok value
-              )
+                        'Ok value
+                    else
+                      'Ok value
+                )
             in
 
             fun type =>
@@ -2082,68 +2099,76 @@
             let attach_message = label_module.with_message "invalid array slice indexing" in
 
             let SliceIndexFirst =
-              %contract/custom% (fun label value =>
-                if %typeof% value == 'Number then
-                  let label =
-                    label
-                    |> attach_message
-                    |> label_module.append_note "Expected the array slice start index to be a positive integer, got %{%to_string% value}"
-                  in
-                  std.contract.check std.number.Nat label value
-                else
-                  'Ok value
-              )
+              %contract/custom%
+                (
+                  fun label value =>
+                    if %typeof% value == 'Number then
+                      let label =
+                        label
+                        |> attach_message
+                        |> label_module.append_note "Expected the array slice start index to be a positive integer, got %{%to_string% value}"
+                      in
+                      std.contract.check std.number.Nat label value
+                    else
+                      'Ok value
+                )
             in
 
             let SliceIndexSecond = fun start =>
-              %contract/custom% (fun label value =>
-                if %typeof% start == 'Number && %typeof% value == 'Number then
-                  if value < start then
-                    'Error {
-                      message = "invalid array slice indexing",
-                      notes = [
-                        "Expected the array slice indices to satisfy `start <= end`, but got %{%to_string% start} (start) and %{%to_string% value} (end)"
-                      ],
-                    }
-                  else
-                    let label =
-                      label
-                      |> attach_message
-                      |> label_module.append_note "Expected the array slice end index to be a positive integer, got %{%to_string% value}"
-                    in
-                    std.contract.check std.number.Nat label value
-                else
-                  'Ok value
-              )
+              %contract/custom%
+                (
+                  fun label value =>
+                    if %typeof% start == 'Number && %typeof% value == 'Number then
+                      if value < start then
+                        'Error {
+                          message = "invalid array slice indexing",
+                          notes = [
+                            "Expected the array slice indices to satisfy `start <= end`, but got %{%to_string% start} (start) and %{%to_string% value} (end)"
+                          ],
+                        }
+                      else
+                        let label =
+                          label
+                          |> attach_message
+                          |> label_module.append_note "Expected the array slice end index to be a positive integer, got %{%to_string% value}"
+                        in
+                        std.contract.check std.number.Nat label value
+                    else
+                      'Ok value
+                )
             in
 
             let ArraySliceArray = fun end_index =>
-              %contract/custom% (fun _label value =>
-                if %typeof% end_index == 'Number
-                && %typeof% value == 'Array
-                && end_index > %array/length% value then
-                  let index_as_str = %to_string% end_index in
-                  let size_as_str = %to_string% (%array/length% value) in
+              %contract/custom%
+                (
+                  fun _label value =>
+                    if %typeof% end_index == 'Number
+                    && %typeof% value == 'Array
+                    && end_index > %array/length% value then
+                      let index_as_str = %to_string% end_index in
+                      let size_as_str = %to_string% (%array/length% value) in
 
-                  'Error {
-                    message = "invalid array slice indexing",
-                    notes = [
-                      "Expected the slice end index to be between 0 and %{size_as_str} (array's length), got %{index_as_str}"
-                    ],
-                  }
-                else
-                  'Ok value
-              )
+                      'Error {
+                        message = "invalid array slice indexing",
+                        notes = [
+                          "Expected the slice end index to be between 0 and %{size_as_str} (array's length), got %{index_as_str}"
+                        ],
+                      }
+                    else
+                      'Ok value
+                )
             in
 
             DependentFun
               SliceIndexFirst
-              (fun start_index =>
-                DependentFun
-                  (SliceIndexSecond start_index)
-                  (fun end_index =>
-                    ArraySliceArray end_index -> Dyn
-                  )
+              (
+                fun start_index =>
+                  DependentFun
+                    (SliceIndexSecond start_index)
+                    (
+                      fun end_index =>
+                        ArraySliceArray end_index -> Dyn
+                    )
               ),
 
         HasField
@@ -2171,22 +2196,24 @@
 
               In this example, the first call to `f` won't blame, but the second
               will, as `baz` isn't a field of the record argument.
-          "%%
+            "%%
           = fun Codomain =>
             let HasFieldSecond = fun field =>
-              %contract/custom% (fun _label value =>
-                if %typeof% field == 'String
-                && %typeof% value == 'Record
-                && !(%record/has_field% field value) then
-                  'Error {
-                    message = "missing field",
-                    notes = [
-                      "The record given as an argument lacks the required field `%{field}`."
-                    ]
-                  }
-                else
-                  'Ok value
-              )
+              %contract/custom%
+                (
+                  fun _label value =>
+                    if %typeof% field == 'String
+                    && %typeof% value == 'Record
+                    && !(%record/has_field% field value) then
+                      'Error {
+                        message = "missing field",
+                        notes = [
+                          "The record given as an argument lacks the required field `%{field}`."
+                        ]
+                      }
+                    else
+                      'Ok value
+                )
             in
 
             DependentFun
@@ -2226,14 +2253,16 @@
           'Bar 5
         ("tag" | std.enum.Enum) =>
           error
-      "%
+        "%
       =
-        %contract/custom% (fun _label value =>
-          if std.is_enum value then
-            'Ok value
-          else
-            'Error {}
-        ),
+        %contract/custom%
+          (
+            fun _label value =>
+              if std.is_enum value then
+                'Ok value
+              else
+                'Error {}
+          ),
 
     TagOrString
       | doc m%%"
@@ -2273,17 +2302,19 @@
         ```
       "%%
       =
-        %contract/custom% (fun _label value =>
-          %typeof% value
-          |> match {
-            'String => 'Ok (%enum/from_string% value),
-            'Enum if !(is_enum_variant value) => 'Ok value,
-            _ =>
-              'Error {
-                message = "expected either a string or an enum tag"
-              },
-          }
-        ),
+        %contract/custom%
+          (
+            fun _label value =>
+              %typeof% value
+              |> match {
+                'String => 'Ok (%enum/from_string% value),
+                'Enum if !(is_enum_variant value) => 'Ok value,
+                _ =>
+                  'Error {
+                    message = "expected either a string or an enum tag"
+                  },
+              }
+          ),
 
     is_enum_tag
       : Dyn -> Bool
@@ -2344,7 +2375,7 @@
         std.enum.to_tag_and_arg 'http
           => { tag = "http" }
         ```
-      "%
+        "%
       = fun enum_value =>
         let tag_string = %to_string% (%enum/get_tag% enum_value) in
         if %enum/is_variant% enum_value then
@@ -2372,7 +2403,7 @@
         std.enum.from_tag_and_arg { tag = "http" }
           => 'http
         ```
-      "%
+        "%
       = fun enum_data =>
         if %record/has_field% "arg" enum_data then
           %enum/make_variant% enum_data.tag enum_data.arg
@@ -2382,18 +2413,18 @@
     map
       | (Dyn -> Dyn) -> Enum -> Enum
       | doc m%"
-        Maps a function over an enum variant's argument. If the enum doesn't
-        have an argument, it is left unchanged.
+          Maps a function over an enum variant's argument. If the enum doesn't
+          have an argument, it is left unchanged.
 
-        # Examples
+          # Examples
 
-        ```nickel
-        std.enum.map ((+) 1) ('Foo 42)
-          => 'Foo 43
-        std.enum.map f 'Bar
-          => 'Bar
-        ```
-      "%
+          ```nickel
+          std.enum.map ((+) 1) ('Foo 42)
+            => 'Foo 43
+          std.enum.map f 'Bar
+            => 'Bar
+          ```
+        "%
       = fun f enum_value =>
         if %enum/is_variant% enum_value then
           let tag = (%to_string% (%enum/get_tag% enum_value)) in
@@ -2530,15 +2561,17 @@
         ```
       "%
       =
-        %contract/custom% (fun _label value =>
-          if %typeof% value == 'Number then
-            if value % 1 == 0 then
-              'Ok value
-            else
-              'Error { message = "expected an integer" }
-          else
-            'Error { message = "expected a number" }
-        ),
+        %contract/custom%
+          (
+            fun _label value =>
+              if %typeof% value == 'Number then
+                if value % 1 == 0 then
+                  'Ok value
+                else
+                  'Error { message = "expected an integer" }
+              else
+                'Error { message = "expected a number" }
+          ),
 
     Nat
       | doc m%"
@@ -2556,15 +2589,17 @@
         ```
       "%
       =
-        %contract/custom% (fun _label value =>
-          if %typeof% value == 'Number then
-            if value % 1 == 0 && value >= 0 then
-              'Ok value
-            else
-              'Error { message = "expected a natural" }
-          else
-            'Error { message = "expected a number" }
-        ),
+        %contract/custom%
+          (
+            fun _label value =>
+              if %typeof% value == 'Number then
+                if value % 1 == 0 && value >= 0 then
+                  'Ok value
+                else
+                  'Error { message = "expected a natural" }
+              else
+                'Error { message = "expected a number" }
+          ),
 
     PosNat
       | doc m%"
@@ -2582,15 +2617,17 @@
         ```
       "%
       =
-        %contract/custom% (fun _label value =>
-          if %typeof% value == 'Number then
-            if value % 1 == 0 && value > 0 then
-              'Ok value
-            else
-              'Error { message = "expected a positive integer" }
-          else
-            'Error { message = "expected a number" }
-        ),
+        %contract/custom%
+          (
+            fun _label value =>
+              if %typeof% value == 'Number then
+                if value % 1 == 0 && value > 0 then
+                  'Ok value
+                else
+                  'Error { message = "expected a positive integer" }
+              else
+                'Error { message = "expected a number" }
+          ),
 
     NonZero
       | doc m%"
@@ -2606,15 +2643,17 @@
         ```
       "%
       =
-        %contract/custom% (fun _label value =>
-          if %typeof% value == 'Number then
-            if value != 0 then
-              'Ok value
-            else
-              'Error { message = "value is zero" }
-          else
-            'Error { message = "expected a number" }
-        ),
+        %contract/custom%
+          (
+            fun _label value =>
+              if %typeof% value == 'Number then
+                if value != 0 then
+                  'Ok value
+                else
+                  'Error { message = "value is zero" }
+              else
+                'Error { message = "expected a number" }
+          ),
 
     is_integer
       : Number -> Bool
@@ -2788,7 +2827,7 @@
         std.number.log 10 std.number.e =>
           2.302585
         ```
-      "%
+        "%
       = fun x b => %number/log% x b,
 
     cos
@@ -2846,7 +2885,7 @@
         std.number.arccos 1 =>
           0
         ```
-      "%
+        "%
       = fun x => %number/arccos% x,
 
     arcsin
@@ -2862,7 +2901,7 @@
         std.number.arcsin 1 =>
           1.5707963
         ```
-      "%
+        "%
       = fun x => %number/arcsin% x,
 
     arctan
@@ -2876,22 +2915,22 @@
         std.number.arctan 1 =>
           0.78539816
         ```
-      "%
+        "%
       = fun x => %number/arctan% x,
 
     arctan2
       : Number -> Number -> Number
       | doc m%"
-        `arctan2 y x returns the four quadrant arctangent of y over x.
+      `arctan2 y x returns the four quadrant arctangent of y over x.
 
-        # Examples
+      # Examples
 
-        ```nickel
-        std.number.arctan2 1 0 =>
-          1.5707963
-        std.number.arctan2 (-0.5) (-0.5) =>
-          -0.7853981633974483
-        ```
+      ```nickel
+      std.number.arctan2 1 0 =>
+        1.5707963
+      std.number.arctan2 (-0.5) (-0.5) =>
+        -0.7853981633974483
+      ```
       "%
       = fun y x => %number/arctan2% y x,
 
@@ -2912,14 +2951,14 @@
     pi
       : Number
       | doc m%"
-        The π mathematical constant.
+      The π mathematical constant.
       "%
       = 3.14159265358979323846,
 
     e
       : Number
       | doc m%"
-        Euler's number, the e mathematical constant.
+      Euler's number, the e mathematical constant.
       "%
       = 2.7182818284590452354,
   },
@@ -3108,168 +3147,168 @@
     insert
       : forall a. String -> a -> { _ : a } -> { _ : a }
       | doc m%%"
-        Inserts a new field into a record. `insert` doesn't mutate the original
-        record but returns a new one instead.
+          Inserts a new field into a record. `insert` doesn't mutate the original
+          record but returns a new one instead.
 
-        # Preconditions
+          # Preconditions
 
-        The field must not exist in the initial record, otherwise `insert`
-        will fail. If the field might already exist, use `std.record.update`
-        instead.
+          The field must not exist in the initial record, otherwise `insert`
+          will fail. If the field might already exist, use `std.record.update`
+          instead.
 
-        # Empty optional fields
+          # Empty optional fields
 
-        By default, `insert` ignores optional fields without definition. The
-        precondition above doesn't apply to empty optional fields, and
-        `insert` will silently erase an existing empty optional field.
+          By default, `insert` ignores optional fields without definition. The
+          precondition above doesn't apply to empty optional fields, and
+          `insert` will silently erase an existing empty optional field.
 
-        Use `std.record.insert_with_opts` for a version which doesn't ignore
-        empty optional fields.
+          Use `std.record.insert_with_opts` for a version which doesn't ignore
+          empty optional fields.
 
-        # Examples
+          # Examples
 
-        ```nickel
-        std.record.insert "foo" 5 { bar = "bar" }
-          => { foo = 5, bar = "bar }
-        {}
-        |> std.record.insert "file.txt" "data/text"
-        |> std.record.insert "length" (10*1000)
-          => {"file.txt" = "data/text", "length" = 10000}
-        std.record.insert "already_there_opt" 0 {already_there_opt | optional}
-          => {already_there_optional = 0}
-        std.record.insert "already_there" 0 {already_there = 1}
-          => error
-        ```
-      "%%
+          ```nickel
+          std.record.insert "foo" 5 { bar = "bar" }
+            => { foo = 5, bar = "bar }
+          {}
+          |> std.record.insert "file.txt" "data/text"
+          |> std.record.insert "length" (10*1000)
+            => {"file.txt" = "data/text", "length" = 10000}
+          std.record.insert "already_there_opt" 0 {already_there_opt | optional}
+            => {already_there_optional = 0}
+          std.record.insert "already_there" 0 {already_there = 1}
+            => error
+          ```
+        "%%
       = fun field content r => %record/insert% field r content,
 
     insert_with_opts
       : forall a. String -> a -> { _ : a } -> { _ : a }
       | doc m%%"
-        Inserts a new field into a record. `insert_with_opts` doesn't mutate the
-        original record but returns a new one instead.
+          Inserts a new field into a record. `insert_with_opts` doesn't mutate the
+          original record but returns a new one instead.
 
-        Same as `std.record.insert`, but doesn't ignore empty optional fields.
+          Same as `std.record.insert`, but doesn't ignore empty optional fields.
 
-        # Preconditions
+          # Preconditions
 
-        The field must not exist in the initial record, otherwise `insert`
-        will fail. If the field might already exist, use `std.record.update`
-        instead.
+          The field must not exist in the initial record, otherwise `insert`
+          will fail. If the field might already exist, use `std.record.update`
+          instead.
 
-        # Examples
+          # Examples
 
-        ```nickel
-        std.record.insert_with_opts "foo" 5 { bar = "bar" }
-          => { foo = 5, bar = "bar }
-        {}
-        |> std.record.insert_with_opts "file.txt" "data/text"
-        |> std.record.insert_with_opts "length" (10*1000)
-          => {"file.txt" = "data/text", "length" = 10000}
-        std.record.insert_with_opts "already_there_optional" 0 {already_there | optional}
-          => error
-        std.record.insert_with_opts "already_there" 0 {already_there = 1}
-          => error
-        ```
-      "%%
+          ```nickel
+          std.record.insert_with_opts "foo" 5 { bar = "bar" }
+            => { foo = 5, bar = "bar }
+          {}
+          |> std.record.insert_with_opts "file.txt" "data/text"
+          |> std.record.insert_with_opts "length" (10*1000)
+            => {"file.txt" = "data/text", "length" = 10000}
+          std.record.insert_with_opts "already_there_optional" 0 {already_there | optional}
+            => error
+          std.record.insert_with_opts "already_there" 0 {already_there = 1}
+            => error
+          ```
+        "%%
       = fun field content r => %record/insert_with_opts% field r content,
 
     remove
       : forall a. String -> { _ : a } -> { _ : a }
       | doc m%"
-        Removes a field from a record. `remove` doesn't mutate the original
-        record but returns a new one instead.
+          Removes a field from a record. `remove` doesn't mutate the original
+          record but returns a new one instead.
 
-        # Preconditions
+          # Preconditions
 
-        The field to remove must be present in the record, or `remove` will
-        fail.
+          The field to remove must be present in the record, or `remove` will
+          fail.
 
-        # Empty optional fields
+          # Empty optional fields
 
-        By default, `remove` ignores optional fields. The precondition above
-        doesn't apply to an empty optional field and `remove` will fail with a
-        missing field error when trying to remove an empty optional field.
+          By default, `remove` ignores optional fields. The precondition above
+          doesn't apply to an empty optional field and `remove` will fail with a
+          missing field error when trying to remove an empty optional field.
 
-        Use `std.record.remove_with_opts` for a version which doesn't ignore
-        empty optional fields.
+          Use `std.record.remove_with_opts` for a version which doesn't ignore
+          empty optional fields.
 
-        # Examples
+          # Examples
 
-        ```nickel
-        std.record.remove "foo" { foo = "foo", bar = "bar" }
-          => { bar = "bar" }
-        std.record.remove "foo_opt" {foo_opt | optional}
-          => error
-        std.record.remove "foo" { bar = "bar" }
-          => error
-        ```
-      "%
+          ```nickel
+          std.record.remove "foo" { foo = "foo", bar = "bar" }
+            => { bar = "bar" }
+          std.record.remove "foo_opt" {foo_opt | optional}
+            => error
+          std.record.remove "foo" { bar = "bar" }
+            => error
+          ```
+        "%
       = fun field r => %record/remove% field r,
 
     remove_with_opts
       : forall a. String -> { _ : a } -> { _ : a }
       | doc m%"
-        Removes a field from a record. `remove` doesn't mutate the original
-        record but returns a new one instead.
+          Removes a field from a record. `remove` doesn't mutate the original
+          record but returns a new one instead.
 
-        Same as `std.record.remove`, but doesn't ignore empty optional fields.
+          Same as `std.record.remove`, but doesn't ignore empty optional fields.
 
-        # Preconditions
+          # Preconditions
 
-        The field to remove must be present in the record, or `remove` will
-        fail.
+          The field to remove must be present in the record, or `remove` will
+          fail.
 
-        # Examples
+          # Examples
 
-        ```nickel
-        std.record.remove_with_opts "foo" { foo = "foo", bar = "bar" }
-          => { bar = "bar" }
-        std.record.remove_with_opts "foo_opt" {foo_opt | optional}
-          => {}
-        std.record.remove_with_opts "foo" { bar = "bar" }
-          => error
-        ```
-      "%
+          ```nickel
+          std.record.remove_with_opts "foo" { foo = "foo", bar = "bar" }
+            => { bar = "bar" }
+          std.record.remove_with_opts "foo_opt" {foo_opt | optional}
+            => {}
+          std.record.remove_with_opts "foo" { bar = "bar" }
+            => error
+          ```
+        "%
       = fun field r => %record/remove_with_opts% field r,
 
     update
       : forall a. String -> a -> { _ : a } -> { _ : a }
       | doc m%"
-        Updates a field of a record with a new value. `update` doesn't mutate the
-        original record but returns a new one instead. If the field to update is absent
-        from the given record, `update` adds it.
+          Updates a field of a record with a new value. `update` doesn't mutate the
+          original record but returns a new one instead. If the field to update is absent
+          from the given record, `update` adds it.
 
-        # Empty optional fields
+          # Empty optional fields
 
-        `update` works the same way for empty optional fields and other fields.
-        `update` guarantees that it can always replace a field with a new
-        value, no matter the nature of the field.
+          `update` works the same way for empty optional fields and other fields.
+          `update` guarantees that it can always replace a field with a new
+          value, no matter the nature of the field.
 
-        # Examples
+          # Examples
 
-        ```nickel
-        std.record.update "foo" 5 { foo = "foo", bar = "bar" } =>
-          { foo = 5, bar = "bar" }
-        std.record.update "foo" 5 { bar = "bar" } =>
-          { foo = 5, bar = "bar" }
-        std.record.update "foo_opt" 5 {foo_opt | optional} =>
-          {foo_opt = 5}
-        ```
+          ```nickel
+          std.record.update "foo" 5 { foo = "foo", bar = "bar" } =>
+            { foo = 5, bar = "bar" }
+          std.record.update "foo" 5 { bar = "bar" } =>
+            { foo = 5, bar = "bar" }
+          std.record.update "foo_opt" 5 {foo_opt | optional} =>
+            {foo_opt = 5}
+          ```
 
-        # Overriding
+          # Overriding
 
-        As opposed to overriding a value with the merge operator `&`, `update`
-        will only change the specified field and won't automatically update the other
-        fields which depend on it:
+          As opposed to overriding a value with the merge operator `&`, `update`
+          will only change the specified field and won't automatically update the other
+          fields which depend on it:
 
-        ```nickel
-        { foo = bar + 1, bar | default = 0 } & { bar = 1 } =>
-          { foo = 2, bar = 1 }
-        std.record.update "bar" 1 {foo = bar + 1, bar | default = 0 } =>
-          { foo = 1, bar = 1 }
-        ```
-      "%
+          ```nickel
+          { foo = bar + 1, bar | default = 0 } & { bar = 1 } =>
+            { foo = 2, bar = 1 }
+          std.record.update "bar" 1 {foo = bar + 1, bar | default = 0 } =>
+            { foo = 1, bar = 1 }
+          ```
+        "%
       = fun field content r =>
         let r =
           if %record/has_field% field r then
@@ -3400,18 +3439,18 @@
         std.record.apply_on "age" std.number.compare { name = "Alice", age = 27 } { name = "Bob", age = 23 } =>
           'Greater
         ```
-      "%
+        "%
       = fun field f a b => f a."%{field}" b."%{field}",
 
     length
       : forall a. { _ : a } -> Number
       | doc m%"
-        Returns the number of fields in a record. This count doesn't include
-        fields both marked as optional and without a definition.
+          Returns the number of fields in a record. This count doesn't include
+          fields both marked as optional and without a definition.
 
-        Because of the need to filter empty optional fields, the cost of
-        `length` is linear in the size of the record.
-      "%
+          Because of the need to filter empty optional fields, the cost of
+          `length` is linear in the size of the record.
+        "%
       = fun record =>
         record
         |> fields
@@ -3465,15 +3504,17 @@
         let pattern = m%"^[+-]?(\d+(\.\d*)?(e[+-]?\d+)?|\.\d+(e[+-]?\d+)?)$"% in
         let is_num_literal = %string/is_match% pattern in
 
-        %contract/custom% (fun _label value =>
-          if %typeof% value == 'String then
-            if is_num_literal value then
-              'Ok value
-            else
-              'Error { message = "invalid number literal" }
-          else
-            'Error { message = "expected a string" }
-        ),
+        %contract/custom%
+          (
+            fun _label value =>
+              if %typeof% value == 'String then
+                if is_num_literal value then
+                  'Ok value
+                else
+                  'Error { message = "invalid number literal" }
+              else
+                'Error { message = "expected a string" }
+          ),
 
     Character
       | doc m%"
@@ -3493,15 +3534,17 @@
         ```
       "%
       =
-        %contract/custom% (fun _label value =>
-          if %typeof% value == 'String then
-            if length value == 1 then
-              'Ok value
-            else
-              'Error { message = "length different than one" }
-          else
-            'Error { message = "expected a string" }
-        ),
+        %contract/custom%
+          (
+            fun _label value =>
+              if %typeof% value == 'String then
+                if length value == 1 then
+                  'Ok value
+                else
+                  'Error { message = "length different than one" }
+              else
+                'Error { message = "expected a string" }
+          ),
 
     Stringable
       | doc m%"
@@ -3530,20 +3573,22 @@
         ```
       "%
       =
-        %contract/custom% (fun _label value =>
-          let type = std.typeof value in
+        %contract/custom%
+          (
+            fun _label value =>
+              let type = std.typeof value in
 
-          if value == null
-          || type == 'Number
-          || type == 'Bool
-          || type == 'String
-          # note that `type == 'Enum` isn't sufficient, as it includes enum
-          # variants
-          || std.enum.is_enum_tag value then
-            'Ok value
-          else
-            'Error {}
-        ),
+              if value == null
+              || type == 'Number
+              || type == 'Bool
+              || type == 'String
+              # note that `type == 'Enum` isn't sufficient, as it includes enum
+              # variants
+              || std.enum.is_enum_tag value then
+                'Ok value
+              else
+                'Error {}
+          ),
 
     NonEmpty
       | doc m%"
@@ -3561,15 +3606,17 @@
         ```
       "%
       =
-        %contract/custom% (fun _label value =>
-          if %typeof% value == 'String then
-            if %string/length% value > 0 then
-              'Ok value
-            else
-              'Error { message = "empty string" }
-          else
-            'Error { message = "not a string" }
-        ),
+        %contract/custom%
+          (
+            fun _label value =>
+              if %typeof% value == 'String then
+                if %string/length% value > 0 then
+                  'Ok value
+                else
+                  'Error { message = "empty string" }
+              else
+                'Error { message = "not a string" }
+          ),
 
     join
       : String -> Array String -> String
@@ -3749,21 +3796,21 @@
     replace_regex
       : String -> String -> String -> String
       | doc m%"
-          `replace_regex regex repl string` replaces every match of `regex` in `string` with `repl`.
+        `replace_regex regex repl string` replaces every match of `regex` in `string` with `repl`.
 
-          **Note**: this function will only replace matches which start & end
-          on the boundary of Unicode extended grapheme clusters. For example,
-          `replace_regex "❤️" "_" "👨‍❤️‍💋‍👨"` will return `"👨‍❤️‍💋‍👨"`, since the
-          heart codepoint occurs within the larger emoji grapheme cluster.
+        **Note**: this function will only replace matches which start & end
+        on the boundary of Unicode extended grapheme clusters. For example,
+        `replace_regex "❤️" "_" "👨‍❤️‍💋‍👨"` will return `"👨‍❤️‍💋‍👨"`, since the
+        heart codepoint occurs within the larger emoji grapheme cluster.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.string.replace_regex "l+." "j" "Hello!"
-            => "Hej!"
-          std.string.replace_regex "\\d+" "\"a\" is not" "This 37 is a number."
-            "This \"a\" is not a number."
-        ```
+        ```nickel
+        std.string.replace_regex "l+." "j" "Hello!"
+          => "Hej!"
+        std.string.replace_regex "\\d+" "\"a\" is not" "This 37 is a number."
+          "This \"a\" is not a number."
+      ```
       "%
       = fun pattern replace s =>
         %string/replace_regex% s pattern replace,
@@ -4079,14 +4126,16 @@
         1 == 1 | std.test.Assert
          => true
         ```
-      "%
+        "%
       =
-        %contract/custom% (fun _label value =>
-          if value then
-            'Ok value
-          else
-            'Error {}
-        ),
+        %contract/custom%
+          (
+            fun _label value =>
+              if value then
+                'Ok value
+              else
+                'Error {}
+          ),
 
     assert_all
       | Array Assert -> Bool
@@ -4103,7 +4152,7 @@
         [ (1 == 2), (1 == 1), (1 == 3) ] |> std.test.assert_all
          => error: contract broken by a value
         ```
-      "%
+        "%
       # We mostly rely on the contracts to do the work here. We just need to
       # make sure each element of the array is properly forced.
       = std.array.all (fun x => x),
