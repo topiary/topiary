@@ -220,17 +220,17 @@ doc "hello" | optional,
   array = {
     NonEmpty
       | doc m%"
-          Enforces that an array is not empty.
+        Enforces that an array is not empty.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          ([] | std.array.NonEmpty) =>
-            error
-          ([ 1 ] | std.array.NonEmpty) =>
-            [ 1 ]
-          ```
-        "%
+        ```nickel
+        ([] | std.array.NonEmpty) =>
+          error
+        ([ 1 ] | std.array.NonEmpty) =>
+          [ 1 ]
+        ```
+      "%
       =
         %contract/custom%
           (
@@ -248,123 +248,123 @@ doc "hello" | optional,
       : forall a. Array a -> a
       | NonEmpty -> Dyn
       | doc m%"
-          Returns the first element of an array.
+        Returns the first element of an array.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.first [ "this is the head", "this is not" ] =>
-            "this is the head"
-          ```
-          "%
+        ```nickel
+        std.array.first [ "this is the head", "this is not" ] =>
+          "this is the head"
+        ```
+        "%
       = fun array => %array/at% array 0,
 
     last
       : forall a. Array a -> a
       | NonEmpty -> Dyn
       | doc m%"
-          Returns the last element of an array.
+        Returns the last element of an array.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.last [ "this is the head", "this is not" ] =>
-            "this is not"
-          ```
-      "%
+        ```nickel
+        std.array.last [ "this is the head", "this is not" ] =>
+          "this is not"
+        ```
+    "%
       = fun array => %array/at% array (%array/length% array - 1),
 
     drop_first
       : forall a. Array a -> Array a
       | NonEmpty -> Dyn
       | doc m%"
-          Returns the given array without its first element.
+        Returns the given array without its first element.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.drop_first [ 1, 2, 3 ] =>
-            [ 2, 3 ]
-          ```"%
+        ```nickel
+        std.array.drop_first [ 1, 2, 3 ] =>
+          [ 2, 3 ]
+        ```"%
       = fun array => %array/slice% 1 (%array/length% array) array,
 
     drop_last
       : forall a. Array a -> Array a
       | NonEmpty -> Dyn
       | doc m%"
-        Returns the given array without its last element.
+          Returns the given array without its last element.
 
-        # Examples
+          # Examples
 
-        ```nickel
-        std.array.drop_last [ 1, 2, 3 ] =>
-          [ 1, 2 ]
-        ```
-        "%
+          ```nickel
+          std.array.drop_last [ 1, 2, 3 ] =>
+            [ 1, 2 ]
+          ```
+      "%
       = fun array => %array/slice% 0 (%array/length% array - 1) array,
 
     length
       : forall a. Array a -> Number
       | doc m%"
-            Returns the length of an array.
+      Returns the length of an array.
 
-            # Examples
+      # Examples
 
-            ```nickel
-            std.array.length [ "Hello,", " World!" ] =>
-              2
-            ```
-        "%
+      ```nickel
+      std.array.length [ "Hello,", " World!" ] =>
+        2
+      ```
+      "%
       = fun l => %array/length% l,
 
     map
       : forall a b. (a -> b) -> Array a -> Array b
       | doc m%"
-        Applies a function to every element in the given array. That is,
-        `map f [ x1, x2, ..., xn ]` is `[ f x1, f x2, ..., f xn ]`.
+          Applies a function to every element in the given array. That is,
+          `map f [ x1, x2, ..., xn ]` is `[ f x1, f x2, ..., f xn ]`.
 
-        # Examples
+          # Examples
 
-        ```nickel
-        std.array.map (fun x => x + 1) [ 1, 2, 3 ] =>
-          [ 2, 3, 4 ]
-        ```
-      "%
+          ```nickel
+          std.array.map (fun x => x + 1) [ 1, 2, 3 ] =>
+            [ 2, 3, 4 ]
+          ```
+        "%
       = fun f l => %array/map% l f,
 
     at
       : forall a. Number -> Array a -> a
       | std.contract.unstable.IndexedArrayFun 'Index
       | doc m%"
-            Retrieves the n-th element from an array, with indices starting at 0.
+      Retrieves the n-th element from an array, with indices starting at 0.
 
-            # Examples
+      # Examples
 
-            ```nickel
-            std.array.at 3 [ "zero", "one", "two", "three", "four" ] =>
-              "three"
-            ```
-          "%
+      ```nickel
+      std.array.at 3 [ "zero", "one", "two", "three", "four" ] =>
+        "three"
+      ```
+    "%
       = fun n l => %array/at% l n,
 
     at_or
       : forall a. Number -> a -> Array a -> a
       | std.number.Nat -> Dyn
       | doc m%"
-          Retrieves the n-th element from an array, with indices starting at 0
-          or the provided default value if the index is greater than the length
-          of the array.
+        Retrieves the n-th element from an array, with indices starting at 0
+        or the provided default value if the index is greater than the length
+        of the array.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.at_or 3 "default" [ "zero", "one", "two", "three" ] =>
-            "three"
+        ```nickel
+        std.array.at_or 3 "default" [ "zero", "one", "two", "three" ] =>
+          "three"
 
-          std.array.at_or 3 "default" [ "zero", "one" ] =>
-            "default"
-          ```
-        "%
+        std.array.at_or 3 "default" [ "zero", "one" ] =>
+          "default"
+        ```
+      "%
       = fun n default_value array =>
         if n < %array/length% array then
           %array/at% array n
@@ -374,15 +374,15 @@ doc "hello" | optional,
     concat
       : forall a. Array a -> Array a -> Array a
       | doc m%"
-          Appends the second array to the first one.
+        Appends the second array to the first one.
 
-          # Examples
+        # Examples
 
-          ```nickel
-            std.array.concat [ 1, 2, 3 ] [ 4, 5, 6 ] =>
-              [ 1, 2, 3, 4, 5, 6 ]
-          ```
-        "%
+        ```nickel
+          std.array.concat [ 1, 2, 3 ] [ 4, 5, 6 ] =>
+            [ 1, 2, 3, 4, 5, 6 ]
+        ```
+      "%
       = fun l1 l2 => l1 @ l2,
 
     fold_left
@@ -1346,43 +1346,43 @@ fold_left (fun acc e => acc + e) 0 [ 1, 2, 3 ] =>
         |]
       ) -> Dyn
       | doc m%%"
-          Build a contract from a validator.
+        Build a contract from a validator.
 
-          # Validator
+        # Validator
 
-          A validator is a function returning either `'Ok` or `'Error {message,
-          notes}` with an optional error message and notes to display. Both
-          validators and predicates are immediate contracts: they must decide
-          right away if the value passes or fails (as opposed to delayed
-          contracts). But as opposed to predicates, validators have the
-          additional ability to customize the error reporting.
+        A validator is a function returning either `'Ok` or `'Error {message,
+        notes}` with an optional error message and notes to display. Both
+        validators and predicates are immediate contracts: they must decide
+        right away if the value passes or fails (as opposed to delayed
+        contracts). But as opposed to predicates, validators have the
+        additional ability to customize the error reporting.
 
-          # Typing
+        # Typing
 
-          Because Nickel doesn't currently have proper types for contracts, the
-          return type of `from_validator` is simply `Dyn` in the type signature.
-          You should think of `from_validator` as returning a value of some
-          hypothetical type `Contract`.
+        Because Nickel doesn't currently have proper types for contracts, the
+        return type of `from_validator` is simply `Dyn` in the type signature.
+        You should think of `from_validator` as returning a value of some
+        hypothetical type `Contract`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          let IsZero = std.contract.from_validator (match {
-            0 => 'Ok,
-            n if std.is_number n =>
-              'Error {
-                message = "expected 0, got %{std.to_string n}",
-                notes = ["The value is a number, but it isn't 0"],
-              },
-            v =>
-              let vtype = v |> std.typeof |> std.to_string in
-              'Error { message = "expected a number, got a %{vtype}" }
-          })
-          in
+        ```nickel
+        let IsZero = std.contract.from_validator (match {
+          0 => 'Ok,
+          n if std.is_number n =>
+            'Error {
+              message = "expected 0, got %{std.to_string n}",
+              notes = ["The value is a number, but it isn't 0"],
+            },
+          v =>
+            let vtype = v |> std.typeof |> std.to_string in
+            'Error { message = "expected a number, got a %{vtype}" }
+        })
+        in
 
-          0 | IsZero
-          ```
-        "%%
+        0 | IsZero
+        ```
+      "%%
       # A validator turns out to be a valid custom contract as well (which just
       # never returns a value with delayed checks)
       = fun validator =>
@@ -2171,29 +2171,29 @@ fold_left (fun acc e => acc + e) 0 [ 1, 2, 3 ] =>
 
         HasField
           | doc m%%"
-              **Warning**: this is an unstable item. It might be renamed,
-              modified or deleted in any subsequent minor Nickel version.
+            **Warning**: this is an unstable item. It might be renamed,
+            modified or deleted in any subsequent minor Nickel version.
 
-              A function contract for 2-ary functions which checks that second
-              argument is a record that contains the first argument as a field.
-              This contract is parametrized by the return type of the function.
+            A function contract for 2-ary functions which checks that second
+            argument is a record that contains the first argument as a field.
+            This contract is parametrized by the return type of the function.
 
-              This contract blames only if the arguments are of the right type
-              but don't satisfy the tested condition (the first is a string and
-              the second is a record). The type of arguments is assumed to be
-              checked by an associated static type annotation. For example, if
-              the first argument is a number, this contract silently passes.
+            This contract blames only if the arguments are of the right type
+            but don't satisfy the tested condition (the first is a string and
+            the second is a record). The type of arguments is assumed to be
+            checked by an associated static type annotation. For example, if
+            the first argument is a number, this contract silently passes.
 
-              ## Example
+            ## Example
 
-              ```nickel
-              let f | HasField Dyn = fun field record => record."%{field}" in
-              (f "foo" { foo = 1, bar = 2 })
-              + (f "baz" { foo = 1, bar = 2 })
-              ```
+            ```nickel
+            let f | HasField Dyn = fun field record => record."%{field}" in
+            (f "foo" { foo = 1, bar = 2 })
+            + (f "baz" { foo = 1, bar = 2 })
+            ```
 
-              In this example, the first call to `f` won't blame, but the second
-              will, as `baz` isn't a field of the record argument.
+            In this example, the first call to `f` won't blame, but the second
+            will, as `baz` isn't a field of the record argument.
             "%%
           = fun Codomain =>
             let HasFieldSecond = fun field =>
@@ -2298,7 +2298,7 @@ fold_left (fun acc e => acc + e) 0 [ 1, 2, 3 ] =>
 
         serialized | Schema
         ```
-      "%%
+    "%%
       =
         %contract/custom%
           (
@@ -2478,8 +2478,7 @@ fold_left (fun acc e => acc + e) 0 [ 1, 2, 3 ] =>
         ```nickel
         std.function.flip (fun x y => "%{x} %{y}") "world!" "Hello,"
           => "Hello, world!"
-        ```
-      "%%
+        ```"%%
       = fun f x y => f y x,
 
     const
@@ -2530,16 +2529,16 @@ fold_left (fun acc e => acc + e) 0 [ 1, 2, 3 ] =>
     pipe
       : forall a. a -> Array (a -> a) -> a
       | doc m%%"
-        Applies an array of functions to a value, in order.
+          Applies an array of functions to a value, in order.
 
-        # Examples
+          # Examples
 
-        ```nickel
-        std.function.pipe 2 [ (+) 2, (+) 3 ]
-          => 7
-        std.function.pipe 'World [ std.string.from, fun s => "Hello, %{s}!" ]
-          => "Hello, World!"
-        ```
+          ```nickel
+          std.function.pipe 2 [ (+) 2, (+) 3 ]
+            => 7
+          std.function.pipe 'World [ std.string.from, fun s => "Hello, %{s}!" ]
+            => "Hello, World!"
+          ```
       "%%
       = fun x fs => std.array.fold_left (|>) x fs,
   },
@@ -3090,51 +3089,51 @@ fold_left (fun acc e => acc + e) 0 [ 1, 2, 3 ] =>
       : forall a. String -> { _ : a } -> a
       | std.contract.unstable.HasField Dyn
       | doc m%%"
-        Returns the field of a record with the given name.
+      Returns the field of a record with the given name.
 
-        `std.record.get field record` is just `record."%{field}"`. The latter
-        form is more idiomatic and should be generally preferred.
+      `std.record.get field record` is just `record."%{field}"`. The latter
+      form is more idiomatic and should be generally preferred.
 
-        However, `std.record.get` can come in handy when a proper function is
-        expected, typically in a sequence of operations chained with the reverse
-        application operator `|>`.
+      However, `std.record.get` can come in handy when a proper function is
+      expected, typically in a sequence of operations chained with the reverse
+      application operator `|>`.
 
-        Trying to extract a field which doesn't exist will result in a contract
-        error.
+      Trying to extract a field which doesn't exist will result in a contract
+      error.
 
-        # Examples
+      # Examples
 
-        ```nickel
-        std.record.get "one" { one = 1, two = 2 } =>
-          1
-        { one = 1, two = 2, string = "three"}
-        |> std.record.to_array
-        |> std.array.filter (fun { field, value } => std.is_number value)
-        |> std.record.from_array
-        |> std.record.get "two"
-          => 2
-        ```
+      ```nickel
+      std.record.get "one" { one = 1, two = 2 } =>
+        1
+      { one = 1, two = 2, string = "three"}
+      |> std.record.to_array
+      |> std.array.filter (fun { field, value } => std.is_number value)
+      |> std.record.from_array
+      |> std.record.get "two"
+        => 2
+      ```
       "%%
       = fun field r => r."%{field}",
 
     get_or
       : forall a. String -> a -> { _ : a } -> a
       | doc m%%"
-        Returns the field of a record with the given name, or the default value
-        if either there is no such field or if this field doesn't have a
-        definition.
+          Returns the field of a record with the given name, or the default value
+          if either there is no such field or if this field doesn't have a
+          definition.
 
-        # Examples
+          # Examples
 
-        ```nickel
-        std.record.get_or "tree" 3 { one = 1, two = 2 }
-          => 3
-        std.record.get_or "one" 11 { one = 1, two = 2 }
-          => 1
-        std.record.get_or "value" "default" { tag = 'Hello, value }
-          => "default"
-        ```
-      "%%
+          ```nickel
+          std.record.get_or "tree" 3 { one = 1, two = 2 }
+            => 3
+          std.record.get_or "one" 11 { one = 1, two = 2 }
+            => 1
+          std.record.get_or "value" "default" { tag = 'Hello, value }
+            => "default"
+          ```
+        "%%
       = fun field default_value record =>
         if %record/has_field% field record
         && %record/field_is_defined% field record then
@@ -3145,70 +3144,70 @@ fold_left (fun acc e => acc + e) 0 [ 1, 2, 3 ] =>
     insert
       : forall a. String -> a -> { _ : a } -> { _ : a }
       | doc m%%"
-          Inserts a new field into a record. `insert` doesn't mutate the original
-          record but returns a new one instead.
+      Inserts a new field into a record. `insert` doesn't mutate the original
+      record but returns a new one instead.
 
-          # Preconditions
+      # Preconditions
 
-          The field must not exist in the initial record, otherwise `insert`
-          will fail. If the field might already exist, use `std.record.update`
-          instead.
+      The field must not exist in the initial record, otherwise `insert`
+      will fail. If the field might already exist, use `std.record.update`
+      instead.
 
-          # Empty optional fields
+      # Empty optional fields
 
-          By default, `insert` ignores optional fields without definition. The
-          precondition above doesn't apply to empty optional fields, and
-          `insert` will silently erase an existing empty optional field.
+      By default, `insert` ignores optional fields without definition. The
+      precondition above doesn't apply to empty optional fields, and
+      `insert` will silently erase an existing empty optional field.
 
-          Use `std.record.insert_with_opts` for a version which doesn't ignore
-          empty optional fields.
+      Use `std.record.insert_with_opts` for a version which doesn't ignore
+      empty optional fields.
 
-          # Examples
+      # Examples
 
-          ```nickel
-          std.record.insert "foo" 5 { bar = "bar" }
-            => { foo = 5, bar = "bar }
-          {}
-          |> std.record.insert "file.txt" "data/text"
-          |> std.record.insert "length" (10*1000)
-            => {"file.txt" = "data/text", "length" = 10000}
-          std.record.insert "already_there_opt" 0 {already_there_opt | optional}
-            => {already_there_optional = 0}
-          std.record.insert "already_there" 0 {already_there = 1}
-            => error
-          ```
-        "%%
+      ```nickel
+      std.record.insert "foo" 5 { bar = "bar" }
+        => { foo = 5, bar = "bar }
+      {}
+      |> std.record.insert "file.txt" "data/text"
+      |> std.record.insert "length" (10*1000)
+        => {"file.txt" = "data/text", "length" = 10000}
+      std.record.insert "already_there_opt" 0 {already_there_opt | optional}
+        => {already_there_optional = 0}
+      std.record.insert "already_there" 0 {already_there = 1}
+        => error
+      ```
+    "%%
       = fun field content r => %record/insert% field r content,
 
     insert_with_opts
       : forall a. String -> a -> { _ : a } -> { _ : a }
       | doc m%%"
-          Inserts a new field into a record. `insert_with_opts` doesn't mutate the
-          original record but returns a new one instead.
+Inserts a new field into a record. `insert_with_opts` doesn't mutate the
+original record but returns a new one instead.
 
-          Same as `std.record.insert`, but doesn't ignore empty optional fields.
+Same as `std.record.insert`, but doesn't ignore empty optional fields.
 
-          # Preconditions
+# Preconditions
 
-          The field must not exist in the initial record, otherwise `insert`
-          will fail. If the field might already exist, use `std.record.update`
-          instead.
+The field must not exist in the initial record, otherwise `insert`
+will fail. If the field might already exist, use `std.record.update`
+instead.
 
-          # Examples
+# Examples
 
-          ```nickel
-          std.record.insert_with_opts "foo" 5 { bar = "bar" }
-            => { foo = 5, bar = "bar }
-          {}
-          |> std.record.insert_with_opts "file.txt" "data/text"
-          |> std.record.insert_with_opts "length" (10*1000)
-            => {"file.txt" = "data/text", "length" = 10000}
-          std.record.insert_with_opts "already_there_optional" 0 {already_there | optional}
-            => error
-          std.record.insert_with_opts "already_there" 0 {already_there = 1}
-            => error
-          ```
-        "%%
+```nickel
+std.record.insert_with_opts "foo" 5 { bar = "bar" }
+  => { foo = 5, bar = "bar }
+{}
+|> std.record.insert_with_opts "file.txt" "data/text"
+|> std.record.insert_with_opts "length" (10*1000)
+  => {"file.txt" = "data/text", "length" = 10000}
+std.record.insert_with_opts "already_there_optional" 0 {already_there | optional}
+  => error
+std.record.insert_with_opts "already_there" 0 {already_there = 1}
+  => error
+```
+"%%
       = fun field content r => %record/insert_with_opts% field r content,
 
     remove
