@@ -3,7 +3,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use rootcause::{Report, report, prelude::ResultExt, markers::{Mutable, SendSync}};
+use rootcause::{
+    Report,
+    markers::{Mutable, SendSync},
+    report,
+};
 use topiary_config::Configuration;
 use topiary_core::{InjectionQuery, Language, TopiaryQuery};
 
@@ -77,7 +81,9 @@ pub enum ResolverError {
 impl fmt::Display for ResolverError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::UnsupportedLanguage(name) => write!(f, "The specified language is unsupported: {name}"),
+            Self::UnsupportedLanguage(name) => {
+                write!(f, "The specified language is unsupported: {name}")
+            }
             Self::QueryNotFound(name) => write!(f, "Query file not found for language: {name}"),
             Self::Io(_) => write!(f, "I/O Error"),
             Self::Parsing(_) => write!(f, "Parsing Error"),
@@ -141,7 +147,9 @@ pub fn builtin_query<T: AsRef<str> + fmt::Display>(name: T) -> ResolverResult<Qu
         #[cfg(feature = "wit")]
         "wit" => Ok(topiary_queries::wit().into()),
 
-        name => Err(report!(ResolverError::UnsupportedLanguage(name.to_string()))),
+        name => Err(report!(ResolverError::UnsupportedLanguage(
+            name.to_string()
+        ))),
     }
 }
 
@@ -190,18 +198,18 @@ pub async fn resolve_language_by_name<T: AsRef<str>>(
     let config_language = config
         .get_language(name.as_ref())
         .map_err(|e| report!(ResolverError::Config(e.to_string())))?;
-        
+
     let grammar = config_language
         .grammar()
         .map_err(|e| report!(ResolverError::Config(e.to_string())))?;
-        
+
     let query_source = query_for_language(config_language)?;
-    
+
     let query_content = query_source
         .get_content()
         .await
         .map_err(|e| report!(ResolverError::Io(e)))?;
-        
+
     let formatting_query = TopiaryQuery::new(&grammar, &query_content)
         .map_err(|e| report!(ResolverError::Parsing(e.to_string())))?;
 
@@ -234,17 +242,17 @@ pub fn resolve_language_by_name_sync<T: AsRef<str> + fmt::Display>(
     let config_language = config
         .get_language(name.as_ref())
         .map_err(|e| report!(ResolverError::Config(e.to_string())))?;
-        
+
     let grammar = config_language
         .grammar()
         .map_err(|e| report!(ResolverError::Config(e.to_string())))?;
-        
+
     let query_source = query_for_language(config_language)?;
-    
+
     let query_content = query_source
         .get_content_sync()
         .map_err(|e| report!(ResolverError::Io(e)))?;
-        
+
     let formatting_query = TopiaryQuery::new(&grammar, &query_content)
         .map_err(|e| report!(ResolverError::Parsing(e.to_string())))?;
 

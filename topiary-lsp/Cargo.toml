@@ -1,0 +1,41 @@
+[package]
+name = "topiary-lsp"
+description = "Language server for Topiary"
+categories = ["development-tools", "text-processing"]
+keywords = ["code-formatter", "formatter", "text", "tree-sitter", "lsp"]
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[dependencies]
+log.workspace = true
+tokio = { workspace = true, features = ["full"] }
+dashmap.workspace = true
+tower-lsp-server.workspace = true
+rootcause.workspace = true
+topiary-core.workspace = true
+topiary-config.workspace = true
+topiary-resolver.workspace = true
+
+[features]
+default = ["bash", "json", "nickel", "ocaml", "ocaml_interface", "ocamllex", "toml", "tree_sitter_query"]
+
+bash = ["topiary-resolver/bash"]
+css = ["topiary-resolver/css"]
+json = ["topiary-resolver/json"]
+nickel = ["topiary-resolver/nickel"]
+ocaml = ["topiary-resolver/ocaml"]
+ocaml_interface = ["topiary-resolver/ocaml_interface"]
+ocamllex = ["topiary-resolver/ocamllex"]
+openscad = ["topiary-resolver/openscad"]
+rust = ["topiary-resolver/rust"]
+sdml = ["topiary-resolver/sdml"]
+toml = ["topiary-resolver/toml"]
+tree_sitter_query = ["topiary-resolver/tree_sitter_query"]
+markdown = ["topiary-resolver/markdown"]
+wit = ["topiary-resolver/wit"]

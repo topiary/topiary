@@ -36,6 +36,8 @@ tokio = { workspace = true, features = ["fs", "rt-multi-thread", "sync", "macros
 toml = { workspace = true }
 topiary-core.workspace = true
 topiary-config.workspace = true
+topiary-resolver.workspace = true
+topiary-lsp.workspace = true
 topiary-queries.workspace = true
 topiary-tree-sitter-facade.workspace = true
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
@@ -43,7 +45,7 @@ tabled = { workspace = true }
 rootcause.workspace = true
 similar = "3.1"
 rootcause-preformat.workspace = true
-topiary-resolver.workspace = true
+
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

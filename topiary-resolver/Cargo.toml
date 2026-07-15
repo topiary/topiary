@@ -18,7 +18,7 @@ rootcause.workspace = true
 topiary-core.workspace = true
 topiary-config.workspace = true
 topiary-queries.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util"] }
 
 [features]
 default = ["bash", "json", "nickel", "ocaml", "ocaml_interface", "ocamllex", "toml", "tree_sitter_query"]
