@@ -513,7 +513,8 @@ mod tests {
                 "    ",
             ),
             "''
-                a''"
+                a
+            ''"
         );
         assert_eq!(
             render_absolute_indentation(
@@ -528,7 +529,8 @@ mod tests {
                 "    ",
             ),
             "''
-                a''"
+                a
+            ''"
         );
         assert_eq!(
             render_absolute_indentation(
@@ -544,7 +546,8 @@ mod tests {
             ),
             "''
                     a
-                a''"
+                a
+            ''"
         );
     }
 
@@ -651,8 +654,7 @@ mod tests {
                 "    ",
             ),
             "''
-                a
-            ''"
+                a''"
         );
         assert_eq!(
             render_absolute_indentation(
@@ -667,8 +669,7 @@ mod tests {
                 "    ",
             ),
             "''
-                a
-            ''"
+                a''"
         );
         assert_eq!(
             render_absolute_indentation(
@@ -684,8 +685,7 @@ mod tests {
             ),
             "''
                     a
-                a
-            ''"
+                a''"
         );
     }
 }
