@@ -242,13 +242,16 @@ fn render_absolute_indentation(
         .map(str::chars)
         .map(|s| s.take_while(|c| c.is_whitespace()));
     if let Some(common_whitespace_prefix) = common_prefix(whitespace_prefixes.clone()) {
-        // purely for warning generation. to do
+        // purely for warning generation
         match common_whitespace_prefix.clone().count().cmp(
             &whitespace_prefixes.map(Iterator::count).min().expect(
                 "whitespace_prefixes should not be empty if `common_prefix` returns `Some`.",
             ),
         ) {
-            Ordering::Less => println!("warning"), // to do
+            Ordering::Less => println!(
+                // to do
+                "is this indentation? then you should not mix different kinds of whitespace characters."
+            ),
             Ordering::Equal => (),
             Ordering::Greater => panic!(
                 "the common whitespace prefix should be a substring of the shortest whitespace prefix."
