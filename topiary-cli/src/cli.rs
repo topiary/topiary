@@ -184,6 +184,7 @@ pub enum Commands {
     },
 
     /// Run Topiary Language Server
+    #[cfg(feature = "lsp")]
     #[command(display_order = 7)]
     Lsp,
 

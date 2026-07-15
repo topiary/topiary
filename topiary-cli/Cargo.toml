@@ -37,7 +37,7 @@ toml = { workspace = true }
 topiary-core.workspace = true
 topiary-config.workspace = true
 topiary-resolver.workspace = true
-topiary-lsp.workspace = true
+topiary-lsp = { workspace = true, optional = true }
 topiary-queries.workspace = true
 topiary-tree-sitter-facade.workspace = true
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
@@ -93,3 +93,4 @@ toml = ["topiary-config/toml", "topiary-queries/toml"]
 tree_sitter_query = ["topiary-config/tree_sitter_query", "topiary-queries/tree_sitter_query"]
 markdown = ["topiary-config/markdown", "topiary-queries/markdown"]
 wit = ["topiary-config/wit", "topiary-queries/wit"]
+lsp = ["dep:topiary-lsp"]
