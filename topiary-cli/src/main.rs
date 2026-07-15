@@ -295,6 +295,7 @@ async fn run() -> CLIResult<()> {
             cli::completion(shell.unwrap());
         }
 
+        #[cfg(feature = "lsp")]
         Commands::Lsp => {
             topiary_lsp::run(config.as_ref().as_ref().clone()).await?;
         }

@@ -34,7 +34,7 @@ tokio = { workspace = true, features = ["fs", "rt-multi-thread", "sync", "macros
 toml = { workspace = true }
 topiary-core = { workspace = true, features = [ "log" ] }
 topiary-config.workspace = true
-topiary-lsp.workspace = true
+topiary-lsp = { workspace = true, optional = true }
 topiary-queries.workspace = true
 topiary-tree-sitter-facade.workspace = true
 topiary-resolver = { workspace = true, default-features = false }
@@ -100,3 +100,4 @@ toml = ["topiary-config/toml", "topiary-queries/toml", "topiary-resolver/toml"]
 tree_sitter_query = ["topiary-config/tree_sitter_query", "topiary-queries/tree_sitter_query", "topiary-resolver/tree_sitter_query"]
 wit = ["topiary-config/wit", "topiary-queries/wit", "topiary-resolver/wit"]
 
+lsp = ["dep:topiary-lsp"]

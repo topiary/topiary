@@ -31,7 +31,4 @@ args = ["lsp"]
 [[language]]
 name = "ocaml"
 language-servers = ["topiary-lsp"]
-formatter = { command = "topiary", args = ["lsp"] }
 ```
-
-*(Note that Topiary is natively supported by Helix for some languages, but using the LSP allows Topiary to format as-you-type and integrates with LSP formatting workflows).*
