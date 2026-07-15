@@ -7,7 +7,7 @@
           " "
           m%"
             line one with trailing space 
-            line two
+             line two
           "%
         |> std.array.at 6
     },
@@ -230,17 +230,17 @@
   array = {
     NonEmpty
       | doc m%"
-          Enforces that an array is not empty.
+        Enforces that an array is not empty.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          ([] | std.array.NonEmpty) =>
-            error
-          ([ 1 ] | std.array.NonEmpty) =>
-            [ 1 ]
-          ```
-        "%
+        ```nickel
+        ([] | std.array.NonEmpty) =>
+          error
+        ([ 1 ] | std.array.NonEmpty) =>
+          [ 1 ]
+        ```
+      "%
       =
         %contract/custom% (fun _label value =>
           if %typeof% value == 'Array then
@@ -256,124 +256,124 @@
       : forall a. Array a -> a
       | NonEmpty -> Dyn
       | doc m%"
-          Returns the first element of an array.
+        Returns the first element of an array.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.first [ "this is the head", "this is not" ] =>
-            "this is the head"
-          ```
-        "%
+        ```nickel
+        std.array.first [ "this is the head", "this is not" ] =>
+          "this is the head"
+        ```
+      "%
       = fun array => %array/at% array 0,
 
     last
       : forall a. Array a -> a
       | NonEmpty -> Dyn
       | doc m%"
-          Returns the last element of an array.
+        Returns the last element of an array.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.last [ "this is the head", "this is not" ] =>
-            "this is not"
-          ```
-        "%
+        ```nickel
+        std.array.last [ "this is the head", "this is not" ] =>
+          "this is not"
+        ```
+      "%
       = fun array => %array/at% array (%array/length% array - 1),
 
     drop_first
       : forall a. Array a -> Array a
       | NonEmpty -> Dyn
       | doc m%"
-          Returns the given array without its first element.
+        Returns the given array without its first element.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.drop_first [ 1, 2, 3 ] =>
-            [ 2, 3 ]
-          ```
-        "%
+        ```nickel
+        std.array.drop_first [ 1, 2, 3 ] =>
+          [ 2, 3 ]
+        ```
+      "%
       = fun array => %array/slice% 1 (%array/length% array) array,
 
     drop_last
       : forall a. Array a -> Array a
       | NonEmpty -> Dyn
       | doc m%"
-          Returns the given array without its last element.
+        Returns the given array without its last element.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.drop_last [ 1, 2, 3 ] =>
-            [ 1, 2 ]
-          ```
-        "%
+        ```nickel
+        std.array.drop_last [ 1, 2, 3 ] =>
+          [ 1, 2 ]
+        ```
+      "%
       = fun array => %array/slice% 0 (%array/length% array - 1) array,
 
     length
       : forall a. Array a -> Number
       | doc m%"
-          Returns the length of an array.
+        Returns the length of an array.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.length [ "Hello,", " World!" ] =>
-            2
-          ```
-        "%
+        ```nickel
+        std.array.length [ "Hello,", " World!" ] =>
+          2
+        ```
+      "%
       = fun l => %array/length% l,
 
     map
       : forall a b. (a -> b) -> Array a -> Array b
       | doc m%"
-          Applies a function to every element in the given array. That is,
-          `map f [ x1, x2, ..., xn ]` is `[ f x1, f x2, ..., f xn ]`.
+        Applies a function to every element in the given array. That is,
+        `map f [ x1, x2, ..., xn ]` is `[ f x1, f x2, ..., f xn ]`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.map (fun x => x + 1) [ 1, 2, 3 ] =>
-            [ 2, 3, 4 ]
-          ```
-        "%
+        ```nickel
+        std.array.map (fun x => x + 1) [ 1, 2, 3 ] =>
+          [ 2, 3, 4 ]
+        ```
+      "%
       = fun f l => %array/map% l f,
 
     at
       : forall a. Number -> Array a -> a
       | std.contract.unstable.IndexedArrayFun 'Index
       | doc m%"
-          Retrieves the n-th element from an array, with indices starting at 0.
+        Retrieves the n-th element from an array, with indices starting at 0.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.at 3 [ "zero", "one", "two", "three", "four" ] =>
-            "three"
-          ```
-        "%
+        ```nickel
+        std.array.at 3 [ "zero", "one", "two", "three", "four" ] =>
+          "three"
+        ```
+      "%
       = fun n l => %array/at% l n,
 
     at_or
       : forall a. Number -> a -> Array a -> a
       | std.number.Nat -> Dyn
       | doc m%"
-          Retrieves the n-th element from an array, with indices starting at 0
-          or the provided default value if the index is greater than the length
-          of the array.
+        Retrieves the n-th element from an array, with indices starting at 0
+        or the provided default value if the index is greater than the length
+        of the array.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.at_or 3 "default" [ "zero", "one", "two", "three" ] =>
-            "three"
+        ```nickel
+        std.array.at_or 3 "default" [ "zero", "one", "two", "three" ] =>
+          "three"
 
-          std.array.at_or 3 "default" [ "zero", "one" ] =>
-            "default"
-          ```
-        "%
+        std.array.at_or 3 "default" [ "zero", "one" ] =>
+          "default"
+        ```
+      "%
       = fun n default_value array =>
         if n < %array/length% array then
           %array/at% array n
@@ -383,82 +383,82 @@
     concat
       : forall a. Array a -> Array a -> Array a
       | doc m%"
-          Appends the second array to the first one.
+        Appends the second array to the first one.
 
-          # Examples
+        # Examples
 
-          ```nickel
-            std.array.concat [ 1, 2, 3 ] [ 4, 5, 6 ] =>
-              [ 1, 2, 3, 4, 5, 6 ]
-          ```
-        "%
+        ```nickel
+          std.array.concat [ 1, 2, 3 ] [ 4, 5, 6 ] =>
+            [ 1, 2, 3, 4, 5, 6 ]
+        ```
+      "%
       = fun l1 l2 => l1 @ l2,
 
     fold_left
       : forall a b. (a -> b -> a) -> a -> Array b -> a
       | doc m%"
-          Folds a function over an array. In a functional language like Nickel,
-          folds serve a similar purpose to loops or iterators. `fold_left`
-          iterates over an array, by repeatedly applying a function to each
-          element, threading an additional arbitrary state (the accumulator, of
-          type `a` in the signature) through the chain of applications.
+        Folds a function over an array. In a functional language like Nickel,
+        folds serve a similar purpose to loops or iterators. `fold_left`
+        iterates over an array, by repeatedly applying a function to each
+        element, threading an additional arbitrary state (the accumulator, of
+        type `a` in the signature) through the chain of applications.
 
-          `fold_left f init [x1, x2, ..., xn]` results in `f (... (f (f init x1) x2) ...) xn`.
+        `fold_left f init [x1, x2, ..., xn]` results in `f (... (f (f init x1) x2) ...) xn`.
 
-          This function is strict in the intermediate accumulator.
+        This function is strict in the intermediate accumulator.
 
-          # Left vs right
+        # Left vs right
 
-          Folds come in two variants, left and right. How to decide which one to
-          use?
+        Folds come in two variants, left and right. How to decide which one to
+        use?
 
-          - If the folded function isn't associative (such as subtraction), then
-            each variant will give a different result. The choice is dictacted by
-            which one you need. For example:
-
-            ```nickel
-            std.array.fold_right (-) 0 [1, 2, 3, 4]
-             => -2
-            std.array.fold_left (-) 0 [1, 2, 3, 4]
-             => -10
-            ```
-          - If the folded function is associative, both `fold_right` and
-            `fold_left` return the same result. In that case, **`fold_left` is
-            generally preferred**, because it forces the evaluation of the
-            intermediate results resulting in less memory consumption and overall
-            better performance (outside of pathological cases).
-            `fold_left` also iterates from the start of the array, which
-            corresponds to the usual behavior of loops and iterators in most
-            programming languages. There is one case where `fold_right` might be
-            preferred, see the next point.
-          - If the folded function is associative but _(left) short-circuiting_,
-            meaning that it can sometimes determine the result without using the
-            right argument, then `fold_right` provides early return. An example is
-            the boolean AND operator `&&`: when evaluating `left && right`, if
-            `left` is `false`, the whole expression will evaluate to `false`
-            without even evaluating `right`. Consider the following expression:
-
-            ```nickel
-            std.array.replicate 1000 true
-            # gives [false, .. true 1000 times]
-            |> std.array.prepend false
-            |> std.array.fold_right (&&) [false]
-            ```
-
-            Here, `fold_right` will stop at the first element, and the operation
-            runs in constant time, given the definition of `fold_right` and the
-            lazy evaluation of Nickel. If we had used `fold_left` instead, which
-            is closer to a standard iterator, we would have iterated over all of
-            the 1000 elements of the array.
-
-          # Examples
+        - If the folded function isn't associative (such as subtraction), then
+          each variant will give a different result. The choice is dictacted by
+          which one you need. For example:
 
           ```nickel
-          fold_left (fun acc e => acc + e) 0 [ 1, 2, 3 ] =>
-            (((0 + 1) + 2) 3) =>
-            6
+          std.array.fold_right (-) 0 [1, 2, 3, 4]
+            => -2
+          std.array.fold_left (-) 0 [1, 2, 3, 4]
+            => -10
           ```
-        "%
+        - If the folded function is associative, both `fold_right` and
+          `fold_left` return the same result. In that case, **`fold_left` is
+          generally preferred**, because it forces the evaluation of the
+          intermediate results resulting in less memory consumption and overall
+          better performance (outside of pathological cases).
+          `fold_left` also iterates from the start of the array, which
+          corresponds to the usual behavior of loops and iterators in most
+          programming languages. There is one case where `fold_right` might be
+          preferred, see the next point.
+        - If the folded function is associative but _(left) short-circuiting_,
+          meaning that it can sometimes determine the result without using the
+          right argument, then `fold_right` provides early return. An example is
+          the boolean AND operator `&&`: when evaluating `left && right`, if
+          `left` is `false`, the whole expression will evaluate to `false`
+          without even evaluating `right`. Consider the following expression:
+
+          ```nickel
+          std.array.replicate 1000 true
+          # gives [false, .. true 1000 times]
+          |> std.array.prepend false
+          |> std.array.fold_right (&&) [false]
+          ```
+
+          Here, `fold_right` will stop at the first element, and the operation
+          runs in constant time, given the definition of `fold_right` and the
+          lazy evaluation of Nickel. If we had used `fold_left` instead, which
+          is closer to a standard iterator, we would have iterated over all of
+          the 1000 elements of the array.
+
+        # Examples
+
+        ```nickel
+        fold_left (fun acc e => acc + e) 0 [ 1, 2, 3 ] =>
+          (((0 + 1) + 2) 3) =>
+          6
+        ```
+      "%
       = fun f acc array =>
         let length = %array/length% array in
         if length == 0 then
@@ -480,35 +480,35 @@
     try_fold_left
       : forall a b c. (a -> c -> [| 'Ok a, 'Error b |]) -> a -> Array c -> [| 'Ok a, 'Error b |]
       | doc m%"
-          Folds a function over an array from left to right, possibly stopping early.
+        Folds a function over an array from left to right, possibly stopping early.
 
-          This differs from `fold_left` in that the function being folded returns either
-          `'Error y` (meaning that the folding should terminate, immediately returning
-          `'Error y`) or `'Ok acc` (meaning that the folding should continue as usual,
-          with the new accumulator `acc`). This early return can be used as an optimization,
-          to avoid evaluating the whole array.
+        This differs from `fold_left` in that the function being folded returns either
+        `'Error y` (meaning that the folding should terminate, immediately returning
+        `'Error y`) or `'Ok acc` (meaning that the folding should continue as usual,
+        with the new accumulator `acc`). This early return can be used as an optimization,
+        to avoid evaluating the whole array.
 
-          # Examples
+        # Examples
 
-          This defines a function that returns the first element satisfying a predicate.
+        This defines a function that returns the first element satisfying a predicate.
 
-          ```nickel
-          let find_first: forall a. (a -> Bool) -> Array a -> [| 'Some a, 'None |]
-            = fun pred xs =>
-              # Our fold function, which just ignores the accumulator and immediately
-              # returns an element if it satisfies the predicate. Note that `'Error`
-              # (which is the short-circuiting branch) means that we found something.
-              let f = fun _acc x => if pred x then 'Error x else 'Ok null in
-              try_fold_left f null xs |> match {
-                'Ok _ => 'None,
-                'Error x => 'Some x,
-              }
-          in
-          let even = fun x => x % 2 == 0 in
-          find_first even [1, 3, 4, 5, 2] =>
-            'Some 4
-          ```
-        "%
+        ```nickel
+        let find_first: forall a. (a -> Bool) -> Array a -> [| 'Some a, 'None |]
+          = fun pred xs =>
+            # Our fold function, which just ignores the accumulator and immediately
+            # returns an element if it satisfies the predicate. Note that `'Error`
+            # (which is the short-circuiting branch) means that we found something.
+            let f = fun _acc x => if pred x then 'Error x else 'Ok null in
+            try_fold_left f null xs |> match {
+              'Ok _ => 'None,
+              'Error x => 'Some x,
+            }
+        in
+        let even = fun x => x % 2 == 0 in
+        find_first even [1, 3, 4, 5, 2] =>
+          'Some 4
+        ```
+      "%
       = fun f acc array =>
         let length = %array/length% array in
         if length == 0 then
@@ -532,27 +532,27 @@
     fold_right
       : forall a b. (a -> b -> b) -> b -> Array a -> b
       | doc m%"
-          Folds a function over an array. Folds serve a similar purpose to loops or
-          iterators in a functional language like Nickel. `fold_right` iterates
-          over an array by repeatedly applying a function to each element and
-          threading an additional arbitrary state (the accumulator of type `a` in
-          the signature) through the chain of applications.
+        Folds a function over an array. Folds serve a similar purpose to loops or
+        iterators in a functional language like Nickel. `fold_right` iterates
+        over an array by repeatedly applying a function to each element and
+        threading an additional arbitrary state (the accumulator of type `a` in
+        the signature) through the chain of applications.
 
-          `fold_right f init [x1, x2, ..., xn]` results in `f x1 (f x2 (... (f xn init) ...))`.
+        `fold_right f init [x1, x2, ..., xn]` results in `f x1 (f x2 (... (f xn init) ...))`.
 
-          # Left vs right
+        # Left vs right
 
-          Folds come in two variants, left and right. How to decide which one to
-          use? Please refer to the documentation of `fold_left`.
+        Folds come in two variants, left and right. How to decide which one to
+        use? Please refer to the documentation of `fold_left`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.fold_right (fun e acc => acc @ [e]) [] [ 1, 2, 3 ] =>
-            ((([] @ [3]) @ [2]) @ [1]) =>
-            [ 3, 2, 1 ]
-          ```
-        "%
+        ```nickel
+        std.array.fold_right (fun e acc => acc @ [e]) [] [ 1, 2, 3 ] =>
+          ((([] @ [3]) @ [2]) @ [1]) =>
+          [ 3, 2, 1 ]
+        ```
+      "%
       = fun f fst l =>
         let length = %array/length% l in
         let rec go = fun n =>
@@ -566,105 +566,105 @@
     prepend
       : forall a. a -> Array a -> Array a
       | doc m%"
-          Builds an array given the first element and the rest of the array.
+        Builds an array given the first element and the rest of the array.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.prepend 1 [ 2, 3 ] =>
-            [ 1, 2, 3 ]
-          ```
-        "%
+        ```nickel
+        std.array.prepend 1 [ 2, 3 ] =>
+          [ 1, 2, 3 ]
+        ```
+      "%
       = fun x l => [x] @ l,
 
     append
       : forall a. a -> Array a -> Array a
       | doc m%"
-          Builds an array given the last element and the rest of the array.
+        Builds an array given the last element and the rest of the array.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.append 3 [ 1, 2 ] =>
-            [ 1, 2, 3 ]
-          ```
-        "%
+        ```nickel
+        std.array.append 3 [ 1, 2 ] =>
+          [ 1, 2, 3 ]
+        ```
+      "%
       = fun x l => l @ [x],
 
     reverse
       : forall a. Array a -> Array a
       | doc m%"
-          Reverses an array.
+        Reverses an array.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.reverse [ 1, 2, 3 ] =>
-            [ 3, 2, 1 ]
-          ```
-        "%
+        ```nickel
+        std.array.reverse [ 1, 2, 3 ] =>
+          [ 3, 2, 1 ]
+        ```
+      "%
       = fun l => fold_left (fun acc e => [e] @ acc) [] l,
 
     filter
       : forall a. (a -> Bool) -> Array a -> Array a
       | doc m%"
-          `filter f xs` returns an array containing all elements from `xs` that satisfy `f`.
+        `filter f xs` returns an array containing all elements from `xs` that satisfy `f`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.filter (fun x => x <= 3) [ 4, 3, 2, 5, 1 ] =>
-            [ 3, 2, 1 ]
-          ```
-        "%
+        ```nickel
+        std.array.filter (fun x => x <= 3) [ 4, 3, 2, 5, 1 ] =>
+          [ 3, 2, 1 ]
+        ```
+      "%
       = fun pred l => fold_left (fun acc x => if pred x then acc @ [x] else acc) [] l,
 
     flatten
       : forall a. Array (Array a) -> Array a
       | doc m%"
-          Concatenates all elements of an array of arrays.
+        Concatenates all elements of an array of arrays.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.flatten [[1, 2], [3, 4]] =>
-            [1, 2, 3, 4]
-          ```
-        "%
+        ```nickel
+        std.array.flatten [[1, 2], [3, 4]] =>
+          [1, 2, 3, 4]
+        ```
+      "%
       = fun l => fold_right (fun l acc => l @ acc) [] l,
 
     all
       : forall a. (a -> Bool) -> Array a -> Bool
       | doc m%"
-          Returns `true` if all elements in the given array satisfy the predicate,
-          `false` otherwise.
+        Returns `true` if all elements in the given array satisfy the predicate,
+        `false` otherwise.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.all (fun x => x < 3) [ 1, 2 ] =>
-            true
-          std.array.all (fun x => x < 3) [ 1, 2, 3 ] =>
-            false
-          ```
-        "%
+        ```nickel
+        std.array.all (fun x => x < 3) [ 1, 2 ] =>
+          true
+        std.array.all (fun x => x < 3) [ 1, 2, 3 ] =>
+          false
+        ```
+      "%
       = fun pred l => fold_right (fun x acc => if pred x then acc else false) true l,
 
     any
       : forall a. (a -> Bool) -> Array a -> Bool
       | doc m%"
-          Returns `true` if at least one element in the given array satisfies
-          the predicate, `false` otherwise.
+        Returns `true` if at least one element in the given array satisfies
+        the predicate, `false` otherwise.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.any (fun x => x < 3) [ 1, 2, 3, 4 ] =>
-            true
-          std.array.any (fun x => x < 3) [ 5, 6, 7, 8 ] =>
-            false
-          ```
-        "%
+        ```nickel
+        std.array.any (fun x => x < 3) [ 1, 2, 3, 4 ] =>
+          true
+        std.array.any (fun x => x < 3) [ 5, 6, 7, 8 ] =>
+          false
+        ```
+      "%
       = fun pred l => fold_right (fun x acc => if pred x then true else acc) false l,
 
     # **Warning**: unless you know what you're doing, please don't change the
@@ -682,31 +682,31 @@
     elem
       : Dyn -> Array Dyn -> Bool
       | doc m%"
-          Returns `true` if the given value appears in the array, `false` otherwise.
+        Returns `true` if the given value appears in the array, `false` otherwise.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.elem 3 [ 1, 2, 3, 4, 5 ] =>
-            true
-          ```
-        "%
+        ```nickel
+        std.array.elem 3 [ 1, 2, 3, 4, 5 ] =>
+          true
+        ```
+      "%
       = fun elt => any (fun x => x == elt),
 
     partition
       : forall a. (a -> Bool) -> Array a -> { right : Array a, wrong : Array a }
       | doc m%"
-          Partitions an array into two new arrays. `right` will contain all
-          elements that satisfy the predicate, while `wrong` will contain those
-          that do not.
+        Partitions an array into two new arrays. `right` will contain all
+        elements that satisfy the predicate, while `wrong` will contain those
+        that do not.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.partition (fun x => x < 5) [ 2, 4, 5, 3, 7, 8, 6 ] =>
-            { right = [ 2, 4, 3 ], wrong = [ 5, 7, 8, 6 ] }
-          ```
-        "%
+        ```nickel
+        std.array.partition (fun x => x < 5) [ 2, 4, 5, 3, 7, 8, 6 ] =>
+          { right = [ 2, 4, 3 ], wrong = [ 5, 7, 8, 6 ] }
+        ```
+      "%
       = fun pred l =>
         let aux = fun acc x =>
           if (pred x) then
@@ -720,34 +720,34 @@
       : forall a. (Number -> a) -> Number -> Array a
       | Dyn -> std.number.Nat -> Dyn
       | doc m%"
-          `generate f n` returns an array of length `n` by applying `f` to the
-          integers from `0` to `n-1`. That is, `generate f n` is
-          `[ f 0, f 1, ..., f (n - 1)]`
+        `generate f n` returns an array of length `n` by applying `f` to the
+        integers from `0` to `n-1`. That is, `generate f n` is
+        `[ f 0, f 1, ..., f (n - 1)]`
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.generate (fun x => x * x) 4 =>
-            [ 0, 1, 4, 9 ]
-          ```
-        "%
+        ```nickel
+        std.array.generate (fun x => x * x) 4 =>
+          [ 0, 1, 4, 9 ]
+        ```
+      "%
       = fun f n => %array/generate% n f,
 
     compare
       : forall a. (a -> a -> [| 'Lesser, 'Equal, 'Greater |]) -> Array a -> Array a -> [| 'Lesser, 'Equal, 'Greater |]
       | doc m%"
-          `compare order a b` lexicographically compares `a` and `b`, using `order` to
-          compare the individual elements.
+        `compare order a b` lexicographically compares `a` and `b`, using `order` to
+        compare the individual elements.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.compare std.number.compare [3, 1, 4] [6, 2, 8] =>
-            'Lesser
-          std.array.compare std.string.compare ["hello", "world"] ["hello"] =>
-            'Greater
-          ```
-        "%
+        ```nickel
+        std.array.compare std.number.compare [3, 1, 4] [6, 2, 8] =>
+          'Lesser
+        std.array.compare std.string.compare ["hello", "world"] ["hello"] =>
+          'Greater
+        ```
+      "%
       =
         let refine = fun left right =>
           left
@@ -764,22 +764,22 @@
     sort
       : forall a. (a -> a -> [| 'Lesser, 'Equal, 'Greater |]) -> Array a -> Array a
       | doc m%"
-          Sorts an array based on the provided comparison operator.
+        Sorts an array based on the provided comparison operator.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.sort (fun x y =>
-            if x < y then
-              'Lesser
-            else if (x == y) then
-              'Equal
-            else
-              'Greater)
-            [ 4, 5, 1, 2 ]
-          => [ 1, 2, 4, 5 ]
-          ```
-        "%
+        ```nickel
+        std.array.sort (fun x y =>
+          if x < y then
+            'Lesser
+          else if (x == y) then
+            'Equal
+          else
+            'Greater)
+          [ 4, 5, 1, 2 ]
+        => [ 1, 2, 4, 5 ]
+        ```
+      "%
       #TODO: maybe inline partition to avoid contract checks?
       = fun cmp array =>
         let length = %array/length% array in
@@ -794,34 +794,34 @@
     flat_map
       : forall a b. (a -> Array b) -> Array a -> Array b
       | doc m%"
-          First `map` the given function over the array and then `flatten` the
-          result.
+        First `map` the given function over the array and then `flatten` the
+        result.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.flat_map (fun x => [x, x]) [1, 2, 3]
-            => [1, 1, 2, 2, 3, 3]
-          ```
-        "%
+        ```nickel
+        std.array.flat_map (fun x => [x, x]) [1, 2, 3]
+          => [1, 1, 2, 2, 3, 3]
+        ```
+      "%
       = fun f xs => map f xs |> flatten,
 
     intersperse
       : forall a. a -> Array a -> Array a
       | doc m%"
-          Intersperses a value between the elements of an array.
+        Intersperses a value between the elements of an array.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.intersperse ", " [ "Hello", "wonderful", "world!" ]
-            => [ "Hello", ", ", "wonderful", ", ", "world!" ]
-          std.array.intersperse ", " [ "Hello" ]
-            => [ "Hello" ]
-          std.array.intersperse ", " []
-            => []
-          ```
-        "%
+        ```nickel
+        std.array.intersperse ", " [ "Hello", "wonderful", "world!" ]
+          => [ "Hello", ", ", "wonderful", ", ", "world!" ]
+        std.array.intersperse ", " [ "Hello" ]
+          => [ "Hello" ]
+        std.array.intersperse ", " []
+          => []
+        ```
+      "%
       = fun v array =>
         let length = %array/length% array in
         if length <= 1 then
@@ -835,51 +835,51 @@
       : forall a. Number -> Number -> Array a -> Array a
       | std.contract.unstable.ArraySliceFun
       | doc m%"
-          `slice start end array` returns the slice of `array` between `start` (included) and
-          `end` (excluded).
+        `slice start end array` returns the slice of `array` between `start` (included) and
+        `end` (excluded).
 
-          # Preconditions
+        # Preconditions
 
-          In `slice start end value`, `start` and `end` must be positive
-          integers such that `0 <= start <= end <= std.array.length value`.
+        In `slice start end value`, `start` and `end` must be positive
+        integers such that `0 <= start <= end <= std.array.length value`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.slice 1 3 [ 0, 1, 2, 3, 4, 5]
-            => [ 1, 2 ]
-          std.array.slice 0 3 [ "Hello", "world", "!" ]
-            => [ "Hello", "world", "!" ]
-          std.array.slice 2 3 [ "Hello", "world", "!" ]
-            => [ "!" ]
-           ```
-        "%
+        ```nickel
+        std.array.slice 1 3 [ 0, 1, 2, 3, 4, 5]
+          => [ 1, 2 ]
+        std.array.slice 0 3 [ "Hello", "world", "!" ]
+          => [ "Hello", "world", "!" ]
+        std.array.slice 2 3 [ "Hello", "world", "!" ]
+          => [ "!" ]
+         ```
+      "%
       = fun start end value => %array/slice% start end value,
 
     split_at
       : forall a. Number -> Array a -> { left : Array a, right : Array a }
       | std.contract.unstable.IndexedArrayFun 'Split
       | doc m%"
-          Splits an array in two at a given index and puts all the elements
-          to the left of the element at the given index (excluded) in the
-          `left` field, and the rest of the array in the `right` field.
+        Splits an array in two at a given index and puts all the elements
+        to the left of the element at the given index (excluded) in the
+        `left` field, and the rest of the array in the `right` field.
 
-          # Preconditions
+        # Preconditions
 
-          In `split_at index value`, `index` must be a positive integer such
-          that `0 <= index <= std.array.length value`.
+        In `split_at index value`, `index` must be a positive integer such
+        that `0 <= index <= std.array.length value`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.split_at 2 [ 0, 1, 2, 3, 4, 5]
-            => { left = [ 0, 1 ], right = [ 2, 3, 4, 5 ] }
-          std.array.split_at 0 [ "Hello", "world", "!" ]
-            => { left = [  ], right = [ "Hello", "world", "!" ] }
-          std.array.split_at 3 [ "Hello", "world", "!" ]
-            => { left = [ "Hello", "world", "!" ], right = [  ] }
-          ```
-        "%
+        ```nickel
+        std.array.split_at 2 [ 0, 1, 2, 3, 4, 5]
+          => { left = [ 0, 1 ], right = [ 2, 3, 4, 5 ] }
+        std.array.split_at 0 [ "Hello", "world", "!" ]
+          => { left = [  ], right = [ "Hello", "world", "!" ] }
+        std.array.split_at 3 [ "Hello", "world", "!" ]
+          => { left = [ "Hello", "world", "!" ], right = [  ] }
+        ```
+      "%
       = fun index value =>
         {
           left = %array/slice% 0 index value,
@@ -890,43 +890,43 @@
       : forall a. Number -> a -> Array a
       | std.number.Nat -> Dyn
       | doc m%"
-          `replicate n x` creates an array containing `x` exactly `n` times.
+        `replicate n x` creates an array containing `x` exactly `n` times.
 
-          # Preconditions
+        # Preconditions
 
-          `n` must be an integer greater or equal to `0`.
+        `n` must be an integer greater or equal to `0`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.replicate 0 false
-            => [ ]
-          std.array.replicate 5 "x"
-            => [ "x", "x", "x", "x", "x" ]
-          ```
-        "%
+        ```nickel
+        std.array.replicate 0 false
+          => [ ]
+        std.array.replicate 5 "x"
+          => [ "x", "x", "x", "x", "x" ]
+        ```
+      "%
       = fun n x => %array/generate% n (fun _i => x),
 
     range_step
       : Number -> Number -> Number -> Array Number
       | std.contract.unstable.RangeFun (std.contract.unstable.RangeStep -> Dyn)
       | doc m%"
-          `range_step start end step` generates the array of numbers
-          `[start, start + step, start + 2*step, ..]` up to the first element
-          (excluded) larger than or equal to `end`
+        `range_step start end step` generates the array of numbers
+        `[start, start + step, start + 2*step, ..]` up to the first element
+        (excluded) larger than or equal to `end`
 
-          # Preconditions
+        # Preconditions
 
-          In `range_step start end step`, `start` and `end` must satisfy `start
-          <= end`. `step` must be strictly greater than `0`.
+        In `range_step start end step`, `start` and `end` must satisfy `start
+        <= end`. `step` must be strictly greater than `0`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.range_step (-1.5) 2 0.5
-           => [ -1.5, -1, -0.5, 0, 0.5, 1, 1.5 ]
-          ```
-        "%
+        ```nickel
+        std.array.range_step (-1.5) 2 0.5
+         => [ -1.5, -1, -0.5, 0, 0.5, 1, 1.5 ]
+        ```
+      "%
       = fun start end step =>
         %array/generate%
           ((end - start) / step |> std.number.floor)
@@ -936,60 +936,60 @@
       : Number -> Number -> Array Number
       | std.contract.unstable.RangeFun Dyn
       | doc m%"
-          `range start end` generates the array of numbers
-          `[start, start + 1, start + 2, ..]` up to the first element
-          (excluded) larger than or equal to `end`.
+        `range start end` generates the array of numbers
+        `[start, start + 1, start + 2, ..]` up to the first element
+        (excluded) larger than or equal to `end`.
 
-          `range start end` is equivalent to `range_step start end 1`.
+        `range start end` is equivalent to `range_step start end 1`.
 
-          # Preconditions
+        # Preconditions
 
-          In `range_step start end`, `start` and `end` must satisfy
-          `start <= end`.
+        In `range_step start end`, `start` and `end` must satisfy
+        `start <= end`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.range 0 5
-           => [ 0, 1, 2, 3, 4 ]
-          ```
-        "%
+        ```nickel
+        std.array.range 0 5
+         => [ 0, 1, 2, 3, 4 ]
+        ```
+      "%
       = fun start end => range_step start end 1,
 
     reduce_left
       : forall a. (a -> a -> a) -> Array a -> a
       | Dyn -> NonEmpty -> Dyn
       | doc m%"
-          Reduces the elements to a single one, by repeatedly applying a
-          reducing operation.
+        Reduces the elements to a single one, by repeatedly applying a
+        reducing operation.
 
-          `reduce_left` associates to the left, that is
-          `reduce_left op [x1, x2, ..., xn]` results in `op (... (op (op x1 x2) x3) ...) xn`.
+        `reduce_left` associates to the left, that is
+        `reduce_left op [x1, x2, ..., xn]` results in `op (... (op (op x1 x2) x3) ...) xn`.
 
-          `reduce_left` is the same as `fold_left`, but uses the first element as
-          the initial accumulator.
+        `reduce_left` is the same as `fold_left`, but uses the first element as
+        the initial accumulator.
 
-          # Preconditions
+        # Preconditions
 
-          The provided array must be non-empty.
+        The provided array must be non-empty.
 
-          # Left vs right
+        # Left vs right
 
-          The rationale to decide between `fold_left` and `fold_right` applies to
-          `reduce_left` and `reduce_right` as well. See the documentation of
-          `fold_left`.
+        The rationale to decide between `fold_left` and `fold_right` applies to
+        `reduce_left` and `reduce_right` as well. See the documentation of
+        `fold_left`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.reduce_left (@) [ [1, 2], [3], [4,5] ]
-            => (([1, 2] @ [3]) @ [4,5])
-            => [ 1, 2, 4, 5 ]
-          std.array.reduce_left (-) [ 1, 2, 3, 4]
-            => ((1 - 2) - 3) - 4
-            => -8
-          ```
-        "%
+        ```nickel
+        std.array.reduce_left (@) [ [1, 2], [3], [4,5] ]
+          => (([1, 2] @ [3]) @ [4,5])
+          => [ 1, 2, 4, 5 ]
+        std.array.reduce_left (-) [ 1, 2, 3, 4]
+          => ((1 - 2) - 3) - 4
+          => -8
+        ```
+      "%
       = fun f array =>
         let first = %array/at% array 0 in
         let rest = %array/slice% 1 (%array/length% array) array in
@@ -999,37 +999,37 @@
       : forall a. (a -> a -> a) -> Array a -> a
       | Dyn -> NonEmpty -> Dyn
       | doc m%"
-          Reduces the elements to a single one, by repeatedly applying a reducing
-          operation.
+        Reduces the elements to a single one, by repeatedly applying a reducing
+        operation.
 
-          `reduce_right` associates to the right, that is
-          `reduce_right op [x1, x2, ..., xn]` results in
-          `op x1 (op x2 (... (op xn-1 xn) ...))`.
+        `reduce_right` associates to the right, that is
+        `reduce_right op [x1, x2, ..., xn]` results in
+        `op x1 (op x2 (... (op xn-1 xn) ...))`.
 
-          `reduce_right` is the same as `fold_right`, but uses the last element as
-          the initial element.
+        `reduce_right` is the same as `fold_right`, but uses the last element as
+        the initial element.
 
-          # Preconditions
+        # Preconditions
 
-          The provided array must be non-empty.
+        The provided array must be non-empty.
 
-          # Left vs right
+        # Left vs right
 
-          The rationale to decide between `fold_left` and `fold_right` applies to
-          `reduce_left` and `reduce_right` as well. See the documentation of
-          `fold_left`.
+        The rationale to decide between `fold_left` and `fold_right` applies to
+        `reduce_left` and `reduce_right` as well. See the documentation of
+        `fold_left`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.reduce_right (@) [ [1, 2], [3], [4,5] ]
-            => [1, 2] @ ([3] @ [4,5])
-            => [ 1, 2, 4, 5 ]
-          std.array.reduce_right (-) [ 1, 2, 3, 4]
-            => 1 - (2 - (3 - 4))
-            => -2
-          ```
-        "%
+        ```nickel
+        std.array.reduce_right (@) [ [1, 2], [3], [4,5] ]
+          => [1, 2] @ ([3] @ [4,5])
+          => [ 1, 2, 4, 5 ]
+        std.array.reduce_right (-) [ 1, 2, 3, 4]
+          => 1 - (2 - (3 - 4))
+          => -2
+        ```
+      "%
       = fun f array =>
         let last_index = %array/length% array - 1 in
         let last = %array/at% array last_index in
@@ -1039,21 +1039,21 @@
     zip_with
       : forall a b c. (a -> b -> c) -> Array a -> Array b -> Array c
       | doc m%"
-          `zip_with f xs ys` combines the arrays `xs` and `ys` using the
-          operation `f`. The resulting array's length will be the smaller of the
-          lengths of `xs` and `ys`.
+        `zip_with f xs ys` combines the arrays `xs` and `ys` using the
+        operation `f`. The resulting array's length will be the smaller of the
+        lengths of `xs` and `ys`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.zip_with (+) [1, 2, 3] [4, 5, 6]
-            => [5, 7, 9]
-          std.array.zip_with (*) [1, 2] [4, 5, 6]
-            => [4, 10]
-          std.array.zip_with (-) [1, 2, 3] [4, 5]
-            => [-3, -3]
-          ```
-        "%
+        ```nickel
+        std.array.zip_with (+) [1, 2, 3] [4, 5, 6]
+          => [5, 7, 9]
+        std.array.zip_with (*) [1, 2] [4, 5, 6]
+          => [4, 10]
+        std.array.zip_with (-) [1, 2, 3] [4, 5]
+          => [-3, -3]
+        ```
+      "%
       = fun f xs ys =>
         std.array.generate
           (fun i => f (std.array.at i xs) (std.array.at i ys))
@@ -1062,17 +1062,17 @@
     map_with_index
       : forall a b. (Number -> a -> b) -> Array a -> Array b
       | doc m%"
-          Applies a function to every element in the given array while passing
-          its (0-based) index. That is,
-          `map_with_index f [ x1, x2, ... ]` is `[ f 0 x1, f 1 x2, ... ]`.
+        Applies a function to every element in the given array while passing
+        its (0-based) index. That is,
+        `map_with_index f [ x1, x2, ... ]` is `[ f 0 x1, f 1 x2, ... ]`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.array.map_with_index (fun i x => i + x + 1) [ 1, 2, 3 ] =>
-            [ 2, 4, 6 ]
-          ```
-        "%
+        ```nickel
+        std.array.map_with_index (fun i x => i + x + 1) [ 1, 2, 3 ] =>
+          [ 2, 4, 6 ]
+        ```
+      "%
       = fun f xs =>
         xs
         |> std.array.length
@@ -1191,51 +1191,51 @@
 
     blame
       | doc m%"
-          Raises blame for a given label.
+        Raises blame for a given label.
 
-          Type: `forall a. Label -> a`
-          (for technical reasons, this function isn't actually statically typed)
+        Type: `forall a. Label -> a`
+        (for technical reasons, this function isn't actually statically typed)
 
-          Blame is the mechanism to signal contract violation in Nickel. It
-          ends the program execution and prints a detailed report thanks to the
-          information tracked inside the label.
+        Blame is the mechanism to signal contract violation in Nickel. It
+        ends the program execution and prints a detailed report thanks to the
+        information tracked inside the label.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          IsZero = fun label value =>
-            if value == 0 then
-              value
-            else
-              std.contract.blame label
-          ```
-        "%
+        ```nickel
+        IsZero = fun label value =>
+          if value == 0 then
+            value
+          else
+            std.contract.blame label
+        ```
+      "%
       = fun label => %blame% label,
 
     blame_with_message
       | doc m%"
-          Raises blame with respect to a given label with a custom error message.
+        Raises blame with respect to a given label with a custom error message.
 
-          Type: `forall a. String -> Label -> a`
-          (for technical reasons, this function isn't actually statically typed)
+        Type: `forall a. String -> Label -> a`
+        (for technical reasons, this function isn't actually statically typed)
 
-          Same as `blame`, but takes an additional error message that will be
-          displayed as part of the blame error. `blame_with_message message label`
-          is equivalent to `blame (label.with_message message label)`
+        Same as `blame`, but takes an additional error message that will be
+        displayed as part of the blame error. `blame_with_message message label`
+        is equivalent to `blame (label.with_message message label)`
 
-          # Examples
+        # Examples
 
-          ```nickel
-          let IsZero = fun label value =>
-            if value == 0 then
-              value
-            else
-              std.contract.blame_with_message "Not zero" label
-          in
+        ```nickel
+        let IsZero = fun label value =>
+          if value == 0 then
+            value
+          else
+            std.contract.blame_with_message "Not zero" label
+        in
 
-          0 | IsZero
-          ```
-        "%
+        0 | IsZero
+        ```
+      "%
       = fun message label => %blame% (%label/with_message% message label),
 
     custom
@@ -1249,85 +1249,85 @@
         |]
       ) -> Dyn
       | doc m%"
-          Build a generic custom contract. Whenever possible, more restricted
-          constructors such as `std.contract.from_predicate` or
-          `std.contract.from_validator` should be used. However, the most
-          general `std.contract.custom` might be required to write delayed
-          contracts or contracts taking other contracts as parameters.
+        Build a generic custom contract. Whenever possible, more restricted
+        constructors such as `std.contract.from_predicate` or
+        `std.contract.from_validator` should be used. However, the most
+        general `std.contract.custom` might be required to write delayed
+        contracts or contracts taking other contracts as parameters.
 
-          # Custom contracts
+        # Custom contracts
 
-          The argument of `std.contract.custom` is a function that takes a label
-          and the value to be checked, and returns `'Ok value` to return
-          the original value with potential delayed checks inside, or `'Error
-          {..}` to signal an immediate contract violation.
+        The argument of `std.contract.custom` is a function that takes a label
+        and the value to be checked, and returns `'Ok value` to return
+        the original value with potential delayed checks inside, or `'Error
+        {..}` to signal an immediate contract violation.
 
-          The label should only be used for delayed checks. The preferred method
-          to indicate a contract violation is to return `'Error {..}`.
+        The label should only be used for delayed checks. The preferred method
+        to indicate a contract violation is to return `'Error {..}`.
 
-          For more details on custom contracts and delayed contracts, please
-          refer to the corresponding section of the user manual.
+        For more details on custom contracts and delayed contracts, please
+        refer to the corresponding section of the user manual.
 
-          # Typing
+        # Typing
 
-          Because Nickel doesn't currently have proper types for labels and
-          contracts, they are replaced with `Dyn` in the type signature. You can
-          think of the actual type of the delayed part as `(Label -> Dyn ->
-          [| ... |])`, and the return type of `custom` as `Contract`.
+        Because Nickel doesn't currently have proper types for labels and
+        contracts, they are replaced with `Dyn` in the type signature. You can
+        think of the actual type of the delayed part as `(Label -> Dyn ->
+        [| ... |])`, and the return type of `custom` as `Contract`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          let Nullable = fun Contract =>
-            std.contract.custom (fun label value =>
-              if value == null then
-                'Ok value
-              else
-                std.contract.check Contract label value
-            )
-          in
+        ```nickel
+        let Nullable = fun Contract =>
+          std.contract.custom (fun label value =>
+            if value == null then
+              'Ok value
+            else
+              std.contract.check Contract label value
+          )
+        in
 
-          null | Nullable Number
-            => null
-          ```
-        "%
+        null | Nullable Number
+          => null
+        ```
+      "%
       = fun contract => %contract/custom% contract,
 
     from_predicate
       | (Dyn -> Bool) -> Dyn
       | doc m%"
-          Build a contract from a boolean predicate.
+        Build a contract from a boolean predicate.
 
-          # Contract application
+        # Contract application
 
-          Before Nickel 1.8, `from_predicate` used to wrap the predicate as a
-          naked function of a label and value. You could thus theoretically
-          apply it as a normal function, as in
-          `(std.contract.from_predicate my_pred) label value`. While possible,
-          this wasn't recommended nor really officially supported: all contracts
-          should be applied using a contract annotation or `std.contract.apply`
-          and its variants, as explained in the documentation of
-          `std.contract.apply`.
+        Before Nickel 1.8, `from_predicate` used to wrap the predicate as a
+        naked function of a label and value. You could thus theoretically
+        apply it as a normal function, as in
+        `(std.contract.from_predicate my_pred) label value`. While possible,
+        this wasn't recommended nor really officially supported: all contracts
+        should be applied using a contract annotation or `std.contract.apply`
+        and its variants, as explained in the documentation of
+        `std.contract.apply`.
 
-          From Nickel 1.8 and onwards, `from_predicate` generates a bespoke
-          contract value that can only be used in an annotation, be passed to
-          `std.contract.apply` or other operations on contracts, but can't be
-          used as normal function anymore.
+        From Nickel 1.8 and onwards, `from_predicate` generates a bespoke
+        contract value that can only be used in an annotation, be passed to
+        `std.contract.apply` or other operations on contracts, but can't be
+        used as normal function anymore.
 
-          # Typing
+        # Typing
 
-          Because Nickel doesn't currently have proper types for contracts, the
-          return type of `from_predicate` is simply `Dyn` in the type signature.
-          You should think of `from_predicate` as some returning a value of some
-          hypothetical type `Contract`.
+        Because Nickel doesn't currently have proper types for contracts, the
+        return type of `from_predicate` is simply `Dyn` in the type signature.
+        You should think of `from_predicate` as some returning a value of some
+        hypothetical type `Contract`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          let IsZero = std.contract.from_predicate (fun x => x == 0) in
-          0 | IsZero
-          ```
-        "%
+        ```nickel
+        let IsZero = std.contract.from_predicate (fun x => x == 0) in
+        0 | IsZero
+        ```
+      "%
       = fun pred =>
         %contract/custom% (fun _label value =>
           if pred value then
@@ -1351,43 +1351,43 @@
         |]
       ) -> Dyn
       | doc m%%"
-          Build a contract from a validator.
+        Build a contract from a validator.
 
-          # Validator
+        # Validator
 
-          A validator is a function returning either `'Ok` or `'Error {message,
-          notes}` with an optional error message and notes to display. Both
-          validators and predicates are immediate contracts: they must decide
-          right away if the value passes or fails (as opposed to delayed
-          contracts). But as opposed to predicates, validators have the
-          additional ability to customize the error reporting.
+        A validator is a function returning either `'Ok` or `'Error {message,
+        notes}` with an optional error message and notes to display. Both
+        validators and predicates are immediate contracts: they must decide
+        right away if the value passes or fails (as opposed to delayed
+        contracts). But as opposed to predicates, validators have the
+        additional ability to customize the error reporting.
 
-          # Typing
+        # Typing
 
-          Because Nickel doesn't currently have proper types for contracts, the
-          return type of `from_validator` is simply `Dyn` in the type signature.
-          You should think of `from_validator` as returning a value of some
-          hypothetical type `Contract`.
+        Because Nickel doesn't currently have proper types for contracts, the
+        return type of `from_validator` is simply `Dyn` in the type signature.
+        You should think of `from_validator` as returning a value of some
+        hypothetical type `Contract`.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          let IsZero = std.contract.from_validator (match {
-            0 => 'Ok,
-            n if std.is_number n =>
-              'Error {
-                message = "expected 0, got %{std.to_string n}",
-                notes = ["The value is a number, but it isn't 0"],
-              },
-            v =>
-              let vtype = v |> std.typeof |> std.to_string in
-              'Error { message = "expected a number, got a %{vtype}" }
-          })
-          in
+        ```nickel
+        let IsZero = std.contract.from_validator (match {
+          0 => 'Ok,
+          n if std.is_number n =>
+            'Error {
+              message = "expected 0, got %{std.to_string n}",
+              notes = ["The value is a number, but it isn't 0"],
+            },
+          v =>
+            let vtype = v |> std.typeof |> std.to_string in
+            'Error { message = "expected a number, got a %{vtype}" }
+        })
+        in
 
-          0 | IsZero
-          ```
-        "%%
+        0 | IsZero
+        ```
+      "%%
       # A validator turns out to be a valid custom contract as well (which just
       # never returns a value with delayed checks)
       = fun validator =>
@@ -1403,37 +1403,37 @@
     Sequence
       | Array Dyn -> Dyn
       | doc m%"
-          Apply multiple contracts from left to right.
+        Apply multiple contracts from left to right.
 
-          Type: `Array Contract -> Contract`
-          (for technical reasons, this function isn't actually statically typed)
+        Type: `Array Contract -> Contract`
+        (for technical reasons, this function isn't actually statically typed)
 
-          # Examples
+        # Examples
 
-          ```nickel
-          x | std.contract.Sequence [ Foo, Bar ]
-          ```
+        ```nickel
+        x | std.contract.Sequence [ Foo, Bar ]
+        ```
 
-          is equivalent to
+        is equivalent to
 
-          ```nickel
-          (x | Foo) | Bar
-          ```
+        ```nickel
+        (x | Foo) | Bar
+        ```
 
-          This is useful in positions where one cannot apply multiple contracts,
-          such as an argument to another contract:
+        This is useful in positions where one cannot apply multiple contracts,
+        such as an argument to another contract:
 
-          ```nickel
-          x | Array (std.contract.Sequence [ Foo, Bar ])
-          ```
+        ```nickel
+        x | Array (std.contract.Sequence [ Foo, Bar ])
+        ```
 
-          Or stored in a variable:
+        Or stored in a variable:
 
-          ```nickel
-          let C = std.contract.Sequence [ Foo, Bar ] in
-          x | C
-          ```
-        "%
+        ```nickel
+        let C = std.contract.Sequence [ Foo, Bar ] in
+        x | C
+        ```
+      "%
       = fun contracts =>
         %contract/custom% (fun label value =>
           std.array.try_fold_left
@@ -1444,261 +1444,261 @@
 
     label
       | doc m%"
-          The label submodule provides functions that manipulate the label
-          associated with a contract application.
+        The label submodule provides functions that manipulate the label
+        associated with a contract application.
 
-          A label is a special opaque value automatically passed by the Nickel
-          interpreter to contracts when performing a contract check.
+        A label is a special opaque value automatically passed by the Nickel
+        interpreter to contracts when performing a contract check.
 
-          A label stores a stack of custom error diagnostics, that can be
-          manipulated by the functions in this module. Labels thus offer a way to
-          customize the error message that will be shown if a contract is broken.
+        A label stores a stack of custom error diagnostics, that can be
+        manipulated by the functions in this module. Labels thus offer a way to
+        customize the error message that will be shown if a contract is broken.
 
-          Note that the label should only be used for delayed checks. Immediate
-          error reporting is better done in custom contracts by returning an
-          error value.
+        Note that the label should only be used for delayed checks. Immediate
+        error reporting is better done in custom contracts by returning an
+        error value.
 
-          The setters (`with_XXX` functions) always operate on the current error
-          diagnostic, which is the last diagnostic on the stack. If the stack is
-          empty, a fresh diagnostic is silently created when using a setter.
+        The setters (`with_XXX` functions) always operate on the current error
+        diagnostic, which is the last diagnostic on the stack. If the stack is
+        empty, a fresh diagnostic is silently created when using a setter.
 
-          The previous diagnostics on the stack are considered archived, and
-          can't be modified anymore. All diagnostics will be shown during error
-          reporting, with the most recent being used as the main one.
+        The previous diagnostics on the stack are considered archived, and
+        can't be modified anymore. All diagnostics will be shown during error
+        reporting, with the most recent being used as the main one.
 
-          `std.contract.apply` and `std.contract.check` are the
-          operations that push a new fresh diagnostic on the stack, saving the
-          previously current error diagnostic. `apply` and friends are typically
-          used to apply subcontracts inside a parent contract. Stacking the
-          current diagnostic potentially customized by the parent contract saves
-          the information inside, and provides a fresh diagnostic for the child
-          contract to use.
-        "%
+        `std.contract.apply` and `std.contract.check` are the
+        operations that push a new fresh diagnostic on the stack, saving the
+        previously current error diagnostic. `apply` and friends are typically
+        used to apply subcontracts inside a parent contract. Stacking the
+        current diagnostic potentially customized by the parent contract saves
+        the information inside, and provides a fresh diagnostic for the child
+        contract to use.
+      "%
       = {
         with_message
           | doc m%"
-              Attaches a custom error message to the current error diagnostic of a
-              label.
+            Attaches a custom error message to the current error diagnostic of a
+            label.
 
-              Type: `String -> Label -> Label`
-              (for technical reasons, this function isn't actually statically typed)
+            Type: `String -> Label -> Label`
+            (for technical reasons, this function isn't actually statically typed)
 
-              If a custom error message was previously set, there are two
-              possibilities:
-                - the label has gone through a `std.contract.apply` call in-between.
-                  In this case, the previous diagnostic has been stacked, and
-                  using `with_message` won't erase anything but rather modify
-                  the fresh current diagnostic.
-                - no `std.contract.apply` has taken place since the last message
-                  was set. In this case, the current diagnostic's error message
-                  is replaced.
+            If a custom error message was previously set, there are two
+            possibilities:
+              - the label has gone through a `std.contract.apply` call in-between.
+                In this case, the previous diagnostic has been stacked, and
+                using `with_message` won't erase anything but rather modify
+                the fresh current diagnostic.
+              - no `std.contract.apply` has taken place since the last message
+                was set. In this case, the current diagnostic's error message
+                is replaced.
 
-              # Examples
+            # Examples
 
-              This example implements a contract which ensures that the value is
-              a record with a field `foo` that is an even number.
+            This example implements a contract which ensures that the value is
+            a record with a field `foo` that is an even number.
 
-              ```nickel
-              let FooIsEven = std.contract.custom (fun label =>
-                match {
-                  record @ { foo, .. } =>
-                    'Ok (
-                      std.record.map (fun key value =>
-                        if key == "foo"
-                        && !(std.is_number value && value % 2 == 0) then
-                          label
-                          |> std.contract.label.with_message "field foo must be an even number"
-                          |> std.contract.blame
-                        else
-                          value
-                      )
-                      record
-                    ),
-                  _ => 'Error {},
-                }
-              )
-              in
+            ```nickel
+            let FooIsEven = std.contract.custom (fun label =>
+              match {
+                record @ { foo, .. } =>
+                  'Ok (
+                    std.record.map (fun key value =>
+                      if key == "foo"
+                      && !(std.is_number value && value % 2 == 0) then
+                        label
+                        |> std.contract.label.with_message "field foo must be an even number"
+                        |> std.contract.blame
+                      else
+                        value
+                    )
+                    record
+                  ),
+                _ => 'Error {},
+              }
+            )
+            in
 
-              { foo = 4, hello = "world" } | FooIsEven
-                => { foo = 4, hello = "world" }
-              ```
-            "%
+            { foo = 4, hello = "world" } | FooIsEven
+              => { foo = 4, hello = "world" }
+            ```
+          "%
           = fun message label => %label/with_message% message label,
 
         with_notes
           | doc m%"
-              Attaches custom error notes to the current error diagnostic of a
-              label.
+            Attaches custom error notes to the current error diagnostic of a
+            label.
 
-              Type: `Array String -> Label -> Label`
-              (for technical reasons, this function isn't actually statically typed)
+            Type: `Array String -> Label -> Label`
+            (for technical reasons, this function isn't actually statically typed)
 
-              If custom error notes were previously set, there are two
-              possibilities:
-                - the label has gone through a `std.contract.apply` call in-between.
-                  In this case, the previous diagnostic has been stacked, and
-                  using `with_notes` won't erase anything but rather modify the
-                  fresh current diagnostic.
-                - no `std.contract.apply` has taken place since the last message was
-                  set. In this case, the current diagnostic's error notes will
-                  be replaced.
+            If custom error notes were previously set, there are two
+            possibilities:
+              - the label has gone through a `std.contract.apply` call in-between.
+                In this case, the previous diagnostic has been stacked, and
+                using `with_notes` won't erase anything but rather modify the
+                fresh current diagnostic.
+              - no `std.contract.apply` has taken place since the last message was
+                set. In this case, the current diagnostic's error notes will
+                be replaced.
 
-              # Examples
+            # Examples
 
-              This example is illustrative. In practice, returning `'Error {..}`
-              should always be preferred over manipulating the label directly,
-              at least whenever possible.
+            This example is illustrative. In practice, returning `'Error {..}`
+            should always be preferred over manipulating the label directly,
+            at least whenever possible.
 
-              ```nickel
-              let AlwaysFailWithNotes = std.contract.custom (fun label _ =>
-                label
-                |> std.contract.label.with_notes [
-                  "This is note 1",
-                  "This is note 2",
-                ]
-                |> std.contract.blame
-              )
-              in
+            ```nickel
+            let AlwaysFailWithNotes = std.contract.custom (fun label _ =>
+              label
+              |> std.contract.label.with_notes [
+                "This is note 1",
+                "This is note 2",
+              ]
+              |> std.contract.blame
+            )
+            in
 
-              null | AlwaysFailWithNotes
-              ```
-            "%
+            null | AlwaysFailWithNotes
+            ```
+          "%
           # the %label/with_notes% operator expects an array of strings which is
           # fully evaluated, thus we force the notes first
           = fun notes label => %label/with_notes% (%force% notes) label,
 
         append_note
           | doc m%"
-              Appends a note to the error notes of the current diagnostic of a label.
+            Appends a note to the error notes of the current diagnostic of a label.
 
-              Type: `String -> Label -> Label`
-              (for technical reasons, this function isn't actually statically typed)
+            Type: `String -> Label -> Label`
+            (for technical reasons, this function isn't actually statically typed)
 
-              # Examples
+            # Examples
 
-              This example is illustrative. In practice, returning `'Error {..}`
-              should always be preferred over manipulating the label directly
-              whenever possible.
+            This example is illustrative. In practice, returning `'Error {..}`
+            should always be preferred over manipulating the label directly
+            whenever possible.
 
-              ```nickel
-              let AlwaysFailWithNotes = std.contract.custom (fun label _ =>
-                label
-                |> std.contract.label.append_note "This is note 1"
-                |> std.contract.label.append_note "This is note 2"
-                |> std.contract.blame
-              )
-              in
+            ```nickel
+            let AlwaysFailWithNotes = std.contract.custom (fun label _ =>
+              label
+              |> std.contract.label.append_note "This is note 1"
+              |> std.contract.label.append_note "This is note 2"
+              |> std.contract.blame
+            )
+            in
 
-              null | AlwaysFailWithNotes
-              ```
-            "%
+            null | AlwaysFailWithNotes
+            ```
+          "%
           = fun note label => %label/append_note% note label,
       },
 
     apply
       | doc m%"
-          Applies a contract to a label and a value. Either aborts the execution
-          with a broken contract error if the contract fails, or proceeds with
-          the evaluation of the value.
+        Applies a contract to a label and a value. Either aborts the execution
+        with a broken contract error if the contract fails, or proceeds with
+        the evaluation of the value.
 
-          A contract annotation such as `value | Contract` is eventually
-          translated (automatically) to a call to `std.contract.apply Contract label
-          value` where `label` is provided by the Nickel interpreter.
+        A contract annotation such as `value | Contract` is eventually
+        translated (automatically) to a call to `std.contract.apply Contract label
+        value` where `label` is provided by the Nickel interpreter.
 
-          Note that depending on the situation, you might need the variant
-          `std.contract.check` instead. Please refer to the documentation of
-          `std.contract.check` for more information.
+        Note that depending on the situation, you might need the variant
+        `std.contract.check` instead. Please refer to the documentation of
+        `std.contract.check` for more information.
 
-          # Type
+        # Type
 
-          For technical reasons, `apply` isn't statically typed nor protected by
-          a contract. The hypothetical type of `apply` is `Contract -> Label ->
-          Dyn -> Dyn` (note `Contract` and `Label` currently don't exist).
+        For technical reasons, `apply` isn't statically typed nor protected by
+        a contract. The hypothetical type of `apply` is `Contract -> Label ->
+        Dyn -> Dyn` (note `Contract` and `Label` currently don't exist).
 
-          # Arguments
+        # Arguments
 
-          `apply` takes three arguments. The arguments are in order:
+        `apply` takes three arguments. The arguments are in order:
 
-          - a contract which is currently either a custom contract (produced by
-            the stdlib constructors `std.contract.custom`,
-            `std.contract.from_validator` or `std.contract.from_predicate`), a
-            record, a static type or a naked function (see legacy contracts
-            below).
-          - a label (see `std.contract.label`)
-          - the value to be checked
+        - a contract which is currently either a custom contract (produced by
+          the stdlib constructors `std.contract.custom`,
+          `std.contract.from_validator` or `std.contract.from_predicate`), a
+          record, a static type or a naked function (see legacy contracts
+          below).
+        - a label (see `std.contract.label`)
+        - the value to be checked
 
-          # Return value
+        # Return value
 
-          `apply` returns the original value upon success, with potential
-          delayed checks inserted inside. Some contracts even return a modified
-          value, such as record contract which can set default values.
+        `apply` returns the original value upon success, with potential
+        delayed checks inserted inside. Some contracts even return a modified
+        value, such as record contract which can set default values.
 
-          # Legacy contracts
+        # Legacy contracts
 
-          For backward-compatibility reasons, the argument can also be a naked
-          function `Label -> Dyn -> Dyn`, but this is discouraged and will be
-          deprecated in the future. For such a contract, please wrap it using
-          `std.contract.custom` instead (the return type must be adapted).
+        For backward-compatibility reasons, the argument can also be a naked
+        function `Label -> Dyn -> Dyn`, but this is discouraged and will be
+        deprecated in the future. For such a contract, please wrap it using
+        `std.contract.custom` instead (the return type must be adapted).
 
-          # Examples
+        # Examples
 
-          This example is a custom re-implementation of the builtin contract
-          `[| 'Foo Number |]`. This makes for a short illustration of `apply`,
-          but you should of course just use the builtin contract in real-world
-          applications.
+        This example is a custom re-implementation of the builtin contract
+        `[| 'Foo Number |]`. This makes for a short illustration of `apply`,
+        but you should of course just use the builtin contract in real-world
+        applications.
 
-          ```nickel
-          let FooOfNumber = fun Contract =>
-            std.contract.custom
-              (fun label =>
-                match {
-                  'Foo arg => 'Foo (std.contract.apply Contract label value),
-                  _ => 'Error {},
-                }
-              )
-          in
+        ```nickel
+        let FooOfNumber = fun Contract =>
+          std.contract.custom
+            (fun label =>
+              match {
+                'Foo arg => 'Foo (std.contract.apply Contract label value),
+                _ => 'Error {},
+              }
+            )
+        in
 
-          { foo = 1 } | Nullable {foo | Number}
-          ```
+        { foo = 1 } | Nullable {foo | Number}
+        ```
 
-          # Diagnostics stack
+        # Diagnostics stack
 
-          Using `apply` will stack the current custom error reporting data, and
-          create a fresh working diagnostic. `apply` thus acts as a split point
-          between a contract and its subcontracts, providing the subcontracts
-          with a fresh diagnostic to use, while remembering the previous
-          diagnostics set by parent contracts.
+        Using `apply` will stack the current custom error reporting data, and
+        create a fresh working diagnostic. `apply` thus acts as a split point
+        between a contract and its subcontracts, providing the subcontracts
+        with a fresh diagnostic to use, while remembering the previous
+        diagnostics set by parent contracts.
 
-          ## Illustration
+        ## Illustration
 
-          ```nickel
-          let ChildContract = std.contract.from_validator (fun _ =>
-            'Error {
-              message = "child's message",
-              notes = ["child's note"]
-            }
-          )
-          in
+        ```nickel
+        let ChildContract = std.contract.from_validator (fun _ =>
+          'Error {
+            message = "child's message",
+            notes = ["child's note"]
+          }
+        )
+        in
 
-          let ParentContract = std.contract.from_validator (fun _ =>
-            'Error {
-              message = "parent's message",
-              notes = ["parent's note"]
-            }
-          )
-          in
+        let ParentContract = std.contract.from_validator (fun _ =>
+          'Error {
+            message = "parent's message",
+            notes = ["parent's note"]
+          }
+        )
+        in
 
-          null | ParentContract
-          ```
+        null | ParentContract
+        ```
 
-          This example will print two diagnostics: the main one, using the
-          message and note of the child contract, and a secondary diagnostic,
-          using the parent contract message and note.
+        This example will print two diagnostics: the main one, using the
+        message and note of the child contract, and a secondary diagnostic,
+        using the parent contract message and note.
 
-          This behavior is also observed when manipulating the label directly
-          and using `std.contract.blame` instead of returning an error value.
-          ```
-        "%
+        This behavior is also observed when manipulating the label directly
+        and using `std.contract.blame` instead of returning an error value.
+        ```
+      "%
       = fun contract label value =>
         %contract/apply% contract (%label/push_diag% label) value,
 
@@ -1711,95 +1711,95 @@
         }
       |]
       | doc m%"
-          Variant of `std.contract.apply` which returns `'Error {..}` upon
-          immediate failure of the contract instead of aborting the execution
-          with a blame error, or wraps the return value as `'Ok value`
-          otherwise. Delayed errors may still cause uncatchable blame errors.
+        Variant of `std.contract.apply` which returns `'Error {..}` upon
+        immediate failure of the contract instead of aborting the execution
+        with a blame error, or wraps the return value as `'Ok value`
+        otherwise. Delayed errors may still cause uncatchable blame errors.
 
-          `check` is intended to be used when calling another contract from a
-          custom contract, since the return type of `check` is precisely the
-          same as the return type of a custom contract, and because it preserves
-          immediate errors.
+        `check` is intended to be used when calling another contract from a
+        custom contract, since the return type of `check` is precisely the
+        same as the return type of a custom contract, and because it preserves
+        immediate errors.
 
-          Another use-case is to check if the immediate part of a contract is
-          failing or not without aborting the execution with an uncatchable
-          error.
+        Another use-case is to check if the immediate part of a contract is
+        failing or not without aborting the execution with an uncatchable
+        error.
 
-          `check` has the same behavior as `std.contract.apply` with respect to
-          the diagnostic stack. See `std.contract.apply` for more details.
+        `check` has the same behavior as `std.contract.apply` with respect to
+        the diagnostic stack. See `std.contract.apply` for more details.
 
-          Looking at the action of `check` on a custom contract might help: if
-          `Contract` is a custom contract defined as `std.contract.custom
-          contract_impl` where `contract_impl` is a function `fun label value =>
-          ...`, then `std.contract.check Contract label value` is just the
-          normal function application `contract_impl label value` (this isn't
-          entirely true because of the diagnostic stack and how checked values
-          are tracked for error reporting, but it's mostly true). Of course,
-          `check` works on other types of contracts, such as static types or
-          record contracts.
+        Looking at the action of `check` on a custom contract might help: if
+        `Contract` is a custom contract defined as `std.contract.custom
+        contract_impl` where `contract_impl` is a function `fun label value =>
+        ...`, then `std.contract.check Contract label value` is just the
+        normal function application `contract_impl label value` (this isn't
+        entirely true because of the diagnostic stack and how checked values
+        are tracked for error reporting, but it's mostly true). Of course,
+        `check` works on other types of contracts, such as static types or
+        record contracts.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          let Nullable = fun Contract =>
-            std.contract.custom
-              (fun label value =>
-                if value == null then
-                  'Ok value
-                else
-                  std.contract.check Contract label value
-              )
-          in
+        ```nickel
+        let Nullable = fun Contract =>
+          std.contract.custom
+            (fun label value =>
+              if value == null then
+                'Ok value
+              else
+                std.contract.check Contract label value
+            )
+        in
 
-          { foo = 1 } | Nullable {foo | Number}
-          ```
-        "%
+        { foo = 1 } | Nullable {foo | Number}
+        ```
+      "%
       = fun contract label value =>
         %contract/check% contract (%label/push_diag% label) value,
 
     any_of
       | Array Dyn -> Dyn
       | doc m%"
-          Builds a contract that checks if the value satisfies at least one of
-          the given contracts. More precisely, `any_of` applies each contract in
-          order and returns the result of the first one that doesn't fail
-          immediately (that is, the first one which returns the value `'Ok _`).
+        Builds a contract that checks if the value satisfies at least one of
+        the given contracts. More precisely, `any_of` applies each contract in
+        order and returns the result of the first one that doesn't fail
+        immediately (that is, the first one which returns the value `'Ok _`).
 
-          **Important** `any_of` is only an approximation of what you could
-          expect from an `or` operation on contracts. Because `any_of` must
-          preserve the laziness of contracts, it means that it has to
-          pick the right branch by relying only on the immediate part of each
-          contract, and not on the delayed part.
+        **Important** `any_of` is only an approximation of what you could
+        expect from an `or` operation on contracts. Because `any_of` must
+        preserve the laziness of contracts, it means that it has to
+        pick the right branch by relying only on the immediate part of each
+        contract, and not on the delayed part.
 
-          Fortunately, `any_of` is an overstrict approximation, in that it might
-          reject more values than what you expect, but it'll never let invalid
-          values slip through.
+        Fortunately, `any_of` is an overstrict approximation, in that it might
+        reject more values than what you expect, but it'll never let invalid
+        values slip through.
 
-          Typically, `std.contract.any_of [{ foo | String }, { foo | Number }]`
-          will behave exactly as `{ foo | Number }`, because the immediate part
-          of the built-in record contracts can't discriminate between the two
-          possibilities. In particular, perhaps surprisingly, the value `{foo =
-          1+1}` is rejected. Please refer to the boolean combinators section of
-          the contract chapter of the manual for a more detailed
-          explanation of the limitations of `any_of` and other boolean
-          combinators, as well as how to work around them.
+        Typically, `std.contract.any_of [{ foo | String }, { foo | Number }]`
+        will behave exactly as `{ foo | Number }`, because the immediate part
+        of the built-in record contracts can't discriminate between the two
+        possibilities. In particular, perhaps surprisingly, the value `{foo =
+        1+1}` is rejected. Please refer to the boolean combinators section of
+        the contract chapter of the manual for a more detailed
+        explanation of the limitations of `any_of` and other boolean
+        combinators, as well as how to work around them.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          let Date = std.contract.any_of [
-            String,
-            {
-              day | Number,
-              month | Number,
-              year | Number
-            }
-          ]
-          in
+        ```nickel
+        let Date = std.contract.any_of [
+          String,
+          {
+            day | Number,
+            month | Number,
+            year | Number
+          }
+        ]
+        in
 
-          { day = 1, month = 1, year = 1970 } | Date
-          ```
-        "%
+        { day = 1, month = 1, year = 1970 } | Date
+        ```
+      "%
       = fun contracts =>
         %contract/custom% (fun label value =>
           std.array.try_fold_left
@@ -1831,44 +1831,44 @@
     all_of
       : Array Dyn -> Dyn
       | doc m%"
-          Builds a contract that checks if the value satisfies all of the given
-          contracts. `all_of` is just an alias for `std.contract.Sequence`, to
-          maintain consistency with `std.contract.any_of` and other JSON
-          Schema-style combinators.
+        Builds a contract that checks if the value satisfies all of the given
+        contracts. `all_of` is just an alias for `std.contract.Sequence`, to
+        maintain consistency with `std.contract.any_of` and other JSON
+        Schema-style combinators.
 
-          As opposed to other boolean combinators such as `not` or `any_of`,
-          `all_of` work as you expect most of the time, including on contracts
-          with a delayed part. The only contracts for which `all_of` is
-          overstrict are function contracts. In general, you shouldn't use
-          function contracts with contract combinators.
-          ```
-        "%
+        As opposed to other boolean combinators such as `not` or `any_of`,
+        `all_of` work as you expect most of the time, including on contracts
+        with a delayed part. The only contracts for which `all_of` is
+        overstrict are function contracts. In general, you shouldn't use
+        function contracts with contract combinators.
+        ```
+      "%
       = std.contract.Sequence,
 
     not
       | Dyn -> Dyn
       | doc m%"
-          Builds a contract that checks if the value doesn't satisfy the given
-          contract. More specifically, `not Contract` will accept `value` if the
-          application of `Contract` to `value` fails immediately, returning
-          `'Error {..}`.
+        Builds a contract that checks if the value doesn't satisfy the given
+        contract. More specifically, `not Contract` will accept `value` if the
+        application of `Contract` to `value` fails immediately, returning
+        `'Error {..}`.
 
-          **Important**: as for other boolean combinators, `not` is only an
-          overstrict approximation of what you could expect. For example,
-          `std.contract.not (Array Number)` will reject `["a"]`, because the
-          check that elements are numbers is delayed. See the boolean
-          combinators section of the contract chapter of the manual for a more
-          detailed explanation of the limitations of `not` and other boolean
-          combinators, as well as how to work around them.
+        **Important**: as for other boolean combinators, `not` is only an
+        overstrict approximation of what you could expect. For example,
+        `std.contract.not (Array Number)` will reject `["a"]`, because the
+        check that elements are numbers is delayed. See the boolean
+        combinators section of the contract chapter of the manual for a more
+        detailed explanation of the limitations of `not` and other boolean
+        combinators, as well as how to work around them.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          let NotNumber = std.contract.not Number in
-          "a" | NotNumber
-            => "a"
-          ```
-        "%
+        ```nickel
+        let NotNumber = std.contract.not Number in
+        "a" | NotNumber
+          => "a"
+        ```
+      "%
       = fun Contract =>
         %contract/custom% (fun label value =>
           value
@@ -1881,33 +1881,33 @@
 
     unstable
       | doc m%"
-          The unstable module gathers contracts that are used right now in the
-          standard library to check additional pre-condition, but aren't yet
-          stabilized.
+        The unstable module gathers contracts that are used right now in the
+        standard library to check additional pre-condition, but aren't yet
+        stabilized.
 
-          Unstable contracts are useful as a temporary solution for argument
-          validation, but they shouldn't be used outside of the standard
-          library. They aren't part of the backward compatibility policy, and
-          are subject to change at any point in time.
-        "%
+        Unstable contracts are useful as a temporary solution for argument
+        validation, but they shouldn't be used outside of the standard
+        library. They aren't part of the backward compatibility policy, and
+        are subject to change at any point in time.
+      "%
       = {
         DependentFun
           | doc m%"
-              **Warning**: this is an unstable item. It might be renamed,
-              modified or deleted in any subsequent minor Nickel version.
+            **Warning**: this is an unstable item. It might be renamed,
+            modified or deleted in any subsequent minor Nickel version.
 
-              A dependent function contract, where the argument is also passed
-              to the contract of the returned value.
+            A dependent function contract, where the argument is also passed
+            to the contract of the returned value.
 
-              That is, `some_function | DependentFun Foo Bar` performs the
-              same checks as
+            That is, `some_function | DependentFun Foo Bar` performs the
+            same checks as
 
-              ```nickel
-              fun arg =>
-                let arg_checked = (arg | Foo) in
-                (some_function arg_checked | (Bar arg_checked))
-              ```
-            "%
+            ```nickel
+            fun arg =>
+              let arg_checked = (arg | Foo) in
+              (some_function arg_checked | (Bar arg_checked))
+            ```
+          "%
           = fun Domain Codomain =>
             %contract/custom% (fun label function =>
               'Ok (fun arg =>
@@ -1920,15 +1920,15 @@
 
         RangeStep
           | doc m%"
-              **Warning**: this is an unstable item. It might be renamed,
-              modified or deleted in any subsequent minor Nickel version.
+            **Warning**: this is an unstable item. It might be renamed,
+            modified or deleted in any subsequent minor Nickel version.
 
-              A contract for a range step, which must be a positive number.
+            A contract for a range step, which must be a positive number.
 
-              This contract blames only if the value is a number but is not
-              positive: the fact that the value is a number is assumed to be
-              checked by an associated static type annotation.
-            "%
+            This contract blames only if the value is a number but is not
+            positive: the fact that the value is a number is assumed to be
+            checked by an associated static type annotation.
+          "%
           =
             %contract/custom% (fun _label value =>
               if %typeof% value == 'Number && value < 0 then
@@ -1942,19 +1942,19 @@
 
         RangeFun
           | doc m%"
-              **Warning**: this is an unstable item. It might be renamed,
-              modified or deleted in any subsequent minor Nickel version.
+            **Warning**: this is an unstable item. It might be renamed,
+            modified or deleted in any subsequent minor Nickel version.
 
-              A function contract which checks that the two first argument are a
-              valid range, that is two numbers `start` and `end` such that
-              `start <= end`.
+            A function contract which checks that the two first argument are a
+            valid range, that is two numbers `start` and `end` such that
+            `start <= end`.
 
-              This contract blames only if the arguments are of the right type
-              but don't satisfy the tested condition. The type of arguments is
-              assumed to be checked by an associated static type annotation. For
-              example, if the first argument is a string, this contract silently
-              passes.
-            "%
+            This contract blames only if the arguments are of the right type
+            but don't satisfy the tested condition. The type of arguments is
+            assumed to be checked by an associated static type annotation. For
+            example, if the first argument is a string, this contract silently
+            passes.
+          "%
           = fun Codomain =>
             let RangeSecond = fun start =>
               %contract/custom% (fun _label value =>
@@ -1988,20 +1988,20 @@
         IndexedArrayFun
           | [| 'Index, 'Split |] -> Dyn
           | doc m%"
-              **Warning**: this is an unstable item. It might be renamed,
-              modified or deleted in any subsequent minor Nickel version.
+            **Warning**: this is an unstable item. It might be renamed,
+            modified or deleted in any subsequent minor Nickel version.
 
-              A function contract which checks that the two first argument are,
-              in order, a number and an array such that the number is a valid
-              index for that array, that is a natural number such that
-              `0 <= index <= length array`.
+            A function contract which checks that the two first argument are,
+            in order, a number and an array such that the number is a valid
+            index for that array, that is a natural number such that
+            `0 <= index <= length array`.
 
-              This contract blames only if the arguments are of the right type
-              but don't satisfy the tested condition. The type of arguments is
-              assumed to be checked by an associated static type annotation. For
-              example, if the first argument is a string, this contract silently
-              passes.
-            "%
+            This contract blames only if the arguments are of the right type
+            but don't satisfy the tested condition. The type of arguments is
+            assumed to be checked by an associated static type annotation. For
+            example, if the first argument is a string, this contract silently
+            passes.
+          "%
           =
             # capture the `contract.label` module to avoid name collisions with
             # local contract argument `label`
@@ -2061,20 +2061,20 @@
 
         ArraySliceFun
           | doc m%"
-              **Warning**: this is an unstable item. It might be renamed,
-              modified or deleted in any subsequent minor Nickel version.
+            **Warning**: this is an unstable item. It might be renamed,
+            modified or deleted in any subsequent minor Nickel version.
 
-              A function contract which checks that the three first arguments
-              are, in order, two numbers and an array such that the two numbers
-              are a valid slice of that array, that is they are natural numbers
-              such that: `0 <= n1 <= n2 <= length array`
+            A function contract which checks that the three first arguments
+            are, in order, two numbers and an array such that the two numbers
+            are a valid slice of that array, that is they are natural numbers
+            such that: `0 <= n1 <= n2 <= length array`
 
-              This contract blames only if the arguments are of the right type
-              but don't satisfy the tested condition. The type of arguments is
-              assumed to be checked by an associated static type annotation. For
-              example, if the first argument is a string, this contract silently
-              passes.
-            "%
+            This contract blames only if the arguments are of the right type
+            but don't satisfy the tested condition. The type of arguments is
+            assumed to be checked by an associated static type annotation. For
+            example, if the first argument is a string, this contract silently
+            passes.
+          "%
           =
             # capture the `contract.label` module to avoid name collisions with
             # local contract argument `label`
@@ -2148,30 +2148,30 @@
 
         HasField
           | doc m%%"
-              **Warning**: this is an unstable item. It might be renamed,
-              modified or deleted in any subsequent minor Nickel version.
+            **Warning**: this is an unstable item. It might be renamed,
+            modified or deleted in any subsequent minor Nickel version.
 
-              A function contract for 2-ary functions which checks that second
-              argument is a record that contains the first argument as a field.
-              This contract is parametrized by the return type of the function.
+            A function contract for 2-ary functions which checks that second
+            argument is a record that contains the first argument as a field.
+            This contract is parametrized by the return type of the function.
 
-              This contract blames only if the arguments are of the right type
-              but don't satisfy the tested condition (the first is a string and
-              the second is a record). The type of arguments is assumed to be
-              checked by an associated static type annotation. For example, if
-              the first argument is a number, this contract silently passes.
+            This contract blames only if the arguments are of the right type
+            but don't satisfy the tested condition (the first is a string and
+            the second is a record). The type of arguments is assumed to be
+            checked by an associated static type annotation. For example, if
+            the first argument is a number, this contract silently passes.
 
-              ## Example
+            ## Example
 
-              ```nickel
-              let f | HasField Dyn = fun field record => record."%{field}" in
-              (f "foo" { foo = 1, bar = 2 })
-              + (f "baz" { foo = 1, bar = 2 })
-              ```
+            ```nickel
+            let f | HasField Dyn = fun field record => record."%{field}" in
+            (f "foo" { foo = 1, bar = 2 })
+            + (f "baz" { foo = 1, bar = 2 })
+            ```
 
-              In this example, the first call to `f` won't blame, but the second
-              will, as `baz` isn't a field of the record argument.
-            "%%
+            In this example, the first call to `f` won't blame, but the second
+            will, as `baz` isn't a field of the record argument.
+          "%%
           = fun Codomain =>
             let HasFieldSecond = fun field =>
               %contract/custom% (fun _label value =>
@@ -2226,7 +2226,7 @@
           'Bar 5
         ("tag" | std.enum.Enum) =>
           error
-        "%
+      "%
       =
         %contract/custom% (fun _label value =>
           if std.is_enum value then
@@ -2344,7 +2344,7 @@
         std.enum.to_tag_and_arg 'http
           => { tag = "http" }
         ```
-        "%
+      "%
       = fun enum_value =>
         let tag_string = %to_string% (%enum/get_tag% enum_value) in
         if %enum/is_variant% enum_value then
@@ -2372,7 +2372,7 @@
         std.enum.from_tag_and_arg { tag = "http" }
           => 'http
         ```
-        "%
+      "%
       = fun enum_data =>
         if %record/has_field% "arg" enum_data then
           %enum/make_variant% enum_data.tag enum_data.arg
@@ -2382,18 +2382,18 @@
     map
       | (Dyn -> Dyn) -> Enum -> Enum
       | doc m%"
-          Maps a function over an enum variant's argument. If the enum doesn't
-          have an argument, it is left unchanged.
+        Maps a function over an enum variant's argument. If the enum doesn't
+        have an argument, it is left unchanged.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.enum.map ((+) 1) ('Foo 42)
-            => 'Foo 43
-          std.enum.map f 'Bar
-            => 'Bar
-          ```
-        "%
+        ```nickel
+        std.enum.map ((+) 1) ('Foo 42)
+          => 'Foo 43
+        std.enum.map f 'Bar
+          => 'Bar
+        ```
+      "%
       = fun f enum_value =>
         if %enum/is_variant% enum_value then
           let tag = (%to_string% (%enum/get_tag% enum_value)) in
@@ -2788,7 +2788,7 @@
         std.number.log 10 std.number.e =>
           2.302585
         ```
-        "%
+      "%
       = fun x b => %number/log% x b,
 
     cos
@@ -2846,7 +2846,7 @@
         std.number.arccos 1 =>
           0
         ```
-        "%
+      "%
       = fun x => %number/arccos% x,
 
     arcsin
@@ -2862,7 +2862,7 @@
         std.number.arcsin 1 =>
           1.5707963
         ```
-        "%
+      "%
       = fun x => %number/arcsin% x,
 
     arctan
@@ -2876,22 +2876,22 @@
         std.number.arctan 1 =>
           0.78539816
         ```
-        "%
+      "%
       = fun x => %number/arctan% x,
 
     arctan2
       : Number -> Number -> Number
       | doc m%"
-      `arctan2 y x returns the four quadrant arctangent of y over x.
+        `arctan2 y x returns the four quadrant arctangent of y over x.
 
-      # Examples
+        # Examples
 
-      ```nickel
-      std.number.arctan2 1 0 =>
-        1.5707963
-      std.number.arctan2 (-0.5) (-0.5) =>
-        -0.7853981633974483
-      ```
+        ```nickel
+        std.number.arctan2 1 0 =>
+          1.5707963
+        std.number.arctan2 (-0.5) (-0.5) =>
+          -0.7853981633974483
+        ```
       "%
       = fun y x => %number/arctan2% y x,
 
@@ -2912,14 +2912,14 @@
     pi
       : Number
       | doc m%"
-      The π mathematical constant.
+        The π mathematical constant.
       "%
       = 3.14159265358979323846,
 
     e
       : Number
       | doc m%"
-      Euler's number, the e mathematical constant.
+        Euler's number, the e mathematical constant.
       "%
       = 2.7182818284590452354,
   },
@@ -3108,168 +3108,168 @@
     insert
       : forall a. String -> a -> { _ : a } -> { _ : a }
       | doc m%%"
-          Inserts a new field into a record. `insert` doesn't mutate the original
-          record but returns a new one instead.
+        Inserts a new field into a record. `insert` doesn't mutate the original
+        record but returns a new one instead.
 
-          # Preconditions
+        # Preconditions
 
-          The field must not exist in the initial record, otherwise `insert`
-          will fail. If the field might already exist, use `std.record.update`
-          instead.
+        The field must not exist in the initial record, otherwise `insert`
+        will fail. If the field might already exist, use `std.record.update`
+        instead.
 
-          # Empty optional fields
+        # Empty optional fields
 
-          By default, `insert` ignores optional fields without definition. The
-          precondition above doesn't apply to empty optional fields, and
-          `insert` will silently erase an existing empty optional field.
+        By default, `insert` ignores optional fields without definition. The
+        precondition above doesn't apply to empty optional fields, and
+        `insert` will silently erase an existing empty optional field.
 
-          Use `std.record.insert_with_opts` for a version which doesn't ignore
-          empty optional fields.
+        Use `std.record.insert_with_opts` for a version which doesn't ignore
+        empty optional fields.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.record.insert "foo" 5 { bar = "bar" }
-            => { foo = 5, bar = "bar }
-          {}
-          |> std.record.insert "file.txt" "data/text"
-          |> std.record.insert "length" (10*1000)
-            => {"file.txt" = "data/text", "length" = 10000}
-          std.record.insert "already_there_opt" 0 {already_there_opt | optional}
-            => {already_there_optional = 0}
-          std.record.insert "already_there" 0 {already_there = 1}
-            => error
-          ```
-        "%%
+        ```nickel
+        std.record.insert "foo" 5 { bar = "bar" }
+          => { foo = 5, bar = "bar }
+        {}
+        |> std.record.insert "file.txt" "data/text"
+        |> std.record.insert "length" (10*1000)
+          => {"file.txt" = "data/text", "length" = 10000}
+        std.record.insert "already_there_opt" 0 {already_there_opt | optional}
+          => {already_there_optional = 0}
+        std.record.insert "already_there" 0 {already_there = 1}
+          => error
+        ```
+      "%%
       = fun field content r => %record/insert% field r content,
 
     insert_with_opts
       : forall a. String -> a -> { _ : a } -> { _ : a }
       | doc m%%"
-          Inserts a new field into a record. `insert_with_opts` doesn't mutate the
-          original record but returns a new one instead.
+        Inserts a new field into a record. `insert_with_opts` doesn't mutate the
+        original record but returns a new one instead.
 
-          Same as `std.record.insert`, but doesn't ignore empty optional fields.
+        Same as `std.record.insert`, but doesn't ignore empty optional fields.
 
-          # Preconditions
+        # Preconditions
 
-          The field must not exist in the initial record, otherwise `insert`
-          will fail. If the field might already exist, use `std.record.update`
-          instead.
+        The field must not exist in the initial record, otherwise `insert`
+        will fail. If the field might already exist, use `std.record.update`
+        instead.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.record.insert_with_opts "foo" 5 { bar = "bar" }
-            => { foo = 5, bar = "bar }
-          {}
-          |> std.record.insert_with_opts "file.txt" "data/text"
-          |> std.record.insert_with_opts "length" (10*1000)
-            => {"file.txt" = "data/text", "length" = 10000}
-          std.record.insert_with_opts "already_there_optional" 0 {already_there | optional}
-            => error
-          std.record.insert_with_opts "already_there" 0 {already_there = 1}
-            => error
-          ```
-        "%%
+        ```nickel
+        std.record.insert_with_opts "foo" 5 { bar = "bar" }
+          => { foo = 5, bar = "bar }
+        {}
+        |> std.record.insert_with_opts "file.txt" "data/text"
+        |> std.record.insert_with_opts "length" (10*1000)
+          => {"file.txt" = "data/text", "length" = 10000}
+        std.record.insert_with_opts "already_there_optional" 0 {already_there | optional}
+          => error
+        std.record.insert_with_opts "already_there" 0 {already_there = 1}
+          => error
+        ```
+      "%%
       = fun field content r => %record/insert_with_opts% field r content,
 
     remove
       : forall a. String -> { _ : a } -> { _ : a }
       | doc m%"
-          Removes a field from a record. `remove` doesn't mutate the original
-          record but returns a new one instead.
+        Removes a field from a record. `remove` doesn't mutate the original
+        record but returns a new one instead.
 
-          # Preconditions
+        # Preconditions
 
-          The field to remove must be present in the record, or `remove` will
-          fail.
+        The field to remove must be present in the record, or `remove` will
+        fail.
 
-          # Empty optional fields
+        # Empty optional fields
 
-          By default, `remove` ignores optional fields. The precondition above
-          doesn't apply to an empty optional field and `remove` will fail with a
-          missing field error when trying to remove an empty optional field.
+        By default, `remove` ignores optional fields. The precondition above
+        doesn't apply to an empty optional field and `remove` will fail with a
+        missing field error when trying to remove an empty optional field.
 
-          Use `std.record.remove_with_opts` for a version which doesn't ignore
-          empty optional fields.
+        Use `std.record.remove_with_opts` for a version which doesn't ignore
+        empty optional fields.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.record.remove "foo" { foo = "foo", bar = "bar" }
-            => { bar = "bar" }
-          std.record.remove "foo_opt" {foo_opt | optional}
-            => error
-          std.record.remove "foo" { bar = "bar" }
-            => error
-          ```
-        "%
+        ```nickel
+        std.record.remove "foo" { foo = "foo", bar = "bar" }
+          => { bar = "bar" }
+        std.record.remove "foo_opt" {foo_opt | optional}
+          => error
+        std.record.remove "foo" { bar = "bar" }
+          => error
+        ```
+      "%
       = fun field r => %record/remove% field r,
 
     remove_with_opts
       : forall a. String -> { _ : a } -> { _ : a }
       | doc m%"
-          Removes a field from a record. `remove` doesn't mutate the original
-          record but returns a new one instead.
+        Removes a field from a record. `remove` doesn't mutate the original
+        record but returns a new one instead.
 
-          Same as `std.record.remove`, but doesn't ignore empty optional fields.
+        Same as `std.record.remove`, but doesn't ignore empty optional fields.
 
-          # Preconditions
+        # Preconditions
 
-          The field to remove must be present in the record, or `remove` will
-          fail.
+        The field to remove must be present in the record, or `remove` will
+        fail.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.record.remove_with_opts "foo" { foo = "foo", bar = "bar" }
-            => { bar = "bar" }
-          std.record.remove_with_opts "foo_opt" {foo_opt | optional}
-            => {}
-          std.record.remove_with_opts "foo" { bar = "bar" }
-            => error
-          ```
-        "%
+        ```nickel
+        std.record.remove_with_opts "foo" { foo = "foo", bar = "bar" }
+          => { bar = "bar" }
+        std.record.remove_with_opts "foo_opt" {foo_opt | optional}
+          => {}
+        std.record.remove_with_opts "foo" { bar = "bar" }
+          => error
+        ```
+      "%
       = fun field r => %record/remove_with_opts% field r,
 
     update
       : forall a. String -> a -> { _ : a } -> { _ : a }
       | doc m%"
-          Updates a field of a record with a new value. `update` doesn't mutate the
-          original record but returns a new one instead. If the field to update is absent
-          from the given record, `update` adds it.
+        Updates a field of a record with a new value. `update` doesn't mutate the
+        original record but returns a new one instead. If the field to update is absent
+        from the given record, `update` adds it.
 
-          # Empty optional fields
+        # Empty optional fields
 
-          `update` works the same way for empty optional fields and other fields.
-          `update` guarantees that it can always replace a field with a new
-          value, no matter the nature of the field.
+        `update` works the same way for empty optional fields and other fields.
+        `update` guarantees that it can always replace a field with a new
+        value, no matter the nature of the field.
 
-          # Examples
+        # Examples
 
-          ```nickel
-          std.record.update "foo" 5 { foo = "foo", bar = "bar" } =>
-            { foo = 5, bar = "bar" }
-          std.record.update "foo" 5 { bar = "bar" } =>
-            { foo = 5, bar = "bar" }
-          std.record.update "foo_opt" 5 {foo_opt | optional} =>
-            {foo_opt = 5}
-          ```
+        ```nickel
+        std.record.update "foo" 5 { foo = "foo", bar = "bar" } =>
+          { foo = 5, bar = "bar" }
+        std.record.update "foo" 5 { bar = "bar" } =>
+          { foo = 5, bar = "bar" }
+        std.record.update "foo_opt" 5 {foo_opt | optional} =>
+          {foo_opt = 5}
+        ```
 
-          # Overriding
+        # Overriding
 
-          As opposed to overriding a value with the merge operator `&`, `update`
-          will only change the specified field and won't automatically update the other
-          fields which depend on it:
+        As opposed to overriding a value with the merge operator `&`, `update`
+        will only change the specified field and won't automatically update the other
+        fields which depend on it:
 
-          ```nickel
-          { foo = bar + 1, bar | default = 0 } & { bar = 1 } =>
-            { foo = 2, bar = 1 }
-          std.record.update "bar" 1 {foo = bar + 1, bar | default = 0 } =>
-            { foo = 1, bar = 1 }
-          ```
-        "%
+        ```nickel
+        { foo = bar + 1, bar | default = 0 } & { bar = 1 } =>
+          { foo = 2, bar = 1 }
+        std.record.update "bar" 1 {foo = bar + 1, bar | default = 0 } =>
+          { foo = 1, bar = 1 }
+        ```
+      "%
       = fun field content r =>
         let r =
           if %record/has_field% field r then
@@ -3400,18 +3400,18 @@
         std.record.apply_on "age" std.number.compare { name = "Alice", age = 27 } { name = "Bob", age = 23 } =>
           'Greater
         ```
-        "%
+      "%
       = fun field f a b => f a."%{field}" b."%{field}",
 
     length
       : forall a. { _ : a } -> Number
       | doc m%"
-          Returns the number of fields in a record. This count doesn't include
-          fields both marked as optional and without a definition.
+        Returns the number of fields in a record. This count doesn't include
+        fields both marked as optional and without a definition.
 
-          Because of the need to filter empty optional fields, the cost of
-          `length` is linear in the size of the record.
-        "%
+        Because of the need to filter empty optional fields, the cost of
+        `length` is linear in the size of the record.
+      "%
       = fun record =>
         record
         |> fields
@@ -3749,21 +3749,21 @@
     replace_regex
       : String -> String -> String -> String
       | doc m%"
-        `replace_regex regex repl string` replaces every match of `regex` in `string` with `repl`.
+          `replace_regex regex repl string` replaces every match of `regex` in `string` with `repl`.
 
-        **Note**: this function will only replace matches which start & end
-        on the boundary of Unicode extended grapheme clusters. For example,
-        `replace_regex "❤️" "_" "👨‍❤️‍💋‍👨"` will return `"👨‍❤️‍💋‍👨"`, since the
-        heart codepoint occurs within the larger emoji grapheme cluster.
+          **Note**: this function will only replace matches which start & end
+          on the boundary of Unicode extended grapheme clusters. For example,
+          `replace_regex "❤️" "_" "👨‍❤️‍💋‍👨"` will return `"👨‍❤️‍💋‍👨"`, since the
+          heart codepoint occurs within the larger emoji grapheme cluster.
 
-        # Examples
+          # Examples
 
-        ```nickel
-        std.string.replace_regex "l+." "j" "Hello!"
-          => "Hej!"
-        std.string.replace_regex "\\d+" "\"a\" is not" "This 37 is a number."
-          "This \"a\" is not a number."
-      ```
+          ```nickel
+          std.string.replace_regex "l+." "j" "Hello!"
+            => "Hej!"
+          std.string.replace_regex "\\d+" "\"a\" is not" "This 37 is a number."
+            "This \"a\" is not a number."
+        ```
       "%
       = fun pattern replace s =>
         %string/replace_regex% s pattern replace,
@@ -4079,7 +4079,7 @@
         1 == 1 | std.test.Assert
          => true
         ```
-        "%
+      "%
       =
         %contract/custom% (fun _label value =>
           if value then
@@ -4103,7 +4103,7 @@
         [ (1 == 2), (1 == 1), (1 == 3) ] |> std.test.assert_all
          => error: contract broken by a value
         ```
-        "%
+      "%
       # We mostly rely on the contracts to do the work here. We just need to
       # make sure each element of the array is properly forced.
       = std.array.all (fun x => x),
