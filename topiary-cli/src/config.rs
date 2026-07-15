@@ -9,9 +9,7 @@ use std::{ops::Deref, path::Path};
 use nickel_lang_core::eval::value::NickelValue;
 use rootcause::prelude::ResultExt;
 use topiary_config::{Program, source::Source};
-use topiary_core::{
-    FormatterError, FormatterResult, InjectionQuery, Language, SpanAttachment, TopiaryQuery,
-};
+use topiary_core::{FormatterError, FormatterResult, Language};
 #[cfg(feature = "fancy-config")]
 use topiary_core::{Operation, formatter};
 
@@ -162,31 +160,10 @@ impl Configuration {
     where
         T: AsRef<str> + std::fmt::Display,
     {
-        let name_ref = name.as_ref();
-        let config_language = self.get_language_cfg(name_ref).preformat_context()?;
-        let grammar =
-            config_language.fetch_grammar_with(self.cache.repos(), self.inner.cache_dir())?;
-        let query_source = self.get_query_source(name_ref, topiary_queries::FORMATTING_QUERY)?;
-        let query_content = query_source.get_content_sync()?;
-        let formatting_query = TopiaryQuery::new(&grammar, &query_content)
-            .attach_filepath(query_source.filepath())
-            .context(FormatterError::Parsing)?;
-        let injection_query = match self
-            .get_query_source(name_ref, topiary_queries::INJECTIONS_QUERY)
-        {
-            Ok(source) => {
-                let contents = source.get_content_sync()?;
-                Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
-            }
-            Err(_) => None,
-        };
-        Ok(topiary_core::Language {
-            name: name_ref.to_string(),
-            formatting_query: Some(formatting_query),
-            injection_query,
-            grammar,
-            indent: config_language.indent(),
-        })
+        Ok(
+            topiary_resolver::resolve_language_by_name_with(&self.inner, name, self.cache.repos())
+                .context(TopiaryError::Config)?,
+        )
     }
 
     /// Get a query source for the given language and query name, using the cached repos
@@ -196,29 +173,13 @@ impl Configuration {
         query_name: &str,
     ) -> CLIResult<QuerySource> {
         let config_language = self.get_language_cfg(language_name).preformat_context()?;
-        let cache = self.cache();
-        let repos = cache.repos();
-        let find = config_language
-            .find_query_file_with(query_name, repos, self.inner.cache_dir())
-            .preformat_context();
-        let query: QuerySource = match find {
-            Ok(p) => p.into(),
-            // For some reason, Topiary could not find any
-            // matching file in a default location. As a final attempt, try the
-            // builtin ones. Store the error, return that if we
-            // fail to find anything, because the builtin error might be unexpected.
-            Err(mut e) => {
-                log::warn!(
-                    "No {query_name} query files found in any of the expected locations for {language_name}. Falling back to compile-time included files."
-                );
-                query_from_builtin(&config_language.name, query_name).map_err(|builtin_err| {
-                    // join two `Report`s, similar to `Vec::append`
-                    e.children_mut().push(builtin_err.into_cloneable());
-                    e
-                })?
-            }
-        };
-        Ok(query)
+        Ok(topiary_resolver::query_source_with(
+            config_language,
+            query_name,
+            self.cache.repos(),
+            self.inner.cache_dir(),
+        )
+        .context(TopiaryError::Config)?)
     }
 
     pub(crate) fn cache(&self) -> Arc<LanguageDefinitionCache> {
@@ -266,78 +227,6 @@ impl Configuration {
             None,
         )?;
         Ok(())
-    }
-}
-
-/// Get a builtin query for the given language and query name
-fn query_from_builtin<T, Q>(language: T, query: Q) -> CLIResult<QuerySource>
-where
-    T: AsRef<str> + std::fmt::Display,
-    Q: AsRef<str>,
-{
-    let name_str = language.as_ref();
-    match query.as_ref() {
-        topiary_queries::FORMATTING_QUERY => match name_str {
-            #[cfg(feature = "bash")]
-            "bash" => Ok(topiary_queries::bash().into()),
-
-            #[cfg(feature = "css")]
-            "css" => Ok(topiary_queries::css().into()),
-
-            #[cfg(feature = "json")]
-            "json" => Ok(topiary_queries::json().into()),
-
-            #[cfg(feature = "markdown")]
-            "markdown" => Ok(topiary_queries::markdown().into()),
-
-            #[cfg(feature = "nickel")]
-            "nickel" => Ok(topiary_queries::nickel().into()),
-
-            #[cfg(feature = "ocaml")]
-            "ocaml" => Ok(topiary_queries::ocaml().into()),
-
-            #[cfg(feature = "ocaml_interface")]
-            "ocaml_interface" => Ok(topiary_queries::ocaml_interface().into()),
-
-            #[cfg(feature = "ocamllex")]
-            "ocamllex" => Ok(topiary_queries::ocamllex().into()),
-
-            #[cfg(feature = "openscad")]
-            "openscad" => Ok(topiary_queries::openscad().into()),
-
-            #[cfg(feature = "rust")]
-            "rust" => Ok(topiary_queries::rust().into()),
-
-            #[cfg(feature = "sdml")]
-            "sdml" => Ok(topiary_queries::sdml().into()),
-
-            #[cfg(feature = "toml")]
-            "toml" => Ok(topiary_queries::toml().into()),
-
-            #[cfg(feature = "tree_sitter_query")]
-            "tree_sitter_query" => Ok(topiary_queries::tree_sitter_query().into()),
-
-            #[cfg(feature = "wit")]
-            "wit" => Ok(topiary_queries::wit().into()),
-
-            _ => Err(TopiaryError::UnsupportedLanguage(name_str.to_string()).into()),
-        },
-        topiary_queries::INJECTIONS_QUERY => match name_str {
-            #[cfg(feature = "markdown")]
-            "markdown" => Ok(topiary_queries::markdown_injections().into()),
-
-            #[cfg(feature = "menhir")]
-            "menhir" => Ok(topiary_queries::menhir_injections().into()),
-
-            #[cfg(feature = "ocamllex")]
-            "ocamllex" => Ok(topiary_queries::ocamllex_injections().into()),
-
-            #[cfg(feature = "rust")]
-            "rust" => Ok(topiary_queries::rust_injections().into()),
-
-            _ => Err(TopiaryError::UnsupportedLanguage(name_str.to_string()).into()),
-        },
-        _ => Err(TopiaryError::UnsupportedLanguage(name_str.to_string()).into()),
     }
 }
 

@@ -42,6 +42,7 @@ let
         ../../topiary-config
         ../../topiary-core
         ../../topiary-queries
+        ../../topiary-resolver
         ../../topiary-tree-sitter-facade
         ../../topiary-web-tree-sitter-sys
       ];

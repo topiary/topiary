@@ -36,6 +36,7 @@ topiary-core = { workspace = true, features = [ "log" ] }
 topiary-config.workspace = true
 topiary-queries.workspace = true
 topiary-tree-sitter-facade.workspace = true
+topiary-resolver = { workspace = true, default-features = false }
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 tabled = { workspace = true }
 rootcause.workspace = true
@@ -82,19 +83,19 @@ experimental = [
   "menhir"
 ]
 
-bash = ["topiary-config/bash", "topiary-queries/bash"]
-css = ["topiary-config/css", "topiary-queries/css"]
-json = ["topiary-config/json", "topiary-queries/json"]
-markdown = ["topiary-config/markdown", "topiary-queries/markdown"]
-menhir = ["topiary-config/menhir", "topiary-queries/menhir"]
-nickel = ["topiary-config/nickel", "topiary-queries/nickel"]
-ocaml = ["topiary-config/ocaml", "topiary-queries/ocaml"]
-ocaml_interface = ["topiary-config/ocaml_interface", "topiary-queries/ocaml_interface"]
-ocamllex = ["topiary-config/ocamllex", "topiary-queries/ocamllex"]
-openscad = ["topiary-config/openscad", "topiary-queries/openscad"]
-rust = ["topiary-config/rust", "topiary-queries/rust"]
-sdml = ["topiary-config/sdml", "topiary-queries/sdml"]
-toml = ["topiary-config/toml", "topiary-queries/toml"]
-tree_sitter_query = ["topiary-config/tree_sitter_query", "topiary-queries/tree_sitter_query"]
-wit = ["topiary-config/wit", "topiary-queries/wit"]
+bash = ["topiary-config/bash", "topiary-queries/bash", "topiary-resolver/bash"]
+css = ["topiary-config/css", "topiary-queries/css", "topiary-resolver/css"]
+json = ["topiary-config/json", "topiary-queries/json", "topiary-resolver/json"]
+markdown = ["topiary-config/markdown", "topiary-queries/markdown", "topiary-resolver/markdown"]
+menhir = ["topiary-config/menhir", "topiary-queries/menhir", "topiary-resolver/menhir"]
+nickel = ["topiary-config/nickel", "topiary-queries/nickel", "topiary-resolver/nickel"]
+ocaml = ["topiary-config/ocaml", "topiary-queries/ocaml", "topiary-resolver/ocaml"]
+ocaml_interface = ["topiary-config/ocaml_interface", "topiary-queries/ocaml_interface", "topiary-resolver/ocaml_interface"]
+ocamllex = ["topiary-config/ocamllex", "topiary-queries/ocamllex", "topiary-resolver/ocamllex"]
+openscad = ["topiary-config/openscad", "topiary-queries/openscad", "topiary-resolver/openscad"]
+rust = ["topiary-config/rust", "topiary-queries/rust", "topiary-resolver/rust"]
+sdml = ["topiary-config/sdml", "topiary-queries/sdml", "topiary-resolver/sdml"]
+toml = ["topiary-config/toml", "topiary-queries/toml", "topiary-resolver/toml"]
+tree_sitter_query = ["topiary-config/tree_sitter_query", "topiary-queries/tree_sitter_query", "topiary-resolver/tree_sitter_query"]
+wit = ["topiary-config/wit", "topiary-queries/wit", "topiary-resolver/wit"]
 
