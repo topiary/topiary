@@ -537,15 +537,11 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
         predicates.multi_line_string_delimiters = Option::zip(
             m.captures
                 .iter()
-                .filter(|c| c.name(&capture_names).deref() == "multi_line_string_start")
-                .rev()
-                .next()
+                .rfind(|c| c.name(&capture_names).deref() == "multi_line_string_start")
                 .map(capture_content),
             m.captures
                 .iter()
-                .filter(|c| c.name(&capture_names).deref() == "multi_line_string_end")
-                .rev()
-                .next()
+                .rfind(|c| c.name(&capture_names).deref() == "multi_line_string_end")
                 .map(capture_content),
         );
         check_predicates(&predicates)?;
@@ -574,16 +570,12 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
             log::debug!("Processing match{query_name_info}: {m} at location {pos}");
         }
 
-        m.captures = m
-            .captures
-            .into_iter()
-            .filter(|c| {
-                !matches!(
-                    c.name(&capture_names).deref(),
-                    "multi_line_string_start" | "multi_line_string_end"
-                )
-            })
-            .collect();
+        m.captures.retain(|c| {
+            !matches!(
+                c.name(&capture_names).deref(),
+                "multi_line_string_start" | "multi_line_string_end"
+            )
+        });
 
         // If any capture is a do_nothing, then do nothing.
         if m.captures
