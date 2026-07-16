@@ -25,6 +25,15 @@ struct NodesWithLinebreaks {
     after: HashSet<usize>,
 }
 
+/// Mutable references to the three boolean "flag" fields of an [`Atom::Leaf`],
+/// exposed together so leaf-flag directives can flip a single flag without
+/// repeating the leaf-id search loop.
+struct LeafFlagsMut<'a> {
+    single_line_no_indent: &'a mut bool,
+    multi_line_indent_all: &'a mut bool,
+    keep_whitespace: &'a mut bool,
+}
+
 /// Contains Topiary's internal representation parsed document.
 #[derive(Debug)]
 pub struct AtomCollection {
@@ -111,7 +120,7 @@ impl AtomCollection {
             counter: 0,
         };
 
-        atoms.collect_leaves_inner(root, source, &Vec::new(), 0)?;
+        atoms.collect_leaves_inner(root, source, 0)?;
 
         Ok(atoms)
     }
@@ -142,6 +151,29 @@ impl AtomCollection {
         false
     }
 
+    /// Apply `f` to the three boolean flags of every [`Atom::Leaf`] in
+    /// `self.atoms` whose tree-sitter `id` equals `node_id`. Used by the
+    /// leaf-flag directives (`@single_line_no_indent`,
+    /// `@multi_line_indent_all`, `@keep_whitespace`).
+    fn mutate_leaf_flags(&mut self, node_id: usize, mut f: impl FnMut(LeafFlagsMut<'_>)) {
+        for atom in &mut self.atoms {
+            if let Atom::Leaf {
+                id,
+                single_line_no_indent,
+                multi_line_indent_all,
+                keep_whitespace,
+                ..
+            } = atom
+                && *id == node_id
+            {
+                f(LeafFlagsMut {
+                    single_line_no_indent,
+                    multi_line_indent_all,
+                    keep_whitespace,
+                });
+            }
+        }
+    }
     // wrap inside a conditional atom if #single/multi_line_scope_only! is set
     fn wrap(&mut self, atom: Atom, predicates: &QueryPredicates) -> Atom {
         if let Some(scope_id) = &predicates.single_line_scope_only {
@@ -443,47 +475,22 @@ impl AtomCollection {
             }
             // Mark a leaf to be printed on an single line, with no indentation
             "single_line_no_indent" => {
-                for a in &mut self.atoms {
-                    if let Atom::Leaf {
-                        id,
-                        single_line_no_indent,
-                        ..
-                    } = a
-                        && *id == node.id()
-                    {
-                        *single_line_no_indent = true;
-                    }
-                }
-
+                self.mutate_leaf_flags(node.id(), |flags| {
+                    *flags.single_line_no_indent = true;
+                });
                 self.append(Atom::Hardline, node, predicates);
             }
             // Mark a leaf to have all its lines be indented
             "multi_line_indent_all" => {
-                for a in &mut self.atoms {
-                    if let Atom::Leaf {
-                        id,
-                        multi_line_indent_all,
-                        ..
-                    } = a
-                        && *id == node.id()
-                    {
-                        *multi_line_indent_all = true;
-                    }
-                }
+                self.mutate_leaf_flags(node.id(), |flags| {
+                    *flags.multi_line_indent_all = true;
+                });
             }
             // Mark a leaf to disable trimming
             "keep_whitespace" => {
-                for a in &mut self.atoms {
-                    if let Atom::Leaf {
-                        id,
-                        keep_whitespace,
-                        ..
-                    } = a
-                        && *id == node.id()
-                    {
-                        *keep_whitespace = true;
-                    }
-                }
+                self.mutate_leaf_flags(node.id(), |flags| {
+                    *flags.keep_whitespace = true;
+                });
             }
             // Return a query parsing error on unknown capture names
             unknown => {
@@ -567,7 +574,6 @@ impl AtomCollection {
     ///
     /// * `node` - The current node to process.
     /// * `source` - The full source code as a byte slice.
-    /// * `parent_ids` - A vector of node ids that are the ancestors of the current node.
     /// * `level` - The depth of the current node in the CST tree.
     ///
     /// # Errors
@@ -577,11 +583,9 @@ impl AtomCollection {
         &mut self,
         node: &Node,
         source: &[u8],
-        parent_ids: &[usize],
         level: usize,
     ) -> FormatterResult<()> {
         let id = node.id();
-        let parent_ids = [parent_ids, &[id]].concat();
 
         log::debug!(
             "CST node: {}{} - Named: {}",
@@ -613,7 +617,7 @@ impl AtomCollection {
             self.mark_leaf_parent(node, node.id());
         } else {
             for child in node.children(&mut node.walk()) {
-                self.collect_leaves_inner(&child, source, &parent_ids, level + 1)?;
+                self.collect_leaves_inner(&child, source, level + 1)?;
             }
         }
 
@@ -1095,11 +1099,7 @@ impl AtomCollection {
     ///
     /// A `Cow` enum that wraps a borrowed node.
     fn first_leaf<'tree, 'node: 'tree>(&self, node: &'node Node<'tree>) -> Cow<'node, Node<'tree>> {
-        let mut node = Cow::Borrowed(node);
-        while node.child_count() != 0 && !self.specified_leaf_nodes.contains(&node.id()) {
-            node = Cow::Owned(node.child(0).unwrap());
-        }
-        node
+        self.edge_leaf(node, 0)
     }
 
     /// Returns the last leaf node of a given node's subtree.
@@ -1117,9 +1117,23 @@ impl AtomCollection {
     ///
     /// A `Cow` enum that wraps a borrowed node.
     fn last_leaf<'tree, 'node: 'tree>(&self, node: &'node Node<'tree>) -> Cow<'node, Node<'tree>> {
+        self.edge_leaf(node, -1)
+    }
+
+    /// Iteratively descends from `node` towards a leaf, picking the next child
+    /// via the given `index` at each step. Stops when the current node has no
+    /// children or is registered in `specified_leaf_nodes`.
+    /// The `index` argument supports negative wraparound semantics.
+    fn edge_leaf<'tree, 'node: 'tree>(
+        &self,
+        node: &'node Node<'tree>,
+        index: isize,
+    ) -> Cow<'node, Node<'tree>> {
         let mut node = Cow::Borrowed(node);
         while node.child_count() != 0 && !self.specified_leaf_nodes.contains(&node.id()) {
-            node = Cow::Owned(node.child(node.child_count() - 1).unwrap());
+            let count = node.child_count() as isize;
+            let actual_index = if index < 0 { count + index } else { index };
+            node = Cow::Owned(node.child(actual_index as u32).unwrap());
         }
         node
     }

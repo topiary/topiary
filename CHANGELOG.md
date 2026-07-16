@@ -46,6 +46,7 @@ This name should be decided amongst the team before the release.
 
 ### Changed
 - [#1032](https://github.com/topiary/topiary/pull/1032) Replaced the `topiary-core` test and benchmark dependencies on the `tree-sitter-json` and `tree-sitter-nickel` grammar crates with dynamic loading via `topiary-config`.
+- [#1277](https://github.com/topiary/topiary/pull/1277) Small internal refactoring of the core formatting logic.
 - [#1172](https://github.com/topiary/topiary/pull/1172) Split out `mdbook-manmunge` into its own repository.
 - [#1174](https://github.com/topiary/topiary/pull/1174) Split out the Topiary Playground into its own repository.
 - [#1191](https://github.com/topiary/topiary/pull/1191) Split out the Topiary website into its own repository.
