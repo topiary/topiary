@@ -479,7 +479,7 @@ impl AtomCollection {
                         let (start, end) = requires_multi_line_string_delimiters()?.clone();
                         *multi_line_indent_all = MultiLineIndent::AbsoluteIndentation(
                             AbsoluteIndentation::ClosingColumnInsignificant {
-                                last_line_break_significant: false,
+                                last_line_break_significant: predicates.last_line_break_significant,
                                 start,
                                 end,
                             },
@@ -1184,6 +1184,8 @@ pub struct QueryPredicates {
     pub query_name: Option<String>,
     /// multi line string delimiters
     pub multi_line_string_delimiters: Option<(String, String)>,
+    /// The flag that indicates that topiary must not add any line breaks to the end of multi line strings
+    pub last_line_break_significant: bool,
 }
 
 /// Collapses spaces before antispace atoms in a vector of atoms.

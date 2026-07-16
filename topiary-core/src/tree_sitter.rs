@@ -718,6 +718,10 @@ fn handle_predicate(
             multi_line_only: true,
             ..predicates.clone()
         }),
+        "last_line_break_significant!" => Ok(QueryPredicates {
+            last_line_break_significant: true,
+            ..predicates.clone()
+        }),
         _ => Err(FormatterError::Query(format!(
             "{operator} is an unknown predicate. Maybe you forgot a \"!\"?"
         )))
