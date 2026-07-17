@@ -6,6 +6,7 @@
   prefetchLanguagesNickelFile,
   prefetchLanguages,
   generateNcl,
+  fromNickelFile,
 }:
 
 let
@@ -19,6 +20,7 @@ let
       prefetchLanguagesNickelFile
       prefetchLanguages
       generateNcl
+      fromNickelFile
       ;
   };
 in

@@ -46,7 +46,7 @@ let
     }
     // optionalAttrs (lang.indent != null) { inherit (lang) indent; };
 
-  defaultLanguages = (import ../languages.nix).languages;
+  defaultLanguages = topiary.lib.defaultConfig.languages;
   userLanguages = mapAttrs normaliseLanguage cfg.languages;
   mergedLanguages = (optionalAttrs cfg.includeDefaultLanguages defaultLanguages) // userLanguages;
 

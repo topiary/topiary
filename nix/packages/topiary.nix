@@ -6,6 +6,7 @@
   prefetchLanguagesNickelFile,
   prefetchLanguages,
   generateNcl,
+  fromNickelFile,
 }:
 
 let
@@ -379,7 +380,7 @@ let
         }
         // optionalAttrs (lang.indent != null) { inherit (lang) indent; };
 
-      defaultLanguages = (import ../languages.nix).languages;
+      defaultLanguages = (fromNickelFile ../../topiary-config/languages.ncl).languages;
       userLanguages = mapAttrs normaliseLanguage cfg.languages;
       mergedLanguages = (optionalAttrs cfg.includeDefaultLanguages defaultLanguages) // userLanguages;
 

@@ -47,6 +47,7 @@ let
         prefetchLanguagesNickelFile
         prefetchLanguages
         generateNcl
+        fromNickelFile
         ;
     })
     topiaryPkgs
