@@ -13,34 +13,43 @@ let
   inherit (lib.attrsets) mapAttrs filterAttrs mapAttrs' nameValuePair mapAttrsToList;
   inherit (lib.strings) optionalString concatStringsSep;
 
-  normaliseGrammar = name: g:
-    assert !(g.package != null && g.source.git != null) || throw "topiary: language `${name}` cannot specify both `grammar.package` and `grammar.source.git`";
-    {
-    source =
-      if g.package != null then
-        { path = "${g.package}/parser"; }
-      else if g.source.git != null then
-        { git = g.source.git; }
-      else
-        throw "topiary: language `${name}` needs `grammar.package` or `grammar.source.git`";
-  } // optionalAttrs (g.symbol != null) { inherit (g) symbol; };
+  cleanGrammar = g: builtins.removeAttrs g [ "package" ];
+  cleanLanguage = lang: builtins.removeAttrs lang [ "query" ];
 
-  normaliseLanguage = name: lang: {
-    inherit (lang) extensions;
+  normaliseGrammar = name: g:
+    let
+      hasPackage = g.package != null;
+      hasGit = g.source.git or null != null;
+      hasPath = g.source.path or null != null;
+    in
+    assert !(hasPackage && hasGit) || throw "topiary: language `${name}` cannot specify both `grammar.package` and `grammar.source.git`";
+    cleanGrammar (g // {
+      source =
+        if hasPackage then
+          { path = "${g.package}/parser"; }
+        else if hasGit then
+          { git = g.source.git; }
+        else if hasPath then
+          { path = g.source.path; }
+        else
+          throw "topiary: language `${name}` needs `grammar.package`, `grammar.source.git`, or `grammar.source.path`";
+    });
+
+  normaliseLanguage = name: lang: cleanLanguage (lang // {
     grammar = normaliseGrammar name lang.grammar;
-  } // optionalAttrs (lang.indent != null) { inherit (lang) indent; };
+  });
 
   defaultLanguages = (fromNickelFile ../../topiary-config/languages.ncl).languages;
-  userLanguages = mapAttrs normaliseLanguage cfg.languages;
+  userLanguages = mapAttrs normaliseLanguage (cfg.settings.languages or { });
   mergedLanguages = (optionalAttrs cfg.includeDefaultLanguages defaultLanguages) // userLanguages;
 
   configFile = generateNcl {
     name = "languages.ncl";
-    config = prefetchLanguages { languages = mergedLanguages; };
+    config = prefetchLanguages (cfg.settings // { languages = mergedLanguages; });
     withDefaults = false;
   };
 
-  customQueries = filterAttrs (_: l: l.query.formatting != null) cfg.languages;
+  customQueries = filterAttrs (_: l: l.query.formatting or null != null) (cfg.settings.languages or { });
   hasCustomQueries = customQueries != { };
 
   queryFiles = mapAttrs' (

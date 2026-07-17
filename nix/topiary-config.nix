@@ -18,12 +18,12 @@
 
     # Example of an extra/overriding language. Uncomment and adjust to test.
     #
-    # languages.bash = {
+    # settings.languages.bash = {
     #   extensions = [ "sh" "bash" ];
     #   grammar.source.git = {
-    #     url = "https://github.com/tree-sitter/tree-sitter-bash.git";
+    #     git = "https://github.com/tree-sitter/tree-sitter-bash.git";
     #     rev = "d1a1a3fe7189fdab5bd29a54d1df4a5873db5cb1";
-    #     hash = "sha256-XiiEI7/6b2pCZatO8Z8fBgooKD8Z+SFQJNdR/sGGkgE=";
+    #     nixHash = "sha256-XiiEI7/6b2pCZatO8Z8fBgooKD8Z+SFQJNdR/sGGkgE=";
     #   };
     #   query.formatting = ./../topiary-queries/queries/bash.scm;
     # };

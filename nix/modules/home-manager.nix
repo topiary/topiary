@@ -25,9 +25,9 @@ in
     programs.topiary.package = mkDefault topiary.packages.topiary-cli;
 
     assertions = mapAttrsToList (name: lang: {
-      assertion = !(lang.grammar.package != null && lang.grammar.source.git != null);
+      assertion = !(lang.grammar.package != null && lang.grammar.source.git or null != null);
       message = "topiary: language `${name}` cannot specify both `grammar.package` and `grammar.source.git`";
-    }) cfg.languages;
+    }) (cfg.settings.languages or { });
 
     home.packages = [ cfg.package ];
 

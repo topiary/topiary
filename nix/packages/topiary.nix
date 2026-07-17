@@ -318,13 +318,13 @@ let
   #   mkTopiaryWithNixConfig {
   #     programs.topiary = {
   #       includeDefaultLanguages = true;
-  #       languages.foo = {
+  #       settings.languages.foo = {
   #         extensions = [ "foo" ];
   #         indent = "  ";                          # optional
   #         grammar = {
   #           symbol = "tree_sitter_foo";           # optional
   #           package = pkgs.tree-sitter-grammars.tree-sitter-foo;  # OR
-  #           source.git = { url = "..."; rev = "..."; hash = "sha256-..."; };
+  #           source.git = { git = "..."; rev = "..."; nixHash = "sha256-..."; };
   #         };
   #         query.formatting = ./foo.scm;           # optional
   #       };
