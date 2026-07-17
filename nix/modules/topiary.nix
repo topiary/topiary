@@ -72,7 +72,7 @@ in
                 type = types.nullOr (
                   types.submodule {
                     options = {
-                      url = mkOption {
+                      git = mkOption {
                         type = types.str;
                         description = "URL of the git repository.";
                       };
@@ -80,7 +80,7 @@ in
                         type = types.str;
                         description = "Revision (commit/tag) to check out.";
                       };
-                      hash = mkOption {
+                      nixHash = mkOption {
                         type = types.str;
                         description = "Fixed-output hash of the fetched source.";
                       };

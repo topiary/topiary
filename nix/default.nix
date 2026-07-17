@@ -41,6 +41,7 @@ let
         advisory-db
         craneLib
         callPackageNoOverrides
+        topiaryLib
         ;
       inherit (topiaryUtils)
         prefetchLanguagesFile

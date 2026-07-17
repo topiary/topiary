@@ -7,6 +7,7 @@
   prefetchLanguages,
   generateNcl,
   fromNickelFile,
+  topiaryLib,
 }:
 
 let
@@ -21,6 +22,7 @@ let
       prefetchLanguages
       generateNcl
       fromNickelFile
+      topiaryLib
       ;
   };
 in

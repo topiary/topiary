@@ -7,6 +7,7 @@
   prefetchLanguages,
   generateNcl,
   fromNickelFile,
+  topiaryLib,
 }:
 
 let
@@ -332,9 +333,7 @@ let
   mkTopiaryWithNixConfig =
     settings:
     let
-      inherit (pkgs.lib) optionalAttrs mapAttrs filterAttrs mkDefault;
-      inherit (pkgs.lib.strings) optionalString concatStringsSep;
-      inherit (pkgs.lib.attrsets) mapAttrsToList;
+      inherit (pkgs.lib) mkDefault;
 
       eval = pkgs.lib.evalModules {
         specialArgs = { inherit pkgs; };
@@ -346,98 +345,26 @@ let
       };
       cfg = eval.config.programs.topiary;
 
-      # Normalise a grammar block (proposal schema) into the internal source
-      # shape understood by `prefetchLanguages` (`{ git = {...} }` or
-      # `{ path = ...; }`), which then resolves both to a store path.
-      normaliseGrammar =
-        name: g:
-        assert !(g.package != null && g.source.git != null) || throw "topiary: language `${name}` cannot specify both `grammar.package` and `grammar.source.git`";
-        {
-          source =
-            if g.package != null then
-              { path = "${g.package}/parser"; }
-            else if g.source.git != null then
-              {
-                git = {
-                  git = g.source.git.url;
-                  inherit (g.source.git) rev;
-                  nixHash = g.source.git.hash;
-                }
-                // optionalAttrs (g.source.git.subdir != null) { inherit (g.source.git) subdir; };
-              }
-            else
-              throw "topiary: language `${name}` needs `grammar.package` or `grammar.source.git`";
-        }
-        // optionalAttrs (g.symbol != null) { inherit (g) symbol; };
-
-      # Drop the `query` field (handled via TOPIARY_LANGUAGE_DIR) and normalise
-      # the grammar into the internal config shape.
-      normaliseLanguage =
-        name: lang:
-        {
-          inherit (lang) extensions;
-          grammar = normaliseGrammar name lang.grammar;
-        }
-        // optionalAttrs (lang.indent != null) { inherit (lang) indent; };
-
-      defaultLanguages = (fromNickelFile ../../topiary-config/languages.ncl).languages;
-      userLanguages = mapAttrs normaliseLanguage cfg.languages;
-      mergedLanguages = (optionalAttrs cfg.includeDefaultLanguages defaultLanguages) // userLanguages;
-
-      configFile = generateNcl {
-        name = "languages.ncl";
-        config = prefetchLanguages { languages = mergedLanguages; };
-        withDefaults = false;
+      configInfo = topiaryLib.evalConfig { inherit cfg; };
+      
+      wrapped = topiaryLib.wrapWithConfigFile {
+        package = cfg.package;
+        inherit (configInfo) configFile;
+        languageDir = if configInfo.hasCustomQueries then configInfo.queriesDir else null;
       };
-
-      # Languages carrying a custom `query.formatting` file.
-      customQueries = filterAttrs (_: l: l.query.formatting != null) cfg.languages;
-      hasCustomQueries = customQueries != { };
-
-      # A query directory laid out as `<lang>/formatting.scm`, optionally seeded
-      # with the package's bundled queries so the defaults keep working.
-      queriesDir = pkgs.runCommand "topiary-queries" { } ''
-        mkdir -p $out
-        ${optionalString cfg.includeDefaultLanguages ''
-          cp -r --no-preserve=mode ${cfg.package}/share/queries/. $out/
-        ''}
-        ${concatStringsSep "\n" (
-          mapAttrsToList (name: l: ''
-            mkdir -p $out/${name}
-            cp ${l.query.formatting} $out/${name}/formatting.scm
-          '') customQueries
-        )}
-      '';
     in
-    pkgs.stdenv.mkDerivation {
+    wrapped.overrideAttrs (old: {
+      name = "topiary-with-nix-config-${cfg.package.version}";
       pname = "topiary-with-nix-config";
       inherit (cfg.package) version;
-
-      dontUnpack = true;
-
-      nativeBuildInputs = [ pkgs.makeWrapper ];
-
-      installPhase = ''
-        runHook preInstall
-
-        mkdir -p $out/bin
-        makeWrapper ${cfg.package}/bin/topiary $out/bin/topiary \
-          --set-default TOPIARY_CONFIG_FILE ${configFile} ${
-            optionalString hasCustomQueries "--set-default TOPIARY_LANGUAGE_DIR ${queriesDir}"
-          }
-
-        runHook postInstall
-      '';
-
-      passthru = {
-        inherit configFile queriesDir;
+      passthru = (old.passthru or {}) // {
+        inherit (configInfo) configFile queriesDir;
         config = cfg;
       };
-
       meta = cfg.package.meta or { } // {
         mainProgram = "topiary";
       };
-    };
+    });
 
   # Instance built from the declarative settings in `nix/topiary-config.nix`,
   # evaluated through the option schema with `lib.evalModules`.
@@ -463,8 +390,6 @@ in
     topiary-wrapped
     topiary-with-nix-config
     ;
-
-  inherit mkTopiaryWithNixConfig;
 
   default = topiary-cli;
 }
