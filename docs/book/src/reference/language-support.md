@@ -75,6 +75,9 @@ are the ones we know about!
 - **[faustfmt]**, by Grame, centre national de création musicale \
   A formatter for the [Faust](https://faust.grame.fr/) programming language.
 
+- **[topiary-sqf]**, by Tuupertunut \
+  A formatter for the Arma [SQF] programming language.
+
 <div class="warning">
 
 If you have your own Topiary, which you'd like to have featured here,
@@ -104,3 +107,5 @@ channel][discord].
 [tree-sitter-query]: https://tree-sitter.github.io/tree-sitter/using-parsers#pattern-matching-with-queries
 [tree-sitter-sieve]: https://github.com/TLATER/tree-sitter-sieve
 [wit]: https://component-model.bytecodealliance.org/design/wit.html
+[topiary-sqf]: https://github.com/Tuupertunut/topiary-sqf
+[sqf]: https://community.bistudio.com/wiki/Introduction_to_Arma_Scripting
