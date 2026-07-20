@@ -24,11 +24,6 @@ in
   config = mkIf cfg.enable {
     programs.topiary.package = mkDefault topiary.packages.topiary-cli;
 
-    assertions = mapAttrsToList (name: lang: {
-      assertion = !(lang.grammar.package != null && lang.grammar.source.git or null != null);
-      message = "topiary: language `${name}` cannot specify both `grammar.package` and `grammar.source.git`";
-    }) (cfg.settings.languages or { });
-
     home.packages = [ cfg.package ];
 
     xdg.configFile =

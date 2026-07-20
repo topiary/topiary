@@ -9,7 +9,7 @@
 { cfg }:
 
 let
-  inherit (lib) optionalAttrs;
+  inherit (lib) getExe optionalAttrs;
   inherit (lib.attrsets) mapAttrs filterAttrs mapAttrs' nameValuePair mapAttrsToList;
   inherit (lib.strings) optionalString concatStringsSep;
 
@@ -19,20 +19,9 @@ let
   normaliseGrammar = name: g:
     let
       hasPackage = g.package != null;
-      hasGit = g.source.git or null != null;
-      hasPath = g.source.path or null != null;
     in
-    assert !(hasPackage && hasGit) || throw "topiary: language `${name}` cannot specify both `grammar.package` and `grammar.source.git`";
     cleanGrammar (g // {
-      source =
-        if hasPackage then
-          { path = "${g.package}/parser"; }
-        else if hasGit then
-          { git = g.source.git; }
-        else if hasPath then
-          { path = g.source.path; }
-        else
-          throw "topiary: language `${name}` needs `grammar.package`, `grammar.source.git`, or `grammar.source.path`";
+      source = (g.source or { }) // (optionalAttrs hasPackage { path = "${g.package}/parser"; });
     });
 
   normaliseLanguage = name: lang: cleanLanguage (lang // {
@@ -43,11 +32,17 @@ let
   userLanguages = mapAttrs normaliseLanguage (cfg.settings.languages or { });
   mergedLanguages = (optionalAttrs cfg.includeDefaultLanguages defaultLanguages) // userLanguages;
 
-  configFile = generateNcl {
-    name = "languages.ncl";
+  generatedConfigFile = generateNcl {
+    name = "languages-unvalidated.ncl";
     config = prefetchLanguages (cfg.settings // { languages = mergedLanguages; });
     withDefaults = false;
   };
+
+  configFile = pkgs.runCommand "languages.ncl" { } ''
+    # Loading the configuration is enough to apply its Nickel contracts.
+    ${getExe cfg.package} --configuration ${generatedConfigFile} config show-sources > /dev/null
+    cp ${generatedConfigFile} $out
+  '';
 
   customQueries = filterAttrs (_: l: l.query.formatting or null != null) (cfg.settings.languages or { });
   hasCustomQueries = customQueries != { };

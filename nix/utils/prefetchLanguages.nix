@@ -43,12 +43,13 @@ let
 
   prefetchLanguageSource =
     name: source:
-    if source ? "path" then
-      { inherit (source) path; }
-    else if source ? "git" then
+    # If the user correctly provided *only* a git source, prefetch it and convert it to a path.
+    # Otherwise, pass the raw source through unmodified so that Topiary's native Nickel
+    # `languages.ncl` contract can handle any errors (e.g. conflicting keys, missing keys).
+    if (source ? "git" && !(source ? "path")) then
       { path = "${prefetchLanguageSourceGit name source.git}/parser"; }
     else
-      throw ("Unsupported Topiary language sources: " ++ concatStringsSep ", " (attrNames source));
+      source;
 
   updateByPath = path: update: updateManyAttrsByPath [ { inherit path update; } ];
 
