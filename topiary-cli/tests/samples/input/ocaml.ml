@@ -1467,3 +1467,9 @@ let e () =
 let g = (e :> t)
 let h (x : int) (y : string) = x
 let i = [ (a : t); (b : t) ]
+
+(* #1074 Idempotency error on `pure A.{x}` within a function *)
+let () =
+  with_
+    (fun x ->
+       pure A.{x})
