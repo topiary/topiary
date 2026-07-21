@@ -121,7 +121,7 @@ impl Configuration {
                     library_path,
                     force,
                     tmp_dir.to_path_buf(),
-                )
+                )?;
             }
 
             language::GrammarSource::Path(path) => {
@@ -132,14 +132,28 @@ impl Configuration {
                 );
 
                 if !path.exists() {
-                    Err(TopiaryConfigFetchingError::GrammarFileNotFound(
+                    return Err(TopiaryConfigFetchingError::GrammarFileNotFound(
                         path.to_path_buf(),
-                    ))
-                } else {
-                    Ok(())
+                    ));
                 }
             }
         }
+
+        // Ensure `topiary prefetch` covers both grammars and queries.
+        if let Some(queries) = language.config.queries.as_ref() {
+            for (query_name, query) in queries {
+                if query.source.git.is_none() {
+                    continue;
+                }
+                log::info!(
+                    "Fetch \"{}\": prefetching {query_name} query",
+                    language.name,
+                );
+                language.resolve_query_path(&query.source)?;
+            }
+        }
+
+        Ok(())
     }
 
     /// Prefetches and builds the desired language.

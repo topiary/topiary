@@ -1,7 +1,7 @@
-/// The filename used for formatting queries within each language's query directory.
-pub const FORMATTING_QUERY: &str = "formatting.scm";
+/// The default file stem used for formatting queries within each language's query directory.
+pub const FORMATTING_QUERY: &str = "formatting";
 
-/// The filename used for language injection queries within each language's query directory.
+/// The default file stem used for language injection queries within each language's query directory.
 pub const INJECTIONS_QUERY: &str = "injections.scm";
 
 /// Returns the Topiary-compatible query file for Bash.
