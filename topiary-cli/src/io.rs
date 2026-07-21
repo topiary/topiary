@@ -449,7 +449,7 @@ impl OutputFile {
             let mut writer = File::create(&output)?;
             let bytes = io::copy(&mut staged, &mut writer)?;
 
-            log::debug!("Wrote {bytes} bytes to {}", &output.display());
+            log::debug!("Wrote {bytes} bytes to {}", output.display());
         }
 
         Ok(())

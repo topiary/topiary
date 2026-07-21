@@ -537,10 +537,10 @@ impl AtomCollection {
                 let swapped_atom = mem::take(atom);
 
                 if !prepends.is_empty() {
-                    log::debug!("Applying prepend of {prepends:?} to {:?}.", &swapped_atom);
+                    log::debug!("Applying prepend of {prepends:?} to {:?}.", swapped_atom);
                 }
                 if !appends.is_empty() {
-                    log::debug!("Applying append of {appends:?} to {:?}.", &swapped_atom);
+                    log::debug!("Applying append of {appends:?} to {:?}.", swapped_atom);
                 }
 
                 expanded.append(prepends);
