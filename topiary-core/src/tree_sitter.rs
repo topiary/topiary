@@ -164,8 +164,8 @@ pub struct InjectionSpan<'a> {
 /// `@injection.content` capture paired with the language declared by its
 /// pattern's `#injection_language!` predicate.
 ///
-/// Patterns missing an `#injection_language!` predicate are skipped (with a
-/// warning logged).
+/// Patterns missing an `@injection.content` capture or an injection language
+/// are skipped (with a warning logged).
 ///
 /// Missing predicates or unmatched captures are logged, not raised.
 pub fn collect_injections<'a>(
@@ -183,6 +183,19 @@ pub fn collect_injections<'a>(
     let mut matches = query.query.matches(&root, source, &mut cursor);
     #[allow(clippy::while_let_on_iterator)] // Not a normal iterator
     while let Some(query_match) = matches.next() {
+        let content_captures = query_match
+            .captures()
+            .filter(|c| c.name(capture_names.as_slice()) == "injection.content")
+            .collect::<Vec<_>>();
+
+        if content_captures.is_empty() {
+            log::warn!(
+                "Injection query pattern {} has no @injection.content capture; skipping",
+                query_match.pattern_index()
+            );
+            continue;
+        }
+
         // Resolve the language of the injection either via a hardcoded `#injection_language!` predicate
         // or by dynamically reading the text of the `@injection.language` capture (e.g. for Markdown code blocks).
         let language_name = query
@@ -211,10 +224,7 @@ pub fn collect_injections<'a>(
             continue;
         };
 
-        for capture in query_match
-            .captures()
-            .filter(|c| c.name(capture_names.as_slice()) == "injection.content")
-        {
+        for capture in content_captures {
             let node = capture.node();
             spans.push(InjectionSpan {
                 content: input_content

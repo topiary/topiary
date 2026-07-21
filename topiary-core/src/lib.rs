@@ -637,6 +637,27 @@ mod tests {
     }
 
     #[test(tokio::test)]
+    async fn collect_injections_skips_pattern_without_content_capture() {
+        let input = r#"rule token = parse
+  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
+"#;
+        let mut language = ocamllex_language();
+        language.injection_query = Some(
+            InjectionQuery::new(
+                &language.grammar,
+                r#"
+(ocaml) @injection.language
+"#,
+            )
+            .unwrap(),
+        );
+        let tree = parse(input, &language.grammar, false).unwrap();
+        let spans = collect_injections(&tree, input, language.injection_query.as_ref().unwrap());
+
+        assert!(spans.is_empty());
+    }
+
+    #[test(tokio::test)]
     async fn unresolved_injection_skips_formatting() {
         let input = r#"rule token = parse
   | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
