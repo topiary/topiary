@@ -58,6 +58,7 @@ This name should be decided amongst the team before the release.
 - [#1270](https://github.com/topiary/topiary/pull/1270) Add initial `languages.ncl` Nickel contracts
 - [#1139](https://github.com/topiary/topiary/pull/1139) Added `rootcause::Report` handling in topiary-cli.
 - [#1283](https://github.com/topiary/topiary/pull/1283) Render Nickel parsing error diagnostics
+- [#1298] https://github.com/topiary/topiary/pull/1298) Update WIT formatter for tree-sitter-wit to v1.4
 
 ### Fixed
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
@@ -97,6 +98,7 @@ This name should be decided amongst the team before the release.
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.7.2...v0.7.3)
 
 ### Changed
+- [#1149](https://github.com/topiary/topiary/pull/1149) Updated to Tree-sitter v0.26
 - [#1149](https://github.com/topiary/topiary/pull/1149) Updated to Tree-sitter v0.26
 
 ## v0.7.2 - Heavenly Hemlock - 2025-11-27
