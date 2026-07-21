@@ -94,7 +94,7 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                             content,
                             indent_level,
                             indent,
-                        )
+                        )?
                     }
                 };
                 match capitalisation {
@@ -179,7 +179,7 @@ fn render_absolute_indentation(
     content_original: &str,
     indent_level: usize,
     indent: &str,
-) -> String {
+) -> FormatterResult<String> {
     let AbsoluteIndentation::ClosingColumnInsignificant {
         last_line_break_significant,
         start,
@@ -191,15 +191,25 @@ fn render_absolute_indentation(
 
     let content: Vec<&str> = content_original
         .strip_prefix(start)
-        .expect("to do")
+        .ok_or_else(|| {
+            FormatterError::Query(format!(
+                "the multi line leaf starting with {:?} should start with {start:?} as marked by the query",
+                &content_original[..content_original.len().min(16)]
+            ))
+        })?
         .strip_suffix(end)
-        .expect("to do")
+        .ok_or_else(|| {
+            FormatterError::Query(format!(
+                "the multi line leaf ending with {:?} should end with {end:?} as marked by the query",
+                &content_original[content_original.len().saturating_sub(16)..]
+            ))
+        })?
         .split("\n")
         .map(|s| s.strip_suffix("\r").unwrap_or(s)) // to do. remove this?
         .collect(); // because we need `DoubleEndedIterator::next_back`.
 
     if content.len() == 1 {
-        return content_original.to_owned();
+        return Ok(content_original.to_owned());
     }
 
     let mut content = content.iter().copied();
@@ -233,7 +243,7 @@ fn render_absolute_indentation(
     }
 
     if content.clone().next().is_none() {
-        return format!("{start}{end}");
+        return Ok(format!("{start}{end}"));
     }
 
     let whitespace_prefixes = content
@@ -284,7 +294,7 @@ fn render_absolute_indentation(
         write!(buffer, "\n{}", indent.repeat(indent_level)).unwrap();
     }
     write!(buffer, "{end}").unwrap();
-    buffer
+    Ok(buffer)
 }
 
 fn common_prefix<TSS>(
@@ -343,7 +353,8 @@ mod tests {
             ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                  a
                 b
@@ -368,7 +379,8 @@ mod tests {
             ''",
                 3,
                 "    "
-            ),
+            )
+            .unwrap(),
             "''
                 x
                     a
@@ -391,7 +403,8 @@ mod tests {
                     line,
                     3,
                     "  ",
-                ),
+                )
+                .unwrap(),
                 line,
             );
         }
@@ -410,7 +423,8 @@ mod tests {
                     line,
                     3,
                     "  ",
-                ),
+                )
+                .unwrap(),
                 line,
             );
         }
@@ -429,7 +443,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''''",
         );
         assert_eq!(
@@ -443,7 +458,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''''",
         );
         assert_eq!(
@@ -457,7 +473,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''",
@@ -473,7 +490,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''''",
         );
         assert_eq!(
@@ -487,7 +505,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''''",
         );
         assert_eq!(
@@ -501,7 +520,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''"
@@ -517,7 +537,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''"
@@ -533,7 +554,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''"
@@ -549,7 +571,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
                 a
@@ -570,7 +593,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''''",
         );
         assert_eq!(
@@ -584,7 +608,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''''",
         );
         assert_eq!(
@@ -598,7 +623,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''",
@@ -614,7 +640,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''''",
         );
         assert_eq!(
@@ -628,7 +655,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''''",
         );
         assert_eq!(
@@ -642,7 +670,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''"
@@ -658,7 +687,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a''"
         );
@@ -673,7 +703,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a''"
         );
@@ -688,7 +719,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
                 a''"
@@ -709,7 +741,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -726,7 +759,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -743,7 +777,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
 
@@ -761,7 +796,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -778,7 +814,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -795,7 +832,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
 
@@ -813,7 +851,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''",
@@ -830,7 +869,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''",
@@ -847,7 +887,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
                 a
@@ -865,7 +906,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -882,7 +924,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -899,7 +942,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
 
@@ -917,7 +961,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -934,7 +979,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -951,7 +997,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
 
@@ -969,7 +1016,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''",
@@ -986,7 +1034,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''",
@@ -1003,7 +1052,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
                 a
@@ -1021,7 +1071,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
                 a
@@ -1039,7 +1090,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
                 a
@@ -1057,7 +1109,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
 
@@ -1076,7 +1129,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
                 a
@@ -1094,7 +1148,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
                 a
@@ -1112,7 +1167,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
 
@@ -1131,7 +1187,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
                 a
@@ -1149,7 +1206,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
                 a
@@ -1167,7 +1225,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                         a
                     a
@@ -1190,7 +1249,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -1207,7 +1267,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -1224,7 +1285,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
 
@@ -1242,7 +1304,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -1259,7 +1322,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -1276,7 +1340,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
 
@@ -1294,7 +1359,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''",
@@ -1311,7 +1377,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''",
@@ -1328,7 +1395,8 @@ mod tests {
 ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
                 a
@@ -1346,7 +1414,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -1363,7 +1432,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -1380,7 +1450,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
 
@@ -1398,7 +1469,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -1415,7 +1487,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
             ''",
@@ -1432,7 +1505,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
 
@@ -1450,7 +1524,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''",
@@ -1467,7 +1542,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                 a
             ''",
@@ -1484,7 +1560,8 @@ mod tests {
     ''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
                 a
@@ -1502,7 +1579,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
                 a''",
@@ -1519,7 +1597,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
                 a''",
@@ -1536,7 +1615,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
 
@@ -1554,7 +1634,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
                 a''",
@@ -1571,7 +1652,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
 
                 a''",
@@ -1588,7 +1670,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
 
@@ -1606,7 +1689,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
                 a''",
@@ -1623,7 +1707,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                     a
                 a''",
@@ -1640,7 +1725,8 @@ mod tests {
     a''",
                 3,
                 "    ",
-            ),
+            )
+            .unwrap(),
             "''
                         a
                     a
