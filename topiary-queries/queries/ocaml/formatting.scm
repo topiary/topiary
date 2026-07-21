@@ -922,6 +922,20 @@
   )
 )
 
+; Tie the scope to the "." in local opens, so that `A.{x}` is kept dangling
+; from it rather than from an enclosing scope. Otherwise the "." makes the
+; queries above skip it, and `pure A.{x}` gets broken onto several lines.
+(local_open_expression
+  "." @append_begin_scope
+  .
+  [
+    (record_expression)
+    (list_expression)
+    (array_expression)
+  ] @append_end_scope
+  (#scope_id! "dangling_list_like")
+)
+
 ; We want to add a line when the regular scope is multi-line,
 ; But only if the (measured) custom scope is single-line.
 ; In essence, we want to preserve all of the following three:
@@ -1092,7 +1106,6 @@
     (product_expression)
     (sequence_expression)
     (set_expression)
-    (typed_expression)
     (unit)
     (value_path)
     (variant_declaration)
@@ -1356,6 +1369,26 @@
   .
   ; just doing _ above doesn't work, because it matches the final named node as
   ; well as the final non-named node, causing double indentation.
+)
+
+; The parentheses around a typed expression dangle like a parenthesized
+; expression, with the type ascription onto its own line, such as
+; let _ = (
+;   (module struct type s end)
+;   : t
+; )
+(typed_expression
+  .
+  "(" @append_empty_softline @append_indent_start
+  ")" @prepend_indent_end
+  .
+)
+(typed_expression
+  ")" @prepend_empty_softline
+  .
+)
+(typed_expression
+  ":" @prepend_empty_softline
 )
 
 (value_specification

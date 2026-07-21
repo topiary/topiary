@@ -46,6 +46,7 @@ This name should be decided amongst the team before the release.
 
 ### Changed
 - [#1032](https://github.com/topiary/topiary/pull/1032) Replaced the `topiary-core` test and benchmark dependencies on the `tree-sitter-json` and `tree-sitter-nickel` grammar crates with dynamic loading via `topiary-config`.
+- [#1277](https://github.com/topiary/topiary/pull/1277) Small internal refactoring of the core formatting logic.
 - [#1172](https://github.com/topiary/topiary/pull/1172) Split out `mdbook-manmunge` into its own repository.
 - [#1174](https://github.com/topiary/topiary/pull/1174) Split out the Topiary Playground into its own repository.
 - [#1191](https://github.com/topiary/topiary/pull/1191) Split out the Topiary website into its own repository.
@@ -62,6 +63,7 @@ This name should be decided amongst the team before the release.
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
 - [#1253](https://github.com/topiary/topiary/pull/1253) Handle linebreak preservation in OpenSCAD let chains
 - [#1255](https://github.com/topiary/topiary/pull/1255) Unpinned outdated wasm-bindgen dependency
+- [#1287](https://github.com/topiary/topiary/pull/1287) [#1296](https://github.com/topiary/topiary/pull/1296) Various OCaml issues and improvements
 - [#1291](https://github.com/topiary/topiary/pull/1291) Improve warning for injection queries without content captures
 
 ### Added

@@ -643,7 +643,8 @@ fn collect_leaf_ids(matches: &[LocalQueryMatch], capture_names: Vec<&str>) -> Ha
 ///
 /// # Returns
 ///
-/// A `FormatterResult` that contains either a new `QueryPredicates` object with the updated field, or a `FormatterError` if the predicate is invalid or missing an argument.
+/// `Ok(())` after mutating `predicates` in place, or a `FormatterError` if
+/// the predicate is unknown or missing a required argument.
 ///
 /// # Errors
 ///
@@ -656,72 +657,50 @@ fn handle_predicate(
     predicates: &QueryPredicates,
 ) -> FormatterResult<QueryPredicates> {
     let operator = &*predicate.operator();
-    if "delimiter!" == operator {
-        let arg = predicate
-            .args()
-            .into_iter()
-            .next()
-            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
-        Ok(QueryPredicates {
-            delimiter: Some(arg),
+    match operator {
+        "delimiter!" => Ok(QueryPredicates {
+            delimiter: Some(next_string_arg(predicate, operator)?),
             ..predicates.clone()
-        })
-    } else if "scope_id!" == operator {
-        let arg = predicate
-            .args()
-            .into_iter()
-            .next()
-            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
-        Ok(QueryPredicates {
-            scope_id: Some(arg),
+        }),
+        "scope_id!" => Ok(QueryPredicates {
+            scope_id: Some(next_string_arg(predicate, operator)?),
             ..predicates.clone()
-        })
-    } else if "single_line_only!" == operator {
-        Ok(QueryPredicates {
+        }),
+        "single_line_scope_only!" => Ok(QueryPredicates {
+            single_line_scope_only: Some(next_string_arg(predicate, operator)?),
+            ..predicates.clone()
+        }),
+        "multi_line_scope_only!" => Ok(QueryPredicates {
+            multi_line_scope_only: Some(next_string_arg(predicate, operator)?),
+            ..predicates.clone()
+        }),
+        "query_name!" => Ok(QueryPredicates {
+            query_name: Some(next_string_arg(predicate, operator)?),
+            ..predicates.clone()
+        }),
+        "single_line_only!" => Ok(QueryPredicates {
             single_line_only: true,
             ..predicates.clone()
-        })
-    } else if "multi_line_only!" == operator {
-        Ok(QueryPredicates {
+        }),
+        "multi_line_only!" => Ok(QueryPredicates {
             multi_line_only: true,
             ..predicates.clone()
-        })
-    } else if "single_line_scope_only!" == operator {
-        let arg = predicate
-            .args()
-            .into_iter()
-            .next()
-            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
-        Ok(QueryPredicates {
-            single_line_scope_only: Some(arg),
-            ..predicates.clone()
-        })
-    } else if "multi_line_scope_only!" == operator {
-        let arg = predicate
-            .args()
-            .into_iter()
-            .next()
-            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
-        Ok(QueryPredicates {
-            multi_line_scope_only: Some(arg),
-            ..predicates.clone()
-        })
-    } else if "query_name!" == operator {
-        let arg = predicate
-            .args()
-            .into_iter()
-            .next()
-            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
-        Ok(QueryPredicates {
-            query_name: Some(arg),
-            ..predicates.clone()
-        })
-    } else {
-        Err(FormatterError::Query(format!(
+        }),
+        _ => Err(FormatterError::Query(format!(
             "{operator} is an unknown predicate. Maybe you forgot a \"!\"?"
         )))
-        .into_report()
+        .into_report(),
     }
+}
+
+/// Extract the first string argument from `predicate`, returning a
+/// `FormatterError::Query` mentioning `operator` if no argument is present.
+fn next_string_arg(predicate: &QueryPredicate, operator: &str) -> Result<String, FormatterError> {
+    predicate
+        .args()
+        .into_iter()
+        .next()
+        .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))
 }
 
 /// Checks the validity of the query predicates.
