@@ -2,7 +2,7 @@
 // streaming_iterator::StreamingIterator
 #![cfg_attr(target_arch = "wasm32", allow(unused_imports))]
 
-use std::{collections::HashSet, fmt::Display};
+use std::{collections::HashSet, fmt::Display, ops::Deref as _};
 
 use miette::{LabeledSpan, Severity, SourceSpan};
 use rootcause::{prelude::ResultExt, report};
@@ -185,7 +185,7 @@ pub fn collect_injections<'a>(
     while let Some(query_match) = matches.next() {
         let content_captures = query_match
             .captures()
-            .filter(|c| c.name(capture_names.as_slice()) == "injection.content")
+            .filter(|c| c.name(&capture_names) == "injection.content")
             .collect::<Vec<_>>();
 
         if content_captures.is_empty() {
@@ -211,7 +211,7 @@ pub fn collect_injections<'a>(
             .or_else(|| {
                 query_match
                     .captures()
-                    .find(|c| c.name(capture_names.as_slice()) == "injection.language")
+                    .find(|c| c.name(&capture_names) == "injection.language")
                     .and_then(|c| c.node().utf8_text(source).ok())
                     .map(|s| s.to_string())
             });
@@ -486,8 +486,17 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
 
     // Find the ids of all tree-sitter nodes that were identified as a leaf
     // We want to avoid recursing into them in the collect_leaves function.
-    let mut specified_leaf_nodes: HashSet<usize> =
-        collect_leaf_ids(&matches, capture_names.clone());
+    let mut specified_leaf_nodes: HashSet<usize> = collect_leaf_ids(&matches, &capture_names);
+    // add the ids of all tree-sitter nodes that were identified as a multi line string.
+    // we want to treat them as a leaf too.
+    specified_leaf_nodes.extend(
+        matches
+            .iter()
+            .flat_map(|m| &m.captures)
+            .filter(|c| c.name(&capture_names) == "multi_line_string")
+            .map(|c| c.node().id()),
+    );
+    // add the ids of all tree-sitter nodes that the call site wants us to treat as a leaf.
     specified_leaf_nodes.extend(forced_leaf_nodes);
 
     // The Flattening: collects all terminal nodes of the tree-sitter tree in a Vec
@@ -513,12 +522,28 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
     // )
     // means we want to append a hardline at
     // the end, but we don't know if we get a line_comment capture or not.
-    for m in matches {
+    for mut m in matches {
         let mut predicates = QueryPredicates::default();
 
         for p in query.query.general_predicates(m.pattern_index) {
             predicates = handle_predicate(&p, &predicates)?;
         }
+        let capture_content = |capture: &QueryCapture<'_>| {
+            input_content
+                .get(capture.node().byte_range())
+                .expect("`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range.")
+                .to_owned()
+        };
+        predicates.multi_line_string_delimiters = Option::zip(
+            m.captures
+                .iter()
+                .rfind(|c| c.name(&capture_names).deref() == "multi_line_string_start")
+                .map(capture_content),
+            m.captures
+                .iter()
+                .rfind(|c| c.name(&capture_names).deref() == "multi_line_string_end")
+                .map(capture_content),
+        );
         check_predicates(&predicates)?;
 
         // NOTE: Only performed if logging is enabled to avoid unnecessary computation of Position
@@ -545,16 +570,23 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
             log::debug!("Processing match{query_name_info}: {m} at location {pos}");
         }
 
+        m.captures.retain(|c| {
+            !matches!(
+                c.name(&capture_names).deref(),
+                "multi_line_string_start" | "multi_line_string_end"
+            )
+        });
+
         // If any capture is a do_nothing, then do nothing.
         if m.captures
             .iter()
-            .any(|c| c.name(capture_names.as_slice()) == "do_nothing")
+            .any(|c| c.name(&capture_names) == "do_nothing")
         {
             continue;
         }
 
         for c in m.captures {
-            let name = c.name(capture_names.as_slice());
+            let name = c.name(&capture_names);
             atoms.resolve_capture(&name, &c.node(), &predicates)?;
         }
     }
@@ -621,12 +653,12 @@ fn check_for_error_nodes(node: &Node) -> FormatterResult<()> {
 ///
 /// This function takes a slice of `LocalQueryMatch` and a slice of capture names,
 /// and returns a `HashSet` of node IDs that are matched by the "leaf" capture name.
-fn collect_leaf_ids(matches: &[LocalQueryMatch], capture_names: Vec<&str>) -> HashSet<usize> {
+fn collect_leaf_ids(matches: &[LocalQueryMatch], capture_names: &[&str]) -> HashSet<usize> {
     let mut ids = HashSet::new();
 
     for m in matches {
         for c in &m.captures {
-            if c.name(capture_names.as_slice()) == "leaf" {
+            if c.name(capture_names) == "leaf" {
                 ids.insert(c.node().id());
             }
         }
@@ -684,6 +716,10 @@ fn handle_predicate(
         }),
         "multi_line_only!" => Ok(QueryPredicates {
             multi_line_only: true,
+            ..predicates.clone()
+        }),
+        "last_line_break_significant!" => Ok(QueryPredicates {
+            last_line_break_significant: true,
             ..predicates.clone()
         }),
         _ => Err(FormatterError::Query(format!(

@@ -4,10 +4,18 @@
 [
   (static_string)
   (str_chunks_single)
-  (str_chunks_multi)
   (builtin)
   (quoted_enum_tag)
 ] @leaf
+
+(static_string
+  (multstr_start) @multi_line_string_start
+  (multstr_end) @multi_line_string_end
+) @multi_line_string
+(str_chunks_multi
+  start: (multstr_start) @multi_line_string_start
+  end: (multstr_end) @multi_line_string_end
+) @multi_line_string
 
 ; Allow a blank line before the following nodes
 [
