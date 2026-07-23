@@ -7,10 +7,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use topiary_config::{
-    Configuration,
-    language::{FetchedRepo, GitSource},
-};
+use topiary_config::Configuration;
 use topiary_core::Language;
 
 use crate::{

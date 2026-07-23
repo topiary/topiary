@@ -12,12 +12,13 @@ use gix::{
     worktree::state::checkout,
 };
 #[cfg(not(target_arch = "wasm32"))]
+use std::num::NonZero;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
-use std::{cell::LazyCell, num::NonZero};
+use std::sync::Mutex;
 use std::{
-    collections::{HashMap, HashSet},
-    ops::{Deref, DerefMut},
+    collections::{HashMap, HashSet, hash_map::Entry},
     path::Path,
 };
 #[cfg(not(target_arch = "wasm32"))]
@@ -108,7 +109,7 @@ pub struct Query {
     pub source: QuerySource,
 }
 
-#[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
+#[derive(Debug, serde::Deserialize, PartialEq, Eq, Hash, serde::Serialize, Clone)]
 #[cfg(not(target_arch = "wasm32"))]
 pub struct GitSource {
     /// The URL of the git repository that contains the tree-sitter grammar.
@@ -132,30 +133,27 @@ impl Language {
         self.config.queries.as_ref()?.get(query_name)
     }
 
-    /// Resolve a [`QuerySource`] to an on-disk path, fetching a git checkout into the cache
-    /// if needed. Caches under `<cache>/<lang>/queries/<rev>/`; a git source is re-fetched
-    /// only when the target file is missing.
+    /// Resolve a [`QuerySource`] to an on-disk path
     #[cfg(not(target_arch = "wasm32"))]
     pub fn resolve_query_path(
         &self,
         source: &QuerySource,
     ) -> Result<PathBuf, TopiaryConfigFetchingError> {
+        self.resolve_query_path_with(source, &LocalRepos::new())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn resolve_query_path_with(
+        &self,
+        source: &QuerySource,
+        repos: &LocalRepos,
+    ) -> Result<PathBuf, TopiaryConfigFetchingError> {
         let Some(git) = source.git.as_ref() else {
             return Ok(source.path.clone());
         };
 
-        let mut checkout_dir = crate::project_dirs().cache_dir().to_path_buf();
-        checkout_dir.push(self.name.clone());
-        checkout_dir.push("queries");
-        checkout_dir.push(&git.rev);
-
-        let query_path = checkout_dir.join(&source.path);
-        if query_path.is_file() {
-            return Ok(query_path);
-        }
-
-        git.fetch_to_dir(&self.name, &checkout_dir, None)?;
-        Ok(query_path)
+        let checkout = repos.get_or_insert(git)?;
+        Ok(checkout.join(&source.path))
     }
 
     /// Locate a query file for this language by well-known name (e.g. `"formatting"`,
@@ -256,13 +254,29 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
     pub fn grammar(
         &self,
     ) -> Result<topiary_tree_sitter_facade::Language, TopiaryConfigFetchingError> {
+        self.grammar_with(&LocalRepos::new())
+    }
+
+    /// Same as [`Language::grammar`], but reuses `repos` so a grammar sharing a git repo
+    /// with other grammars or queries only triggers one checkout per Topiary run.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn grammar_with(
+        &self,
+        repos: &LocalRepos,
+    ) -> Result<topiary_tree_sitter_facade::Language, TopiaryConfigFetchingError> {
         let library_path = self.library_path()?;
 
         // Ensure the compile exists
         if !library_path.is_file() {
             match &self.config.grammar.source {
                 GrammarSource::Git { git, subdir } => {
-                    git.compile_grammar(&self.name, library_path.clone(), subdir.as_deref())?
+                    let checkout = repos.get_or_insert(git)?;
+                    GitSource::compile_grammar(
+                        &self.name,
+                        library_path.clone(),
+                        &checkout,
+                        subdir.as_deref(),
+                    )?;
                 }
                 GrammarSource::Path { .. } => {
                     return Err(TopiaryConfigFetchingError::GrammarFileNotFound(
@@ -328,13 +342,14 @@ impl<T, E: Into<anyhow::Error>> GitResult<T> for Result<T, E> {
     }
 }
 
+/// A single shallow checkout of a `GitSource` under a `TempDir`, deleted when dropped.
 #[derive(Debug)]
-pub(crate) struct LocalRepo(TempDir);
+pub struct LocalRepo(TempDir);
 
 impl LocalRepo {
-    // TODO we should eventually omit indexing by rev and just use the normalized git url
-    pub(crate) fn init_cache() -> HashMap<GitSource, Self> {
-        HashMap::new()
+    /// Root of the checkout on disk.
+    pub fn path(&self) -> &Path {
+        self.0.path()
     }
 }
 
@@ -344,45 +359,40 @@ impl AsRef<Path> for LocalRepo {
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct LocalRepos(HashMap<GitSource, LocalRepo>);
+/// Process-local cache of shallow git checkouts keyed by [`GitSource`], so a single repo
+/// hosting multiple grammars or queries is fetched at most once per Topiary run.
+#[derive(Debug, Default)]
+pub struct LocalRepos {
+    // TODO we should eventually omit indexing by rev
+    // and just use the normalized git url + git switch <rev>
+    repos: Mutex<HashMap<GitSource, LocalRepo>>,
+}
 
 impl LocalRepos {
-    fn get_or_insert(source: &GitSource) -> Result<&LocalRepo, TopiaryConfigFetchingError> {
-        todo!()
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// fetch on first use
+    pub fn get_or_insert(&self, source: &GitSource) -> Result<PathBuf, TopiaryConfigFetchingError> {
+        let mut repos = self
+            .repos
+            .lock()
+            .expect("LocalRepos mutex should not be poisoned");
+        let repo = match repos.entry(source.clone()) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(slot) => slot.insert(source.fetch()?),
+        };
+        Ok(repo.path().to_path_buf())
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 impl GitSource {
-    pub fn fetch(&self) -> Result<LocalRepo, TopiaryConfigFetchingError> {
-        todo!();
-    }
-    fn compile_grammar(
-        &self,
-        name: &str,
-        library_path: PathBuf,
-        subdir: Option<&std::path::Path>,
-    ) -> Result<(), TopiaryConfigFetchingError> {
-        log::info!("{name}: Language Grammar not found, attempting to fetch and compile it");
-        // Create a temporary directory to clone the repository to. We could
-        // cached the repositories, but the additional disk space is probably
-        // not worth the benefits gained by caching. The tempdir is deleted
-        // when dropped
-        let tmp_dir = tempfile::tempdir()?;
-
-        self.fetch_and_compile_with_dir(name, library_path, false, tmp_dir.keep(), subdir)
-    }
-
     /// This function is heavily inspired by the one used in Nickel:
     /// <https://github.com/tweag/nickel/blob/master/git/src/lib.rs>
-    pub fn fetch_to_dir(
-        &self,
-        name: &str,
-        dest: &std::path::Path,
-        subdir: Option<&std::path::Path>,
-    ) -> Result<PathBuf, TopiaryConfigFetchingError> {
-        std::fs::create_dir_all(dest)?;
+    pub fn fetch(&self) -> Result<LocalRepo, TopiaryConfigFetchingError> {
+        let dest = tempfile::tempdir()?;
 
         // Fetch the git directory somewhere temporary.
         let git_tempdir = tempfile::tempdir().wrap_err()?;
@@ -421,10 +431,10 @@ impl GitSource {
         let tree_id = object.peel_to_tree().wrap_err()?.id();
         let mut index = repo.index_from_tree(&tree_id).wrap_err()?;
 
-        log::info!("{}: Checking out {} {}", name, self.git, self.rev);
+        log::info!("Checking out {} {}", self.git, self.rev);
         checkout(
             &mut index,
-            dest,
+            dest.path(),
             repo.objects.clone(),
             &Discard,
             &Discard,
@@ -437,28 +447,21 @@ impl GitSource {
         .wrap_err()?;
         index.write(Default::default()).wrap_err()?;
 
-        Ok(match subdir {
-            Some(subdir) => dest.join(subdir),
-            None => dest.to_path_buf(),
-        })
+        Ok(LocalRepo(dest))
     }
 
-    pub fn fetch_and_compile_with_dir(
-        &self,
+    /// Compile the tree-sitter grammar rooted at `checkout` + optional `subdir`.
+    pub fn compile_grammar(
         name: &str,
         library_path: PathBuf,
-        force: bool,
-        tmp_dir: PathBuf,
-        subdir: Option<&std::path::Path>,
+        checkout: &Path,
+        subdir: Option<&Path>,
     ) -> Result<(), TopiaryConfigFetchingError> {
-        if !force && library_path.is_file() {
-            log::info!("{name}: Built grammar already exists; nothing to do");
-            return Ok(());
-        }
-        let checkout_dir = tmp_dir.join(name);
-        let grammar_path = self.fetch_to_dir(name, &checkout_dir, subdir)?;
+        let grammar_path = match subdir {
+            Some(subdir) => checkout.join(subdir),
+            None => checkout.to_path_buf(),
+        };
 
-        // Build grammar
         log::info!("{name}: Building grammar");
         let mut loader =
             tree_sitter_loader::Loader::new().map_err(TopiaryConfigFetchingError::Build)?;

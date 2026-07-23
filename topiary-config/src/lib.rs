@@ -9,7 +9,6 @@ use std::{
     collections::HashMap,
     fmt,
     path::{Path, PathBuf},
-    sync::Mutex,
 };
 
 use language::{Language, LanguageConfiguration};
@@ -21,12 +20,9 @@ use serde::Deserialize;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::error::TopiaryConfigFetchingError;
 #[cfg(not(target_arch = "wasm32"))]
-use tempfile::tempdir;
+use crate::language::LocalRepos;
 
-use crate::{
-    error::{TopiaryConfigError, TopiaryConfigResult},
-    language::{GitSource, LocalRepo},
-};
+use crate::error::{TopiaryConfigError, TopiaryConfigResult};
 
 pub use source::Source;
 
@@ -97,7 +93,7 @@ impl Configuration {
             .ok_or(TopiaryConfigError::UnknownLanguage(name.to_string()))
     }
 
-    /// Prefetch a language's grammar and queries per its configuration
+    /// Prefetch a language's grammar and queries per its configuration.
     ///
     /// # Errors
     ///
@@ -106,7 +102,7 @@ impl Configuration {
     fn fetch_language(
         language: &Language,
         force: bool,
-        repos: LocalRepos,
+        repos: &LocalRepos,
     ) -> Result<(), TopiaryConfigFetchingError> {
         match &language.config.grammar.source {
             language::GrammarSource::Git { git, subdir } => {
@@ -120,13 +116,20 @@ impl Configuration {
                     library_path.display()
                 );
 
-                git.fetch_and_compile_with_dir(
-                    &language.name,
-                    library_path,
-                    force,
-                    tmp_dir.to_path_buf(),
-                    subdir.as_deref(),
-                )?;
+                if !force && library_path.is_file() {
+                    log::info!(
+                        "{}: Built grammar already exists; nothing to do",
+                        language.name
+                    );
+                } else {
+                    let checkout = repos.get_or_insert(git)?;
+                    language::GitSource::compile_grammar(
+                        &language.name,
+                        library_path,
+                        &checkout,
+                        subdir.as_deref(),
+                    )?;
+                }
             }
 
             language::GrammarSource::Path { path } => {
@@ -154,7 +157,7 @@ impl Configuration {
                     "Fetch \"{}\": prefetching {query_name} query",
                     language.name,
                 );
-                language.resolve_query_path(&query.source)?;
+                language.resolve_query_path_with(&query.source, repos)?;
             }
         }
 
@@ -173,7 +176,7 @@ impl Configuration {
     where
         T: AsRef<str> + fmt::Display,
     {
-        let repos = LocalRepo::init_cache();
+        let repos = LocalRepos::new();
         let l = self.get_language(language)?;
         Configuration::fetch_language(l, force, &repos)?;
         Ok(())
@@ -188,9 +191,7 @@ impl Configuration {
     #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::result_large_err)]
     pub fn prefetch_languages(&self, force: bool) -> TopiaryConfigResult<()> {
-        let repos = LocalRepo::init_cache();
-        let tmp_dir = tempdir()?;
-        let tmp_dir_path = tmp_dir.path().to_owned();
+        let repos = LocalRepos::new();
 
         // When the `parallel` feature is enabled (which it is by default), we use Rayon to fetch
         // and compile all found grammars concurrently.
@@ -201,7 +202,7 @@ impl Configuration {
             use rayon::prelude::*;
             self.languages
                 .par_iter()
-                .map(|l| Configuration::fetch_language(l, force, &tmp_dir_path))
+                .map(|l| Configuration::fetch_language(l, force, &repos))
                 .collect::<Result<Vec<_>, TopiaryConfigFetchingError>>()?;
         }
 
@@ -209,11 +210,10 @@ impl Configuration {
         {
             self.languages
                 .iter()
-                .map(|l| Configuration::fetch_language(l, force, &tmp_dir_path))
+                .map(|l| Configuration::fetch_language(l, force, &repos))
                 .collect::<Result<Vec<_>, TopiaryConfigFetchingError>>()?;
         }
 
-        tmp_dir.close()?;
         Ok(())
     }
 
