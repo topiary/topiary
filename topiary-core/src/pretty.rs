@@ -270,13 +270,8 @@ fn render_absolute_indentation(
 
         let common_whitespace_prefix_len_utf8: usize =
             common_whitespace_prefix.map(char::len_utf8).sum();
-        let content = content.map(|line| {
-            if common_whitespace_prefix_len_utf8 < line.len() {
-                &line[common_whitespace_prefix_len_utf8..]
-            } else {
-                ""
-            }
-        });
+        let content =
+            content.map(|line| &line[line.len().min(common_whitespace_prefix_len_utf8)..]);
 
         for line in content {
             if line.chars().all(char::is_whitespace) {
