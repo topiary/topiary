@@ -73,7 +73,8 @@ contributed = [
 # Excluded by default
 experimental = [
   "rust",
-  "markdown"
+  "markdown",
+  "menhir"
 ]
 
 bash = ["topiary-config/bash", "topiary-queries/bash"]
@@ -89,4 +90,5 @@ sdml = ["topiary-config/sdml", "topiary-queries/sdml"]
 toml = ["topiary-config/toml", "topiary-queries/toml"]
 tree_sitter_query = ["topiary-config/tree_sitter_query", "topiary-queries/tree_sitter_query"]
 markdown = ["topiary-config/markdown", "topiary-queries/markdown"]
+menhir = ["topiary-config/menhir", "topiary-queries/menhir"]
 wit = ["topiary-config/wit", "topiary-queries/wit"]
