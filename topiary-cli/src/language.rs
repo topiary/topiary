@@ -9,7 +9,7 @@ use std::{
 
 use topiary_config::{
     Configuration,
-    language::{GitSource, LocalRepo},
+    language::{FetchedRepo, GitSource},
 };
 use topiary_core::Language;
 
@@ -21,15 +21,12 @@ use crate::{
 /// Thread-safe language definition cache
 pub struct LanguageDefinitionCache {
     languages: Mutex<HashMap<u64, Arc<Language>>>,
-    /// multiple languags and config sources may point to the same repo
-    repos: Mutex<HashMap<GitSource, LocalRepo>>,
 }
 
 impl LanguageDefinitionCache {
     pub fn new() -> Self {
         LanguageDefinitionCache {
             languages: Mutex::new(HashMap::new()),
-            repos: Mutex::new(HashMap::new()),
         }
     }
 

@@ -9,6 +9,7 @@ use std::{
     collections::HashMap,
     fmt,
     path::{Path, PathBuf},
+    sync::Mutex,
 };
 
 use language::{Language, LanguageConfiguration};
@@ -22,7 +23,10 @@ use crate::error::TopiaryConfigFetchingError;
 #[cfg(not(target_arch = "wasm32"))]
 use tempfile::tempdir;
 
-use crate::error::{TopiaryConfigError, TopiaryConfigResult};
+use crate::{
+    error::{TopiaryConfigError, TopiaryConfigResult},
+    language::{GitSource, LocalRepo},
+};
 
 pub use source::Source;
 
@@ -93,7 +97,7 @@ impl Configuration {
             .ok_or(TopiaryConfigError::UnknownLanguage(name.to_string()))
     }
 
-    /// Prefetch a language per its configuration
+    /// Prefetch a language's grammar and queries per its configuration
     ///
     /// # Errors
     ///
@@ -102,7 +106,7 @@ impl Configuration {
     fn fetch_language(
         language: &Language,
         force: bool,
-        tmp_dir: &Path,
+        repos: LocalRepos,
     ) -> Result<(), TopiaryConfigFetchingError> {
         match &language.config.grammar.source {
             language::GrammarSource::Git { git, subdir } => {
@@ -169,10 +173,9 @@ impl Configuration {
     where
         T: AsRef<str> + fmt::Display,
     {
-        let tmp_dir = tempdir()?;
-        let tmp_dir_path = tmp_dir.path().to_owned();
+        let repos = LocalRepo::init_cache();
         let l = self.get_language(language)?;
-        Configuration::fetch_language(l, force, &tmp_dir_path)?;
+        Configuration::fetch_language(l, force, &repos)?;
         Ok(())
     }
 
@@ -185,6 +188,7 @@ impl Configuration {
     #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::result_large_err)]
     pub fn prefetch_languages(&self, force: bool) -> TopiaryConfigResult<()> {
+        let repos = LocalRepo::init_cache();
         let tmp_dir = tempdir()?;
         let tmp_dir_path = tmp_dir.path().to_owned();
 

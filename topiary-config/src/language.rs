@@ -11,11 +11,15 @@ use gix::{
     remote::{self, Direction, fetch, fetch::refmap},
     worktree::state::checkout,
 };
-use std::collections::{HashMap, HashSet};
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 #[cfg(not(target_arch = "wasm32"))]
 use std::{cell::LazyCell, num::NonZero};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::{Deref, DerefMut},
+    path::Path,
+};
 #[cfg(not(target_arch = "wasm32"))]
 use tempfile::TempDir;
 
@@ -54,6 +58,7 @@ pub struct LanguageConfiguration {
     /// override the disk-search chain in `find_query_file`.
     #[cfg(not(target_arch = "wasm32"))]
     #[serde(default)]
+    // TODO Query source
     pub queries: Option<HashMap<String, Query>>,
 }
 
@@ -257,7 +262,7 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
         if !library_path.is_file() {
             match &self.config.grammar.source {
                 GrammarSource::Git { git, subdir } => {
-                    git.fetch_and_compile(&self.name, library_path.clone(), subdir.as_deref())?
+                    git.compile_grammar(&self.name, library_path.clone(), subdir.as_deref())?
                 }
                 GrammarSource::Path { .. } => {
                     return Err(TopiaryConfigFetchingError::GrammarFileNotFound(
@@ -324,14 +329,36 @@ impl<T, E: Into<anyhow::Error>> GitResult<T> for Result<T, E> {
 }
 
 #[derive(Debug)]
-pub struct LocalRepo(TempDir);
+pub(crate) struct LocalRepo(TempDir);
+
+impl LocalRepo {
+    // TODO we should eventually omit indexing by rev and just use the normalized git url
+    pub(crate) fn init_cache() -> HashMap<GitSource, Self> {
+        HashMap::new()
+    }
+}
+
+impl AsRef<Path> for LocalRepo {
+    fn as_ref(&self) -> &Path {
+        self.0.as_ref()
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct LocalRepos(HashMap<GitSource, LocalRepo>);
+
+impl LocalRepos {
+    fn get_or_insert(source: &GitSource) -> Result<&LocalRepo, TopiaryConfigFetchingError> {
+        todo!()
+    }
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 impl GitSource {
     pub fn fetch(&self) -> Result<LocalRepo, TopiaryConfigFetchingError> {
         todo!();
     }
-    fn fetch_and_compile(
+    fn compile_grammar(
         &self,
         name: &str,
         library_path: PathBuf,
