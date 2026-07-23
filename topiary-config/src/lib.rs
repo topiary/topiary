@@ -105,26 +105,27 @@ impl Configuration {
         tmp_dir: &Path,
     ) -> Result<(), TopiaryConfigFetchingError> {
         match &language.config.grammar.source {
-            language::GrammarSource::Git(git_source) => {
+            language::GrammarSource::Git { git, subdir } => {
                 let library_path = language.library_path()?;
 
                 log::info!(
                     "Fetch \"{}\": Configured via Git ({} ({})); to {}",
                     language.name,
-                    git_source.git,
-                    git_source.rev,
+                    git.git,
+                    git.rev,
                     library_path.display()
                 );
 
-                git_source.fetch_and_compile_with_dir(
+                git.fetch_and_compile_with_dir(
                     &language.name,
                     library_path,
                     force,
                     tmp_dir.to_path_buf(),
+                    subdir.as_deref(),
                 )?;
             }
 
-            language::GrammarSource::Path(path) => {
+            language::GrammarSource::Path { path } => {
                 log::info!(
                     "Fetch \"{}\": Configured via filesystem ({}); nothing to do",
                     language.name,

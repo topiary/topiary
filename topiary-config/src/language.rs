@@ -69,17 +69,22 @@ pub struct Grammar {
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
 #[cfg(not(target_arch = "wasm32"))]
 pub enum GrammarSource {
-    #[serde(rename = "git")]
-    Git(GitSource),
     #[serde(rename = "path")]
-    Path(PathBuf),
+    Path { path: PathBuf },
+    #[serde(rename = "git")]
+    Git {
+        #[serde(flatten)]
+        git: GitSource,
+        #[serde(default)]
+        subdir: Option<PathBuf>,
+    },
 }
 
 /// A query file location. Either a local `path`, or a `path` inside a git checkout that
 /// Topiary will fetch and cache on demand.
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
 #[cfg(not(target_arch = "wasm32"))]
-pub struct QuerySpec {
+pub struct QuerySource {
     /// Optional git source; when present, `path` is resolved relative to the checkout root.
     pub git: Option<GitSource>,
     /// Path to the query file (relative to the git checkout root when `git` is set,
@@ -88,12 +93,12 @@ pub struct QuerySpec {
 }
 
 /// A named query entry (e.g. `formatting`, `injections`). The Nickel contract is
-/// non-exhaustive so this is a struct rather than a tuple around `QuerySpec` to allow
+/// non-exhaustive so this is a struct rather than a tuple around `QuerySource` to allow
 /// future per-query metadata.
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
 #[cfg(not(target_arch = "wasm32"))]
 pub struct Query {
-    pub source: QuerySpec,
+    pub source: QuerySource,
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
@@ -103,8 +108,6 @@ pub struct GitSource {
     pub git: String,
     /// The revision of the git repository to use.
     pub rev: String,
-    /// The sub-directory within the repository where the grammar is located. Defaults to the root of the repository
-    pub subdir: Option<String>,
 }
 
 impl Language {
@@ -122,16 +125,16 @@ impl Language {
         self.config.queries.as_ref()?.get(query_name)
     }
 
-    /// Resolve a [`QuerySpec`] to an on-disk path, fetching a git checkout into the cache if
-    /// needed. Caches under `<cache>/<lang>/queries/<rev>/`; a git spec is re-fetched only
-    /// when the target file is missing.
+    /// Resolve a [`QuerySource`] to an on-disk path, fetching a git checkout into the cache
+    /// if needed. Caches under `<cache>/<lang>/queries/<rev>/`; a git source is re-fetched
+    /// only when the target file is missing.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn resolve_query_path(
         &self,
-        spec: &QuerySpec,
+        source: &QuerySource,
     ) -> Result<PathBuf, TopiaryConfigFetchingError> {
-        let Some(git) = spec.git.as_ref() else {
-            return Ok(spec.path.clone());
+        let Some(git) = source.git.as_ref() else {
+            return Ok(source.path.clone());
         };
 
         let mut checkout_dir = crate::project_dirs().cache_dir().to_path_buf();
@@ -139,17 +142,13 @@ impl Language {
         checkout_dir.push("queries");
         checkout_dir.push(&git.rev);
 
-        let root = match git.subdir.as_ref() {
-            Some(subdir) => checkout_dir.join(subdir),
-            None => checkout_dir.clone(),
-        };
-        let query_path = root.join(&spec.path);
+        let query_path = checkout_dir.join(&source.path);
         if query_path.is_file() {
             return Ok(query_path);
         }
 
-        git.fetch_to_dir(&self.name, &checkout_dir)?;
-        Ok(root.join(&spec.path))
+        git.fetch_to_dir(&self.name, &checkout_dir, None)?;
+        Ok(query_path)
     }
 
     /// Locate a query file for this language by well-known name (e.g. `"formatting"`,
@@ -227,20 +226,20 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
     // Returns the library path, and ensures the parent directories exist.
     pub fn library_path(&self) -> std::io::Result<PathBuf> {
         match &self.config.grammar.source {
-            GrammarSource::Git(git_source) => {
+            GrammarSource::Git { git, .. } => {
                 let mut library_path = crate::project_dirs().cache_dir().to_path_buf();
                 library_path.push(self.name.clone());
                 std::fs::create_dir_all(&library_path)?;
 
                 // Set the output path as the revision of the grammar,
                 // with a platform-appropriate extension
-                library_path.push(git_source.rev.clone());
+                library_path.push(git.rev.clone());
                 library_path.set_extension(std::env::consts::DLL_EXTENSION);
 
                 Ok(library_path)
             }
 
-            GrammarSource::Path(path) => Ok(path.to_path_buf()),
+            GrammarSource::Path { path } => Ok(path.to_path_buf()),
         }
     }
 
@@ -255,10 +254,10 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
         // Ensure the compile exists
         if !library_path.is_file() {
             match &self.config.grammar.source {
-                GrammarSource::Git(git_source) => {
-                    git_source.fetch_and_compile(&self.name, library_path.clone())?
+                GrammarSource::Git { git, subdir } => {
+                    git.fetch_and_compile(&self.name, library_path.clone(), subdir.as_deref())?
                 }
-                GrammarSource::Path(_) => {
+                GrammarSource::Path { .. } => {
                     return Err(TopiaryConfigFetchingError::GrammarFileNotFound(
                         library_path,
                     ));
@@ -328,6 +327,7 @@ impl GitSource {
         &self,
         name: &str,
         library_path: PathBuf,
+        subdir: Option<&std::path::Path>,
     ) -> Result<(), TopiaryConfigFetchingError> {
         log::info!("{name}: Language Grammar not found, attempting to fetch and compile it");
         // Create a temporary directory to clone the repository to. We could
@@ -336,18 +336,16 @@ impl GitSource {
         // when dropped
         let tmp_dir = tempfile::tempdir()?;
 
-        self.fetch_and_compile_with_dir(name, library_path, false, tmp_dir.keep())
+        self.fetch_and_compile_with_dir(name, library_path, false, tmp_dir.keep(), subdir)
     }
 
-    /// Shallow-clone the repo at `self.rev` into `dest` and return the path to the checkout
-    /// root, honoring `self.subdir`. Used by both grammar compilation and query resolution.
-    ///
     /// This function is heavily inspired by the one used in Nickel:
     /// <https://github.com/tweag/nickel/blob/master/git/src/lib.rs>
     pub fn fetch_to_dir(
         &self,
         name: &str,
         dest: &std::path::Path,
+        subdir: Option<&std::path::Path>,
     ) -> Result<PathBuf, TopiaryConfigFetchingError> {
         std::fs::create_dir_all(dest)?;
 
@@ -404,7 +402,7 @@ impl GitSource {
         .wrap_err()?;
         index.write(Default::default()).wrap_err()?;
 
-        Ok(match self.subdir.clone() {
+        Ok(match subdir {
             Some(subdir) => dest.join(subdir),
             None => dest.to_path_buf(),
         })
@@ -416,13 +414,14 @@ impl GitSource {
         library_path: PathBuf,
         force: bool,
         tmp_dir: PathBuf,
+        subdir: Option<&std::path::Path>,
     ) -> Result<(), TopiaryConfigFetchingError> {
         if !force && library_path.is_file() {
             log::info!("{name}: Built grammar already exists; nothing to do");
             return Ok(());
         }
         let checkout_dir = tmp_dir.join(name);
-        let grammar_path = self.fetch_to_dir(name, &checkout_dir)?;
+        let grammar_path = self.fetch_to_dir(name, &checkout_dir, subdir)?;
 
         // Build grammar
         log::info!("{name}: Building grammar");
