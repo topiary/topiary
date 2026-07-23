@@ -181,3 +181,46 @@ interface stream-async {
 world
 imports {@since(version=0.1.0)@unstable(feature=fancier-foo)import streams;
 @deprecated(version=0.1.0) export streams;}
+
+// ==================
+// Nested Package Definitions
+// ==================
+
+package root:a;
+
+package local:a {
+   interface foo {}
+}
+
+package local:b @1.0.0 {interface bar {}world w {}}
+
+// ==================
+// Map Types and Fallible Constructors
+// ==================
+
+interface maps {
+   type headers=map<string,string>;
+   type counts =map< u32,u64 >;
+   fn1:func(m:map <char,list<u8>> )->map<bool,string>;
+
+   resource res-no-err  { constructor(init:list<u8>)->result<blob>; }
+   resource res-err {
+       constructor(x:u32)->result<err,string>;
+   }
+}
+
+// ==================
+// External IDs and Named Interface Imports
+// ==================
+
+world my-component {@external-id("https://esm.unpkg.com/slugify@1.6.6")import slugify:func(text:string)->string;
+@since(version=0.1.0)@external-id ("user-db-prod:region-a")import users:wasi:keyvalue/store;
+   import primary:wasi:keyvalue/store;
+   export my-handler:wasi:http/handler;
+}
+
+interface my-interface {
+@external-id("foo/0")foo : func() -> string;@external-id("DB.Bar") resource bar { @external-id("baz/1")
+        baz: func(s: string) -> string;
+    }
+}
