@@ -111,7 +111,7 @@ fn test_fmt_stdin_query() {
         .arg("json")
         .arg("--query")
         .arg(format!(
-            "../topiary-queries/queries/json/{}",
+            "../topiary-queries/queries/json/{}.scm",
             topiary_queries::FORMATTING_QUERY
         ))
         .write_stdin(JSON_INPUT)
