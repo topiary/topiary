@@ -7,7 +7,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use topiary_config::Configuration;
+use topiary_config::{Configuration, language::LocalRepos};
 use topiary_core::Language;
 
 use crate::{
@@ -18,12 +18,14 @@ use crate::{
 /// Thread-safe language definition cache
 pub struct LanguageDefinitionCache {
     languages: Mutex<HashMap<u64, Arc<Language>>>,
+    repos: LocalRepos,
 }
 
 impl LanguageDefinitionCache {
     pub fn new() -> Self {
         LanguageDefinitionCache {
             languages: Mutex::new(HashMap::new()),
+            repos: LocalRepos::new(),
         }
     }
 
@@ -94,10 +96,17 @@ impl LanguageDefinitionCache {
         name: &str,
     ) -> CLIResult<Arc<Language>> {
         let config_language = config.get_language(name).preformat_context()?;
-        let formatting_query =
-            to_query_from_language(config_language, topiary_queries::FORMATTING_QUERY)?;
-        let injection_query =
-            to_query_from_language(config_language, topiary_queries::INJECTIONS_QUERY).ok();
+        let formatting_query = to_query_from_language(
+            config_language,
+            topiary_queries::FORMATTING_QUERY,
+            Some(&self.repos),
+        )?;
+        let injection_query = to_query_from_language(
+            config_language,
+            topiary_queries::INJECTIONS_QUERY,
+            Some(&self.repos),
+        )
+        .ok();
         let key = Self::key_for_parts(name, &formatting_query, injection_query.as_ref());
 
         let mut cache = self

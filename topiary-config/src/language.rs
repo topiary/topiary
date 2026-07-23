@@ -172,13 +172,23 @@ impl Language {
     #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::result_large_err)]
     pub fn find_query_file(&self, query_name: &str) -> TopiaryConfigResult<PathBuf> {
+        self.find_query_file_with(query_name, &LocalRepos::new())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[allow(clippy::result_large_err)]
+    pub fn find_query_file_with(
+        &self,
+        query_name: &str,
+        repos: &LocalRepos,
+    ) -> TopiaryConfigResult<PathBuf> {
         use crate::source::Source;
 
         let language_name = self.name.as_str();
 
         if let Some(query) = self.config_query(query_name) {
             let path = self
-                .resolve_query_path(&query.source)
+                .resolve_query_path_with(&query.source, repos)
                 .map_err(TopiaryConfigError::Fetching)?;
             if path.is_file() {
                 return Ok(path);
