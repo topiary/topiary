@@ -281,6 +281,7 @@ fn render_absolute_indentation(
             }
         }
     } else {
+        // no lines other than whitespace lines
         for _ in content {
             writeln!(buffer).unwrap();
         }
@@ -292,6 +293,12 @@ fn render_absolute_indentation(
     Ok(buffer)
 }
 
+/// returns an iterator over the longest common prefix shared by all the
+/// inner iterables of `list_of_lists`, or `none` if `list_of_lists` is empty.
+///
+/// the prefix is computed element-wise: items at the same position in each
+/// inner iterable are compared, and the iteration stops as soon as any pair
+/// differs (or one of the inner iterables is exhausted).
 fn common_prefix<TSS>(
     list_of_lists: TSS,
 ) -> Option<impl Iterator<Item = <TSS::Item as IntoIterator>::Item> + Clone>
