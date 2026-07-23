@@ -178,7 +178,7 @@ async fn run() -> CLIResult<()> {
 
                     Ok(())
                 },
-                Arc::new(LanguageDefinitionCache::new()),
+                get_cache(),
             )
             .await?;
         }
