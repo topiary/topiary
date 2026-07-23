@@ -187,6 +187,58 @@ nickel = {
 > by Topiary itself, those look like `~/.cache/topiary/<LANGUAGE>/<GIT_HASH>.so`
 > (or the equivalent for your platform).
 
+### Specifying queries
+
+By default, Topiary looks for a language's query files (`formatting.scm`
+and, optionally, `injections.scm`) in the `queries` directory of the
+highest-priority configuration source (see [Configuration
+sources](#configuration-sources) above), using the compile-time
+"built-in" queries as a last resort.
+
+The optional `queries` field on a language configuration overrides this
+disk-search chain for specific query names.
+Each entry is a named query, currently used queries are `formatting` and
+`injections` (additional entries are planned for future use):
+
+```nickel
+nickel = {
+  extensions = ["ncl"],
+  queries = {
+    formatting.source.path = "/path/to/nickel/formatting.scm",
+  },
+},
+```
+
+A query can also be fetched from a git repository by adding a `git`
+source alongside `path`; the `path` is then resolved relative to the
+checkout root:
+
+```nickel
+markdown = {
+  extensions = ["md"],
+  queries = {
+    formatting.source = {
+      git = {
+        git = "https://github.com/topiary/topiary.git",
+        rev = "d2c79b9ecd341d40aa0baf87f4a761ae242dfa67",
+      },
+      path = "topiary-queries/queries/markdown/formatting.scm",
+    },
+    injections.source = {
+      git = formatting.source.git,
+      path = "topiary-queries/queries/markdown/injections.scm",
+    },
+  },
+},
+```
+
+Each unique git source is shallow-cloned once per Topiary run and reused
+across every query (and grammar) that references it, so listing several
+queries from the same repository does not incur repeated network
+calls.
+
+### Usage with Nix
+
 For usage in Nix, a `prefetchLanguages.nix` file provides utilities
 allowing to transform a Topiary configuration into one where languages
 have been pre-fetched and pre-compiled in Nix derivations. The only
