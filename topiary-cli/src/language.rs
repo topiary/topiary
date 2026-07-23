@@ -7,7 +7,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use topiary_config::Configuration;
+use topiary_config::{
+    Configuration,
+    language::{GitSource, LocalRepo},
+};
 use topiary_core::Language;
 
 use crate::{
@@ -17,13 +20,16 @@ use crate::{
 
 /// Thread-safe language definition cache
 pub struct LanguageDefinitionCache {
-    cache: Mutex<HashMap<u64, Arc<Language>>>,
+    languages: Mutex<HashMap<u64, Arc<Language>>>,
+    /// multiple languags and config sources may point to the same repo
+    repos: Mutex<HashMap<GitSource, LocalRepo>>,
 }
 
 impl LanguageDefinitionCache {
     pub fn new() -> Self {
         LanguageDefinitionCache {
-            cache: Mutex::new(HashMap::new()),
+            languages: Mutex::new(HashMap::new()),
+            repos: Mutex::new(HashMap::new()),
         }
     }
 
@@ -52,7 +58,10 @@ impl LanguageDefinitionCache {
 
         // Lock the entire `HashMap` on access. (This may seem blunt, but is necessary for the
         // correct behaviour when we have near-simultaneous cache access; see issue #605.)
-        let mut cache = self.cache.lock().expect("language cache mutex poisoned");
+        let mut cache = self
+            .languages
+            .lock()
+            .expect("language cache mutex poisoned");
 
         Ok(match cache.entry(key) {
             // Return the language definition from the cache, if it exists...
@@ -97,7 +106,10 @@ impl LanguageDefinitionCache {
             to_query_from_language(config_language, topiary_queries::INJECTIONS_QUERY).ok();
         let key = Self::key_for_parts(name, &formatting_query, injection_query.as_ref());
 
-        let mut cache = self.cache.lock().expect("language cache mutex poisoned");
+        let mut cache = self
+            .languages
+            .lock()
+            .expect("language cache mutex poisoned");
 
         Ok(match cache.entry(key) {
             Entry::Occupied(lang_def) => {

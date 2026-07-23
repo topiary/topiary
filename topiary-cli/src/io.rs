@@ -396,7 +396,7 @@ pub(crate) fn to_query_from_language(
             log::warn!(
                 "No {query_name} query files found in any of the expected locations. Falling back to compile-time included files."
             );
-            to_query(&language.name, query_name)
+            to_query_from_builtin(&language.name, query_name)
                 .local_context(e)
                 .preformat_context()?
         }
@@ -495,7 +495,7 @@ impl TryFrom<&InputFile<'_>> for OutputFile {
     }
 }
 
-fn to_query<T, Q>(language: T, query: Q) -> CLIResult<QuerySource>
+fn to_query_from_builtin<T, Q>(language: T, query: Q) -> CLIResult<QuerySource>
 where
     T: AsRef<str> + fmt::Display,
     Q: AsRef<str>,

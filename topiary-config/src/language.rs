@@ -13,9 +13,11 @@ use gix::{
 };
 use std::collections::{HashMap, HashSet};
 #[cfg(not(target_arch = "wasm32"))]
-use std::num::NonZero;
-#[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
+#[cfg(not(target_arch = "wasm32"))]
+use std::{cell::LazyCell, num::NonZero};
+#[cfg(not(target_arch = "wasm32"))]
+use tempfile::TempDir;
 
 use crate::error::TopiaryConfigResult;
 #[cfg(not(target_arch = "wasm32"))]
@@ -321,8 +323,14 @@ impl<T, E: Into<anyhow::Error>> GitResult<T> for Result<T, E> {
     }
 }
 
+#[derive(Debug)]
+pub struct LocalRepo(TempDir);
+
 #[cfg(not(target_arch = "wasm32"))]
 impl GitSource {
+    pub fn fetch(&self) -> Result<LocalRepo, TopiaryConfigFetchingError> {
+        todo!();
+    }
     fn fetch_and_compile(
         &self,
         name: &str,
