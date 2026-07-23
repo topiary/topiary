@@ -274,7 +274,7 @@ fn render_absolute_indentation(
             content.map(|line| &line[line.len().min(common_whitespace_prefix_len_utf8)..]);
 
         for line in content {
-            if line.chars().all(char::is_whitespace) {
+            if line.is_empty() {
                 writeln!(buffer).unwrap();
             } else {
                 write!(buffer, "\n{}{line}", indent.repeat(indent_level + 1)).unwrap();
@@ -1726,6 +1726,30 @@ mod tests {
                         a
                     a
                 a''",
+        );
+    }
+
+    #[test]
+    fn test_render_absolute_indentation_significant_all_whitespace() {
+        assert_eq!(
+            render_absolute_indentation(
+                &AbsoluteIndentation::ClosingColumnInsignificant {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+                    a
+                     
+                ''",
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+                a
+                 
+            ''",
         );
     }
 }
