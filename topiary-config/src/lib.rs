@@ -20,7 +20,7 @@ use serde::Deserialize;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::error::TopiaryConfigFetchingError;
 #[cfg(not(target_arch = "wasm32"))]
-use tempfile::tempdir;
+use crate::language::LocalRepos;
 
 use crate::error::{TopiaryConfigError, TopiaryConfigResult};
 
@@ -93,7 +93,7 @@ impl Configuration {
             .ok_or(TopiaryConfigError::UnknownLanguage(name.to_string()))
     }
 
-    /// Prefetch a language per its configuration
+    /// Prefetch a language's grammar and queries per its configuration.
     ///
     /// # Errors
     ///
@@ -102,29 +102,37 @@ impl Configuration {
     fn fetch_language(
         language: &Language,
         force: bool,
-        tmp_dir: &Path,
+        repos: &LocalRepos,
     ) -> Result<(), TopiaryConfigFetchingError> {
         match &language.config.grammar.source {
-            language::GrammarSource::Git(git_source) => {
+            language::GrammarSource::Git { git, subdir } => {
                 let library_path = language.library_path()?;
 
                 log::info!(
                     "Fetch \"{}\": Configured via Git ({} ({})); to {}",
                     language.name,
-                    git_source.git,
-                    git_source.rev,
+                    git.git,
+                    git.rev,
                     library_path.display()
                 );
 
-                git_source.fetch_and_compile_with_dir(
-                    &language.name,
-                    library_path,
-                    force,
-                    tmp_dir.to_path_buf(),
-                )
+                if !force && library_path.is_file() {
+                    log::info!(
+                        "{}: Built grammar already exists; nothing to do",
+                        language.name
+                    );
+                } else {
+                    let checkout = repos.get_or_insert(git)?;
+                    language::GitSource::compile_grammar(
+                        &language.name,
+                        library_path,
+                        &checkout,
+                        subdir.as_deref(),
+                    )?;
+                }
             }
 
-            language::GrammarSource::Path(path) => {
+            language::GrammarSource::Path { path } => {
                 log::info!(
                     "Fetch \"{}\": Configured via filesystem ({}); nothing to do",
                     language.name,
@@ -132,14 +140,28 @@ impl Configuration {
                 );
 
                 if !path.exists() {
-                    Err(TopiaryConfigFetchingError::GrammarFileNotFound(
+                    return Err(TopiaryConfigFetchingError::GrammarFileNotFound(
                         path.to_path_buf(),
-                    ))
-                } else {
-                    Ok(())
+                    ));
                 }
             }
         }
+
+        // Ensure `topiary prefetch` covers both grammars and queries.
+        if let Some(queries) = language.config.queries.as_ref() {
+            for (query_name, query) in queries {
+                if query.source.git.is_none() {
+                    continue;
+                }
+                log::info!(
+                    "Fetch \"{}\": prefetching {query_name} query",
+                    language.name,
+                );
+                language.resolve_query_path_with(&query.source, repos)?;
+            }
+        }
+
+        Ok(())
     }
 
     /// Prefetches and builds the desired language.
@@ -154,10 +176,9 @@ impl Configuration {
     where
         T: AsRef<str> + fmt::Display,
     {
-        let tmp_dir = tempdir()?;
-        let tmp_dir_path = tmp_dir.path().to_owned();
+        let repos = LocalRepos::new();
         let l = self.get_language(language)?;
-        Configuration::fetch_language(l, force, &tmp_dir_path)?;
+        Configuration::fetch_language(l, force, &repos)?;
         Ok(())
     }
 
@@ -170,8 +191,7 @@ impl Configuration {
     #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::result_large_err)]
     pub fn prefetch_languages(&self, force: bool) -> TopiaryConfigResult<()> {
-        let tmp_dir = tempdir()?;
-        let tmp_dir_path = tmp_dir.path().to_owned();
+        let repos = LocalRepos::new();
 
         // When the `parallel` feature is enabled (which it is by default), we use Rayon to fetch
         // and compile all found grammars concurrently.
@@ -182,7 +202,7 @@ impl Configuration {
             use rayon::prelude::*;
             self.languages
                 .par_iter()
-                .map(|l| Configuration::fetch_language(l, force, &tmp_dir_path))
+                .map(|l| Configuration::fetch_language(l, force, &repos))
                 .collect::<Result<Vec<_>, TopiaryConfigFetchingError>>()?;
         }
 
@@ -190,11 +210,10 @@ impl Configuration {
         {
             self.languages
                 .iter()
-                .map(|l| Configuration::fetch_language(l, force, &tmp_dir_path))
+                .map(|l| Configuration::fetch_language(l, force, &repos))
                 .collect::<Result<Vec<_>, TopiaryConfigFetchingError>>()?;
         }
 
-        tmp_dir.close()?;
         Ok(())
     }
 

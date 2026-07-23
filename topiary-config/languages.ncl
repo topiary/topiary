@@ -59,6 +59,21 @@ variant with the other via Nickel record merging (e.g. setting
       | optional
       | doc "Override for the tree-sitter symbol; defaults to `tree_sitter_<name>`.",
   },
+  QuerySource
+    | doc m%"
+A query file location. Always requires `path`; optionally accepts `git` to
+fetch the file from a remote repository (in which case `path` is resolved
+relative to the checkout root).
+"%
+    =
+      std.contract.any_of [
+        { git | GitSource, path | String },
+        { path | String },
+      ],
+  Query = {
+    source | QuerySource,
+    .. # query entries are non-exhaustive for future metadata (e.g. per-query overrides)
+  },
   LanguageConfig = {
     extensions
       | Array String
@@ -68,6 +83,16 @@ variant with the other via Nickel record merging (e.g. setting
       | optional
       | doc "Indentation string for this language; defaults to two spaces.",
     grammar | Grammar,
+    queries
+      | { _ : Query }
+      | optional
+      | doc m%"
+        Named queries for this language. Well-known names are `formatting`
+        and `injections`; additional entries are permitted for future use.
+        When absent, queries are resolved via the disk-search chain
+        (`topiary config show-sources`)  and the
+        built-in fallbacks.
+      "%,
     .. # lang config fields should be non exhaustive for future schemas and end user customizability
   }
 in
@@ -132,6 +157,19 @@ in
           nixHash = "sha256-wQKcqU0V6gHj84qOkUwdXsBW3f6MNfJMFxuGTucAgh8=",
         },
       },
+      queries = {
+        formatting.source = {
+          git = {
+            git = "https://github.com/topiary/topiary.git",
+            rev = "d2c79b9ecd341d40aa0baf87f4a761ae242dfa67",
+          },
+          path = "topiary-queries/queries/markdown/formatting.scm"
+        },
+        injections.source = {
+          git = formatting.source.git,
+          path = "topiary-queries/queries/markdown/injections.scm",
+        },
+      }
     },
 
     nickel = {
