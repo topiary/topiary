@@ -352,7 +352,7 @@ impl<T, E: Into<anyhow::Error>> GitResult<T> for Result<T, E> {
     }
 }
 
-/// A single shallow checkout of a `GitSource` under a `TempDir`, deleted when dropped.
+/// A single shallow checkout of a [`GitSource`] holding a  [`TempDir`], deleted on drop.
 #[derive(Debug)]
 pub struct LocalRepo(TempDir);
 
@@ -596,6 +596,29 @@ mod tests {
             Query {
                 source: QuerySource { git: Some(git), path }
             } if git == &expected_git && path.ends_with("injections.scm")
+        );
+    }
+
+    #[test]
+    fn languages_merge_built_queries() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let config_file = tmp_dir.path().join("languages.ncl");
+        std::fs::write(
+            &config_file,
+            r#"{ languages.markdown.queries.formatting.source.path = "/tmp/formatting.scm" }"#,
+        )
+        .unwrap();
+
+        let (config, _) = crate::Configuration::fetch(false, &Some(config_file)).unwrap();
+        let formatting = config
+            .get_language("markdown")
+            .unwrap()
+            .config_query("formatting")
+            .unwrap();
+
+        assert_matches!(
+            &formatting.source,
+            QuerySource { git: None, path } if path == Path::new("/tmp/formatting.scm")
         );
     }
 

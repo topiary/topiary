@@ -90,7 +90,7 @@ impl fmt::Display for TopiaryConfigError {
                 "Nickel error: {error:#?}\n\nDid you forget to add a \"priority\" annotation in your config file?"
             ),
             TopiaryConfigError::NickelDeserialization { error, .. } => {
-                write!(f, "Failed to deserialize Topiary configuration: {error:#?}")
+                write!(f, "Failed to deserialize Topiary configuration: {error}")
             }
             #[cfg(not(target_arch = "wasm32"))]
             TopiaryConfigError::Fetching(e) => write!(f, "Error Fetching Language: {e}"),

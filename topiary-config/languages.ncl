@@ -65,11 +65,12 @@ A query file location. Always requires `path`; optionally accepts `git` to
 fetch the file from a remote repository (in which case `path` is resolved
 relative to the checkout root).
 "%
-    =
-      std.contract.any_of [
-        { git | GitSource, path | String },
-        { path | String },
-      ],
+    = {
+      git
+        | GitSource
+        | optional,
+      path | String,
+    },
   Query = {
     source | QuerySource,
     .. # query entries are non-exhaustive for future metadata (e.g. per-query overrides)
