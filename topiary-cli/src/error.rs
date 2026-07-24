@@ -1,5 +1,5 @@
 use rootcause::{
-    Report, ReportRef, handlers,
+    Report, ReportRef,
     markers::{Dynamic, Mutable, SendSync, Uncloneable},
     report,
     report_collection::ReportCollection,

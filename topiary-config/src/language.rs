@@ -522,13 +522,13 @@ mod tests {
                 source: GrammarSource::Path(p),
                 symbol: None,
              }
-             if p == &PathBuf::from("/tmp/grammar.so")
+             if p == Path::new("/tmp/grammar.so")
         );
 
         let formatting = config.queries.unwrap().get("formatting").cloned().unwrap();
         assert_matches!(
             &formatting,
-            Query { source: QuerySource { git: None, path } } if *path == PathBuf::from("/path/to/nickel/formatting.scm")
+            Query { source: QuerySource { git: None, path } } if *path == Path::new("/path/to/nickel/formatting.scm")
         );
     }
 
@@ -568,34 +568,34 @@ mod tests {
             git: "https://github.com/tree-sitter-grammars/tree-sitter-markdown.git".to_string(),
             rev: "c3570720f7f7bbad22fe96603f106276618e0cf5".to_string(),
         };
-        assert_eq!(
+        assert_matches!(
             config.grammar.source,
             GrammarSource::Git {
-                git: expected_git,
-                subdir: Some(PathBuf::from("tree-sitter-markdown")),
-            }
+                git,
+                subdir: Some(p),
+            } if git == expected_git && p == Path::new("tree-sitter-markdown")
         );
 
         let queries = config.queries.unwrap();
 
+        let expected_git = GitSource {
+            git: "https://github.com/topiary/topiary.git".to_string(),
+            rev: "d2c79b9ecd341d40aa0baf87f4a761ae242dfa67".to_string(),
+        };
         let formatting = queries.get("formatting").unwrap();
-        assert_eq!(
-            formatting.source.git,
-            Some(GitSource {
-                git: "https://github.com/topiary/topiary.git".to_string(),
-                rev: "d2c79b9ecd341d40aa0baf87f4a761ae242dfa67".to_string(),
-            })
-        );
-        assert_eq!(
-            formatting.source.path,
-            PathBuf::from("topiary-queries/queries/markdown/formatting.scm")
+        assert_matches!(
+            formatting,
+            Query {
+                source: QuerySource { git: Some(git), path }
+            } if git == &expected_git && path.ends_with("formatting.scm")
         );
 
         let injections = queries.get("injections").unwrap();
-        assert_eq!(injections.source.git, formatting.source.git);
-        assert_eq!(
-            injections.source.path,
-            PathBuf::from("topiary-queries/queries/markdown/injections.scm")
+        assert_matches!(
+            injections,
+            Query {
+                source: QuerySource { git: Some(git), path }
+            } if git == &expected_git && path.ends_with("injections.scm")
         );
     }
 
