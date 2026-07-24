@@ -9,7 +9,10 @@
   (atx_heading)
   (minus_metadata)
   (plus_metadata)
+  (link_reference_definition)
 ] @leaf @allow_blank_line_before @append_hardline
+
+(section) @allow_blank_line_before
 
 (fenced_code_block
   (code_fence_content) @leaf @prepend_hardline @append_hardline
