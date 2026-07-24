@@ -157,19 +157,6 @@ in
           nixHash = "sha256-wQKcqU0V6gHj84qOkUwdXsBW3f6MNfJMFxuGTucAgh8=",
         },
       },
-      queries = {
-        formatting.source = {
-          git = {
-            git = "https://github.com/topiary/topiary.git",
-            rev = "d2c79b9ecd341d40aa0baf87f4a761ae242dfa67",
-          },
-          path = "topiary-queries/queries/markdown/formatting.scm"
-        },
-        injections.source = {
-          git = formatting.source.git,
-          path = "topiary-queries/queries/markdown/injections.scm",
-        },
-      }
     },
 
     nickel = {

@@ -166,9 +166,9 @@ impl Language {
     /// 2. The disk-search chain: `TOPIARY_LANGUAGE_DIR`, the config's `queries/` directory,
     ///    and the workspace-relative fallbacks.
     ///
-    /// Returns `Err(QueryFileNotFound)` when both routes fail, so callers can decide whether
-    /// to fall back to compile-time built-ins (formatting) or treat absence as fine
-    /// (injections).
+    /// ## Errors
+    ///
+    /// Returns `Err(QueryFileNotFound)` when both routes fail
     #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::result_large_err)]
     pub fn find_query_file(&self, query_name: &str) -> TopiaryConfigResult<PathBuf> {
