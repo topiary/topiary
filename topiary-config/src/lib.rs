@@ -132,7 +132,7 @@ impl Configuration {
                 }
             }
 
-            language::GrammarSource::Path { path } => {
+            language::GrammarSource::Path(path) => {
                 log::info!(
                     "Fetch \"{}\": Configured via filesystem ({}); nothing to do",
                     language.name,
@@ -253,7 +253,12 @@ impl Configuration {
                 files: Box::new(program.files()),
             })?;
 
-        let serde_config = SerdeConfiguration::deserialize(term.clone())?;
+        let serde_config = SerdeConfiguration::deserialize(term.clone()).map_err(|error| {
+            TopiaryConfigError::NickelDeserialization {
+                error,
+                files: Box::new(program.files()),
+            }
+        })?;
 
         Ok((serde_config.into(), term))
     }
@@ -275,7 +280,12 @@ impl Configuration {
                 files: Box::new(program.files()),
             })?;
 
-        let serde_config = SerdeConfiguration::deserialize(term.clone())?;
+        let serde_config = SerdeConfiguration::deserialize(term.clone()).map_err(|error| {
+            TopiaryConfigError::NickelDeserialization {
+                error,
+                files: Box::new(program.files()),
+            }
+        })?;
 
         Ok((serde_config.into(), term))
     }

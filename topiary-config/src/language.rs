@@ -78,7 +78,7 @@ pub struct Grammar {
 #[cfg(not(target_arch = "wasm32"))]
 pub enum GrammarSource {
     #[serde(rename = "path")]
-    Path { path: PathBuf },
+    Path(PathBuf),
     #[serde(rename = "git")]
     Git {
         #[serde(flatten)]
@@ -254,7 +254,7 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
                 Ok(library_path)
             }
 
-            GrammarSource::Path { path } => Ok(path.to_path_buf()),
+            GrammarSource::Path(path) => Ok(path.to_path_buf()),
         }
     }
 
@@ -288,7 +288,7 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
                         subdir.as_deref(),
                     )?;
                 }
-                GrammarSource::Path { .. } => {
+                GrammarSource::Path(_) => {
                     return Err(TopiaryConfigFetchingError::GrammarFileNotFound(
                         library_path,
                     ));
@@ -385,10 +385,7 @@ impl LocalRepos {
 
     /// fetch on first use
     pub fn get_or_insert(&self, source: &GitSource) -> Result<PathBuf, TopiaryConfigFetchingError> {
-        let mut repos = self
-            .repos
-            .lock()
-            .expect("LocalRepos mutex should not be poisoned");
+        let mut repos = self.repos.lock().unwrap();
         let repo = match repos.entry(source.clone()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(slot) => slot.insert(source.fetch()?),
@@ -498,5 +495,123 @@ fn source_object_id(source: &refmap::Source) -> Result<ObjectId> {
                 .wrap_err()?
                 .to_owned())
         }
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use std::assert_matches;
+
+    use super::*;
+    use nickel_lang_core::deserialize::from_str as from_nickel_str;
+
+    #[test]
+    fn language_local_sources() {
+        let src = r#"
+{
+  extensions = ["ncl"],
+  grammar.source.path = "/tmp/grammar.so",
+  queries.formatting.source.path = "/path/to/nickel/formatting.scm",
+}
+        "#;
+        let config: LanguageConfiguration = from_nickel_str(src).unwrap();
+
+        assert_matches!(
+            &config.grammar,
+            Grammar {
+                source: GrammarSource::Path(p),
+                symbol: None,
+             }
+             if p == &PathBuf::from("/tmp/grammar.so")
+        );
+
+        let formatting = config.queries.unwrap().get("formatting").cloned().unwrap();
+        assert_matches!(
+            &formatting,
+            Query { source: QuerySource { git: None, path } } if *path == PathBuf::from("/path/to/nickel/formatting.scm")
+        );
+    }
+
+    #[test]
+    fn language_git_sources() {
+        let src = r#"
+{
+  extensions | default = ["md"],
+  grammar.source | default = {
+    git = {
+      git = "https://github.com/tree-sitter-grammars/tree-sitter-markdown.git",
+      rev = "c3570720f7f7bbad22fe96603f106276618e0cf5",
+      subdir = "tree-sitter-markdown",
+      nixHash = "sha256-wQKcqU0V6gHj84qOkUwdXsBW3f6MNfJMFxuGTucAgh8=",
+    },
+  },
+  queries = {
+    formatting.source = {
+      git = {
+        git = "https://github.com/topiary/topiary.git",
+        rev = "d2c79b9ecd341d40aa0baf87f4a761ae242dfa67",
+      },
+      path = "topiary-queries/queries/markdown/formatting.scm"
+    },
+    injections.source = {
+      git = formatting.source.git,
+      path = "topiary-queries/queries/markdown/injections.scm",
+    },
+  }
+}
+        "#;
+        let config: LanguageConfiguration = from_nickel_str(src).unwrap();
+
+        assert!(config.extensions.contains("md"));
+
+        let expected_git = GitSource {
+            git: "https://github.com/tree-sitter-grammars/tree-sitter-markdown.git".to_string(),
+            rev: "c3570720f7f7bbad22fe96603f106276618e0cf5".to_string(),
+        };
+        assert_eq!(
+            config.grammar.source,
+            GrammarSource::Git {
+                git: expected_git,
+                subdir: Some(PathBuf::from("tree-sitter-markdown")),
+            }
+        );
+
+        let queries = config.queries.unwrap();
+
+        let formatting = queries.get("formatting").unwrap();
+        assert_eq!(
+            formatting.source.git,
+            Some(GitSource {
+                git: "https://github.com/topiary/topiary.git".to_string(),
+                rev: "d2c79b9ecd341d40aa0baf87f4a761ae242dfa67".to_string(),
+            })
+        );
+        assert_eq!(
+            formatting.source.path,
+            PathBuf::from("topiary-queries/queries/markdown/formatting.scm")
+        );
+
+        let injections = queries.get("injections").unwrap();
+        assert_eq!(injections.source.git, formatting.source.git);
+        assert_eq!(
+            injections.source.path,
+            PathBuf::from("topiary-queries/queries/markdown/injections.scm")
+        );
+    }
+
+    #[test]
+    fn grammar_symbol_override() {
+        let src = r#"
+{
+  source = { path = "/tmp/grammar.so" },
+  symbol = "tree_sitter_query"
+}
+        "#;
+        let grammar: Grammar = from_nickel_str(src).unwrap();
+        assert_eq!(grammar.symbol.as_deref(), Some("tree_sitter_query"));
+        assert_eq!(
+            grammar.source,
+            GrammarSource::Path(PathBuf::from("/tmp/grammar.so"))
+        );
     }
 }
