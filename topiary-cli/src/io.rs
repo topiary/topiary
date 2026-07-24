@@ -250,21 +250,29 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
 ) -> CLIResult<Language> {
     let config_language = config.get_language(name.as_ref()).preformat_context()?;
     let grammar = config_language.grammar()?;
-    let query_source =
-        to_query_from_language(config_language, topiary_queries::FORMATTING_QUERY, None)?;
+    let repos = LocalRepos::new();
+    let query_source = to_query_from_language(
+        config_language,
+        topiary_queries::FORMATTING_QUERY,
+        Some(&repos),
+    )?;
     let query_content = query_source.get_content().await?;
     let formatting_query = TopiaryQuery::new(&grammar, &query_content)
         .attach_filepath(query_source.filepath())
         .context(FormatterError::Parsing)?;
-    let injection_query =
-        match to_query_from_language(config_language, topiary_queries::INJECTIONS_QUERY, None).ok()
-        {
-            Some(source) => {
-                let contents = source.get_content().await?;
-                Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
-            }
-            None => None,
-        };
+    let injection_query = match to_query_from_language(
+        config_language,
+        topiary_queries::INJECTIONS_QUERY,
+        Some(&repos),
+    )
+    .ok()
+    {
+        Some(source) => {
+            let contents = source.get_content().await?;
+            Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
+        }
+        None => None,
+    };
 
     Ok(Language {
         name: name.as_ref().to_string(),
@@ -281,21 +289,29 @@ pub(crate) fn to_language_from_config_sync<T: AsRef<str> + fmt::Display>(
 ) -> CLIResult<Language> {
     let config_language = config.get_language(name.as_ref()).preformat_context()?;
     let grammar = config_language.grammar()?;
-    let query_source =
-        to_query_from_language(config_language, topiary_queries::FORMATTING_QUERY, None)?;
+    let repos = LocalRepos::new();
+    let query_source = to_query_from_language(
+        config_language,
+        topiary_queries::FORMATTING_QUERY,
+        Some(&repos),
+    )?;
     let query_content = query_source.get_content_sync()?;
     let formatting_query = TopiaryQuery::new(&grammar, &query_content)
         .attach_filepath(query_source.filepath())
         .context(FormatterError::Parsing)?;
-    let injection_query =
-        match to_query_from_language(config_language, topiary_queries::INJECTIONS_QUERY, None).ok()
-        {
-            Some(source) => {
-                let contents = source.get_content_sync()?;
-                Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
-            }
-            None => None,
-        };
+    let injection_query = match to_query_from_language(
+        config_language,
+        topiary_queries::INJECTIONS_QUERY,
+        Some(&repos),
+    )
+    .ok()
+    {
+        Some(source) => {
+            let contents = source.get_content_sync()?;
+            Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
+        }
+        None => None,
+    };
 
     Ok(Language {
         name: name.as_ref().to_string(),
@@ -337,6 +353,7 @@ impl<'cfg, 'i> Inputs<'cfg> {
     where
         &'i T: Into<InputFrom>,
     {
+        let repos = LocalRepos::new();
         let inputs = match inputs.into() {
             InputFrom::Stdin(language_name, query) => {
                 vec![(|| {
@@ -351,12 +368,15 @@ impl<'cfg, 'i> Inputs<'cfg> {
                         None => to_query_from_language(
                             language,
                             topiary_queries::FORMATTING_QUERY,
-                            None,
+                            Some(&repos),
                         )?,
                     };
-                    let injection_query =
-                        to_query_from_language(language, topiary_queries::INJECTIONS_QUERY, None)
-                            .ok();
+                    let injection_query = to_query_from_language(
+                        language,
+                        topiary_queries::INJECTIONS_QUERY,
+                        Some(&repos),
+                    )
+                    .ok();
                     Ok(InputFile {
                         source: InputSource::Stdin,
                         language,
@@ -365,16 +385,21 @@ impl<'cfg, 'i> Inputs<'cfg> {
                     })
                 })()]
             }
-
             InputFrom::Files(files) => files
                 .into_iter()
                 .map(|path| {
                     let language = config.detect(&path).preformat_context()?;
-                    let query: QuerySource =
-                        to_query_from_language(language, topiary_queries::FORMATTING_QUERY, None)?;
-                    let injection_query =
-                        to_query_from_language(language, topiary_queries::INJECTIONS_QUERY, None)
-                            .ok();
+                    let query: QuerySource = to_query_from_language(
+                        language,
+                        topiary_queries::FORMATTING_QUERY,
+                        Some(&repos),
+                    )?;
+                    let injection_query = to_query_from_language(
+                        language,
+                        topiary_queries::INJECTIONS_QUERY,
+                        Some(&repos),
+                    )
+                    .ok();
 
                     Ok(InputFile {
                         source: InputSource::Disk(path.into(), None),
