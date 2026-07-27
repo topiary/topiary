@@ -232,7 +232,7 @@ markdown = {
 },
 ```
 
-Each unique git source is shallow-cloned once per Topiary run and reused
+Each unique Git source is shallow-cloned once per Topiary run and reused
 across every query (and grammar) that references it, so listing several
 queries from the same repository does not incur repeated network
 calls.
