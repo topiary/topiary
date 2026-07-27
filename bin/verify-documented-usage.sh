@@ -1,8 +1,19 @@
-#!/usr/bin/env nix-shell
-#!nix-shell -i bash --packages diffutils gnused
+#!/usr/bin/env bash
 #shellcheck shell=bash
 
 set -euo pipefail
+
+if [[ "${1:-}" == "--no-nix-shell" ]]; then
+  export NO_NIX_SHELL=1
+  shift
+fi
+
+# If NO_NIX_SHELL=1, caller is is already inside a nix-shell or `--no-nix-shell` was called
+if [[ -z "${NO_NIX_SHELL:-}" && -z "${IN_NIX_SHELL:-}" ]]; then
+  # for macos: brew install gnu-sed awk
+  # PATH="/opt/homebrew/opt/gnu-sed/libexec/gnubin:$PATH"
+  exec nix-shell --pure --packages bash diffutils gnused --run "NO_NIX_SHELL=1 bash '$0' $*"
+fi
 
 export __TOPIARY_TERM_WIDTH=90
 
@@ -21,7 +32,7 @@ get-cli-usage() {
 
   case "${subcommand}" in
     "index") "${TOPIARY}" --help;;
-    *)       "${TOPIARY}" "${subcommand}" --help;;
+    *) "${TOPIARY}" "${subcommand}" --help;;
   esac
 }
 
@@ -43,11 +54,7 @@ diff-usage() {
   # Generate a diff between the README and CLI help text
   local subcommand="$1"
 
-  diff --text \
-       --ignore-all-space \
-       --side-by-side \
-       <(get-documented-usage "${subcommand}") \
-       <(get-cli-usage "${subcommand}")
+  diff --text --ignore-all-space --side-by-side <(get-documented-usage "${subcommand}") <(get-cli-usage "${subcommand}")
 }
 
 main() {
