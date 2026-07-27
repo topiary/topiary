@@ -159,16 +159,7 @@ impl Language {
     /// Locate a query file for this language by well-known name (e.g. `"formatting"`,
     /// `"injections"`, matching the constants exported by `topiary-queries`).
     ///
-    /// Resolution order:
-    /// 1. A `queries.<query_name>` entry on this language's config, if present. When it points
-    ///    at a git source the checkout is materialised under `<cache>/<lang>/queries/<rev>/`
-    ///    on first use and reused thereafter.
-    /// 2. The disk-search chain: `TOPIARY_LANGUAGE_DIR`, the config's `queries/` directory,
-    ///    and the workspace-relative fallbacks.
-    ///
-    /// ## Errors
-    ///
-    /// Returns `Err(QueryFileNotFound)` when both routes fail
+    /// Prefer `languages.<language>.<query_name>` config entires over implicit query paths.
     #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::result_large_err)]
     pub fn find_query_file(&self, query_name: &str) -> TopiaryConfigResult<PathBuf> {
@@ -271,8 +262,6 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
         self.grammar_with(&LocalRepos::new())
     }
 
-    /// Same as [`Language::grammar`], but reuses `repos` so a grammar sharing a git repo
-    /// with other grammars or queries only triggers one checkout per Topiary run.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn grammar_with(
         &self,
@@ -373,8 +362,8 @@ impl AsRef<Path> for LocalRepo {
     }
 }
 
-/// Process-local cache of shallow git checkouts keyed by [`GitSource`], so a single repo
-/// hosting multiple grammars or queries is fetched at most once per Topiary run.
+/// Process-local cache of shallow git checkouts keyed by [`GitSource`],
+/// this way a single repo hosting multiple grammars or queries is fetched once per Topiary run.
 #[derive(Debug, Default)]
 pub struct LocalRepos {
     // TODO we should eventually omit indexing by rev
