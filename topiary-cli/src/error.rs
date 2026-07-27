@@ -197,7 +197,7 @@ pub(crate) trait ResultPreformat<T, C> {
 
 impl<T, C: 'static> ResultPreformat<T, C> for Result<T, C>
 where
-    C: 'static + std::fmt::Debug,
+    C: 'static + fmt::Debug,
     for<'a> TopiaryError: From<&'a C>,
 {
     fn preformat_context(self) -> Result<T, Report<TopiaryError>> {
