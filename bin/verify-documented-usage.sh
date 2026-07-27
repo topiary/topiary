@@ -31,7 +31,7 @@ get-cli-usage() {
 
   case "${subcommand}" in
     "index") "${TOPIARY}" --help;;
-    *) "${TOPIARY}" "${subcommand}" --help;;
+    *)       "${TOPIARY}" "${subcommand}" --help;;
   esac
 }
 
@@ -53,7 +53,11 @@ diff-usage() {
   # Generate a diff between the README and CLI help text
   local subcommand="$1"
 
-  diff --text --ignore-all-space --side-by-side <(get-documented-usage "${subcommand}") <(get-cli-usage "${subcommand}")
+  diff --text \
+       --ignore-all-space \
+       --side-by-side \
+       <(get-documented-usage "${subcommand}") \
+       <(get-cli-usage "${subcommand}")
 }
 
 main() {
