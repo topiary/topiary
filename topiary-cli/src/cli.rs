@@ -155,11 +155,7 @@ pub enum Commands {
     #[command(alias = "cfg", display_order = 3)]
     Config {
         /// Return a specific field path of the configuration.
-        /// e.g., `topiary config --field languages.json`.
-        //
-        // NOTE: The path follows Nickel's field-path syntax: identifiers with
-        // with dashes must be enclosed in double quotes:
-        // `languages."tree_sitter_query".extensions`.
+        /// e.g., `topiary config --field languages.json.grammar.source`.
         #[arg(short, long, value_name = "FIELD_PATH")]
         field: Option<String>,
 
