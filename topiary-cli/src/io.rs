@@ -2,11 +2,15 @@ use std::{
     ffi::OsString,
     fmt::{self, Display},
     fs::File,
-    io::{self, BufWriter, Read, Seek, Write},
+    io::{self, Read, Seek, Write},
     path::{Path, PathBuf},
     sync::Arc,
 };
 
+#[cfg(feature = "nickel")]
+use std::io::BufWriter;
+
+#[cfg(feature = "nickel")]
 use nickel_lang_core::{
     eval::value::NickelValue,
     term::{Term, record::Field},
@@ -23,9 +27,10 @@ use rootcause_preformat::PreformatReportExt;
 use tempfile::tempfile;
 use topiary_config::{Configuration, language::LocalRepos};
 use topiary_core::{
-    ErrorSpan, FormatterError, InjectionQuery, Language, Operation, SpanAttachment, TopiaryQuery,
-    formatter,
+    ErrorSpan, FormatterError, InjectionQuery, Language, SpanAttachment, TopiaryQuery,
 };
+#[cfg(feature = "nickel")]
+use topiary_core::{Operation, formatter};
 
 use crate::{
     cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
@@ -74,6 +79,7 @@ impl QuerySource {
         }
     }
 
+    #[cfg(feature = "nickel")]
     async fn get_content(&self) -> CLIResult<String> {
         let contents = match self {
             Self::Path(query) => tokio::fs::read_to_string(query).await?,
@@ -244,6 +250,7 @@ impl InputFile<'_> {
     }
 }
 
+#[cfg(feature = "nickel")]
 pub(crate) async fn to_language_from_config<T: AsRef<str>>(
     config: &Configuration,
     name: T,
@@ -604,6 +611,7 @@ where
 // Strip field metadata (doc strings, type/contract annotations, `| default`,
 // `| optional`, priority) and unwrap `Term::Annotated` nodes from a NickelValue
 // so that the pretty printer emits a plain data record.
+#[cfg(feature = "nickel")]
 fn strip_metadata(value: NickelValue) -> NickelValue {
     use nickel_lang_core::eval::value::{RecordData, ValueContent};
     value
@@ -646,6 +654,7 @@ fn strip_metadata(value: NickelValue) -> NickelValue {
 }
 
 // convenience function to bundle nickel config formatting errors in one return value
+#[cfg(feature = "nickel")]
 pub(crate) async fn format_config(
     config: &Configuration,
     nickel_term: &NickelValue,
