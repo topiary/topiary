@@ -61,10 +61,10 @@ variant with the other via Nickel record merging (e.g. setting
   },
   QuerySource
     | doc m%"
-A query file location. Always requires `path`; optionally accepts `git` to
-fetch the file from a remote repository (in which case `path` is resolved
-relative to the checkout root).
-"%
+      A query file location. Always requires `path`; optionally accepts `git` to
+      fetch the file from a remote repository (in which case `path` is resolved
+      relative to the checkout root).
+    "%
     = {
       git
         | GitSource
