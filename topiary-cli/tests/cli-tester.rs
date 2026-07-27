@@ -4,12 +4,11 @@ use std::{fmt, sync::Once};
     feature = "toml",
     all(feature = "ocamllex", feature = "ocaml")
 ))]
-use {
-    std::{fs, fs::File, io::Write, path::PathBuf},
-    tempfile::TempDir,
-};
+use std::{fs, path::PathBuf};
 
 use assert_cmd::cargo_bin_cmd;
+use std::{fs::File, io::Write};
+use tempfile::TempDir;
 
 // Simple exemplar JSON and TOML state, to verify the formatter
 // is doing something... and hopefully the right thing
