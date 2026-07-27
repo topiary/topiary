@@ -8,8 +8,7 @@ if [[ "${1:-}" == "--no-nix-shell" ]]; then
   shift
 fi
 
-# If NO_NIX_SHELL=1, caller is is already inside a nix-shell or `--no-nix-shell` was called
-if [[ -z "${NO_NIX_SHELL:-}" && -z "${IN_NIX_SHELL:-}" ]]; then
+if [[ -z "${NO_NIX_SHELL:-}" && -z "${IN_NIX_SHELL:-}" ]] && command -v nix-shell >/dev/null; then
   # for macos: brew install gnu-sed awk
   # PATH="/opt/homebrew/opt/gnu-sed/libexec/gnubin:$PATH"
   exec nix-shell --pure --packages bash diffutils gnused --run "NO_NIX_SHELL=1 bash '$0' $*"
