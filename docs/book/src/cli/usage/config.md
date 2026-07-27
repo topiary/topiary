@@ -12,6 +12,7 @@ Commands:
   help          Print this message or the help of the given subcommand(s)
 
 Options:
+  -f, --field <FIELD_PATH>             Return a specific field path of the configuration. For example: `topiary config --field languages.json`
   -C, --configuration <CONFIGURATION>  Configuration file [env: TOPIARY_CONFIG_FILE]
   -M, --merge-configuration            Enable merging for configuration files
   -v, --verbose...                     Logging verbosity (increased per occurrence)

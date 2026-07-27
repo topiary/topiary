@@ -441,3 +441,47 @@ impl fmt::Display for IsToml {
         write!(f, "is_toml")
     }
 }
+
+#[test]
+fn test_cfg_field_with_custom_queries() {
+    use predicates::str::contains;
+
+    let tmp_dir = TempDir::new().unwrap();
+
+    let formatting_path = "/foo/bar/formatting.scm";
+    let injections_path = "/foo/bar/injections.scm";
+
+    let languages_ncl = format!(
+        r#"{{
+  languages.markdown.queries = {{
+    formatting.source.path = "{formatting_path}",
+    injections.source.path = "{injections_path}",
+  }},
+}}
+"#
+    );
+
+    let config_file = tmp_dir.path().join("languages.ncl");
+    let mut f = File::create(&config_file).unwrap();
+    f.write_all(languages_ncl.as_bytes()).unwrap();
+
+    cargo_bin_cmd!("topiary")
+        .arg("--configuration")
+        .arg(&config_file)
+        .arg("cfg")
+        .arg("--field")
+        .arg("languages.markdown.queries.formatting.source.path")
+        .assert()
+        .success()
+        .stdout(contains(formatting_path));
+
+    cargo_bin_cmd!("topiary")
+        .arg("--configuration")
+        .arg(&config_file)
+        .arg("cfg")
+        .arg("--field")
+        .arg("languages.markdown.queries.injections.source.path")
+        .assert()
+        .success()
+        .stdout(contains(injections_path));
+}

@@ -191,6 +191,10 @@ impl Language {
                 .resolve_query_path_with(&query.source, repos)
                 .map_err(TopiaryConfigError::Fetching)?;
             if path.is_file() {
+                log::debug!(
+                    "detected  {language_name}.{query_name} query at {}",
+                    path.display()
+                );
                 return Ok(path);
             }
             return Err(TopiaryConfigError::QueryFileNotFound(path));

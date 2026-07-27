@@ -13,7 +13,10 @@ use std::{
 
 use language::{Language, LanguageConfiguration};
 use nickel_lang_core::{
-    error::NullReporter, eval::cache::CacheImpl, eval::value::NickelValue, program::ProgramBuilder,
+    error::NullReporter,
+    eval::cache::CacheImpl,
+    eval::value::NickelValue,
+    program::{Program, ProgramBuilder},
 };
 use serde::Deserialize;
 
@@ -234,6 +237,52 @@ impl Configuration {
             return Err(TopiaryConfigError::UnknownExtension(extension.to_string()));
         }
         Err(TopiaryConfigError::NoExtension(pb.clone()))
+    }
+
+    /// Eavluate `field_path` using [`Program::parse_field_path`]
+    #[allow(clippy::result_large_err)]
+    pub fn extract_field(
+        merge: bool,
+        file: &Option<PathBuf>,
+        field_path: &str,
+    ) -> TopiaryConfigResult<NickelValue> {
+        if let Some(path) = file
+            && !path.exists()
+        {
+            return Err(TopiaryConfigError::FileNotFound(path.to_path_buf()));
+        }
+
+        let sources: Vec<Source> = if merge {
+            Source::fetch_all(file)
+        } else {
+            match Source::fetch_one(file) {
+                Source::Builtin => vec![Source::Builtin],
+                source => vec![source, Source::Builtin],
+            }
+        };
+
+        let mut builder = ProgramBuilder::new()
+            .with_trace(std::io::stderr())
+            .with_reporter(NullReporter {});
+        for source in sources {
+            builder = source.add_to(builder);
+        }
+        let mut program: Program<CacheImpl> = builder.build()?;
+
+        let field = program
+            .parse_field_path(field_path.to_owned())
+            .map_err(|error| TopiaryConfigError::Nickel {
+                error: Box::new(error.into()),
+                files: Box::new(program.files()),
+            })?;
+        program.field = field;
+
+        program
+            .eval_full_for_export()
+            .map_err(|error| TopiaryConfigError::Nickel {
+                error: Box::new(error),
+                files: Box::new(program.files()),
+            })
     }
 
     #[allow(clippy::result_large_err)]

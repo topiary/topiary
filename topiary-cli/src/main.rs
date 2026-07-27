@@ -95,6 +95,7 @@ async fn run() -> CLIResult<()> {
                         input.language().name,
                         input.formatting_query(),
                     );
+                    let filepath = input.filepath().map(|p| p.to_owned());
 
                     check::check_input(
                         input,
@@ -103,6 +104,7 @@ async fn run() -> CLIResult<()> {
                         tolerate_parsing_errors,
                         Some(&|name| resolve_injected_language(&cache, &config, name)),
                     )
+                    .attach_filepath(filepath.as_deref())
                 },
                 get_cache(),
             )
@@ -214,6 +216,7 @@ async fn run() -> CLIResult<()> {
 
         Commands::Config {
             command: Some(cli::ConfigCommand::ShowSources),
+            ..
         } => {
             let bool_emoji = |b: bool| {
                 match b {
@@ -237,7 +240,20 @@ async fn run() -> CLIResult<()> {
             println!("{}", table.build().with(Style::modern_rounded()));
         }
 
-        Commands::Config { command: None } => {
+        Commands::Config {
+            command: None,
+            field,
+        } => {
+            let nickel_config = match field {
+                Some(field_path) => Configuration::extract_field(
+                    args.global.merge_configuration,
+                    file_config,
+                    &field_path,
+                )
+                .preformat_context()?,
+                None => nickel_config,
+            };
+
             // Output the collated nickel configuration.
             // Don't fail on error but merely log the event since the original `nickel_config` is
             // already valid.
