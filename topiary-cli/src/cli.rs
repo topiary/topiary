@@ -179,9 +179,14 @@ pub enum Commands {
     /// Generate shell completion script
     #[command(display_order = 100)]
     Completion {
-        /// Shell (omit to detect from the environment)
+        /// Shell (based on `$SHELL` environment variable, if omitted)
         shell: Option<Shell>,
     },
+
+    /// Run Topiary Language Server
+    #[cfg(feature = "lsp")]
+    #[command(display_order = 7)]
+    Lsp,
 
     /// Check if an input parses to the respective Tree-sitter grammar
     #[command(display_order = 6)]

@@ -14,11 +14,13 @@ members = [
   "topiary-cli",
   "topiary-queries",
   "topiary-config",
+  "topiary-resolver",
+  "topiary-lsp",
   "topiary-web-tree-sitter-sys",
   "topiary-tree-sitter-facade",
   "examples/*",
 ]
-default-members = ["topiary-core", "topiary-cli"]
+default-members = ["topiary-core", "topiary-cli", "topiary-resolver", "topiary-lsp"]
 resolver = "2"
 
 [profile.release]
@@ -32,7 +34,9 @@ lto = "thin"
 
 [workspace.dependencies]
 anyhow = "1.0"
-assert_cmd = "2.0"
+assert_cmd = "2.0.16"
+tower-lsp-server = { package = "tower-lsp", version = "0.20.0" }
+dashmap = "5.5.3"
 async-scoped = { version = "0.9.0", features = ["use-tokio"] }
 clap = { version = "4.5", features = ["env", "derive"] }
 clap_complete = "4.5"
@@ -76,6 +80,8 @@ tree-sitter-loader = "0.26"  # NOTE Align with tree-sitter
 
 # NOTE Update these appropriately
 topiary-config = { version = "0.7.3", path = "./topiary-config" }
+topiary-resolver = { version = "0.7.3", path = "./topiary-resolver" }
+topiary-lsp = { version = "0.7.3", path = "./topiary-lsp" }
 topiary-core = { version = "0.7.3", path = "./topiary-core" }
 topiary-queries = { version = "0.7.3", path = "./topiary-queries" }
 topiary-tree-sitter-facade = { version = "0.7.3", path = "./topiary-tree-sitter-facade" }
