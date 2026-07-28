@@ -18,20 +18,14 @@ export __TOPIARY_TERM_WIDTH=90
 
 readonly FENCE='```'
 
-# call `cargo build --bin topiary` once and reuse ./target/debug/topiary for on every `--help` call
-if [[ -z "${TOPIARY:-}" ]]; then
-  cargo build -q --bin topiary
-  TOPIARY="${CARGO_TARGET_DIR:-target}/debug/topiary"
-fi
-readonly TOPIARY
-
 get-cli-usage() {
   # Get the help text from the CLI
   local subcommand="$1"
+  local topiary="${TOPIARY:-cargo run -q --bin topiary --}"
 
   case "${subcommand}" in
-    "index") "${TOPIARY}" --help;;
-    *)       "${TOPIARY}" "${subcommand}" --help;;
+    "index") ${topiary} --help;;
+    *)       ${topiary} "${subcommand}" --help;;
   esac
 }
 
