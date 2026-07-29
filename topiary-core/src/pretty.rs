@@ -348,11 +348,12 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''\t
+                "\
+''\t
     a
    b
      c
-            ''",
+''",
                 3,
                 "    ",
             )
@@ -374,11 +375,12 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''x
+                "\
+''x
     a
    b
      c
-            ''",
+''",
                 3,
                 "    "
             )
@@ -441,8 +443,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-''",
+                &"\
+''
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -456,8 +460,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "'' 
-''",
+                &"\
+''.
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -471,8 +477,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    a
-''",
+                &"\
+''....a
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -488,8 +496,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-    ''",
+                &"\
+''
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -503,8 +513,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "'' 
-    ''",
+                &"\
+''.
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -518,8 +530,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    a
-    ''",
+                &"\
+''....a
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -535,8 +549,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-    a''",
+                &"\
+''
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -552,8 +568,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "'' 
-    a''",
+                &"\
+''.
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -569,8 +587,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''        a
-    a''",
+                &"\
+''........a
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -591,8 +611,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-''",
+                &"\
+''
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -606,8 +628,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "'' 
-''",
+                &"\
+''.
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -621,8 +645,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    a
-''",
+                &"\
+''....a
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -638,8 +664,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-    ''",
+                &"\
+''
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -653,8 +681,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "'' 
-    ''",
+                &"\
+''.
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -668,8 +698,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    a
-    ''",
+                &"\
+''....a
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -685,8 +717,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-    a''",
+                &"\
+''
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -701,8 +735,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "'' 
-    a''",
+                &"\
+''.
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -717,8 +753,10 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''        a
-    a''",
+                &"\
+''........a
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -738,9 +776,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
+                &"\
+''
 
-''",
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -756,9 +796,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
+                &"\
+''....
 
-''",
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -774,64 +816,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    a
+                &"\
+''....a
 
-''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-                a
-
-            ''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: false,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''
-    
-''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-
-            ''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: false,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''    
-    
-''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-
-            ''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: false,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''    a
-    
-''",
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -848,9 +837,72 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-    a
-''",
+                &"\
+''
+....
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+....
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....a
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -866,9 +918,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
-    a
-''",
+                &"\
+''....
+....a
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -884,9 +938,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''        a
-    a
-''",
+                &"\
+''........a
+....a
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -903,9 +959,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
+                &"\
+''
 
-    ''",
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -921,9 +979,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
+                &"\
+''....
 
-    ''",
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -939,64 +999,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    a
+                &"\
+''....a
 
-    ''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-                a
-
-            ''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: false,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''
-    
-    ''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-
-            ''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: false,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''    
-    
-    ''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-
-            ''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: false,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''    a
-    
-    ''",
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1013,9 +1020,72 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-    a
-    ''",
+                &"\
+''
+....
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+....
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....a
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1031,9 +1101,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
-    a
-    ''",
+                &"\
+''....
+....a
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1049,9 +1121,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''        a
-    a
-    ''",
+                &"\
+''........a
+....a
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1068,9 +1142,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
+                &"\
+''
 
-    a''",
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1087,9 +1163,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
+                &"\
+''....
 
-    a''",
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1106,67 +1184,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''        a
+                &"\
+''........a
 
-    a''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-                    a
-
-                a
-            ''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: false,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''
-    
-    a''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-
-                a
-            ''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: false,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''    
-    
-    a''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-
-                a
-            ''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: false,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''        a
-    
-    a''",
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1184,9 +1206,75 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-        a
-    a''",
+                &"\
+''
+....
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''........a
+....
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+                    a
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+........a
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1203,9 +1291,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
-        a
-    a''",
+                &"\
+''....
+........a
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1222,9 +1312,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''            a
-        a
-    a''",
+                &"\
+''............a
+........a
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1246,9 +1338,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
+                &"\
+''
 
-''",
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1264,9 +1358,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
+                &"\
+''....
 
-''",
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1282,64 +1378,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    a
+                &"\
+''....a
 
-''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-                a
-
-            ''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: true,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''
-    
-''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-
-            ''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: true,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''    
-    
-''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-
-            ''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: true,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''    a
-    
-''",
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1356,9 +1399,72 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-    a
-''",
+                &"\
+''
+....
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+....
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....a
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1374,9 +1480,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
-    a
-''",
+                &"\
+''....
+....a
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1392,9 +1500,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''        a
-    a
-''",
+                &"\
+''........a
+....a
+''"
+                .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1411,9 +1521,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
+                &"\
+''
 
-    ''",
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1429,9 +1541,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
+                &"\
+''....
 
-    ''",
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1447,9 +1561,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    a
+                &"\
+''....a
 
-    ''",
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1466,9 +1582,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-    
-    ''",
+                &"\
+''
+....
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1484,9 +1602,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
-    
-    ''",
+                &"\
+''....
+....
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1502,9 +1622,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    a
-    
-    ''",
+                &"\
+''....a
+....
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1521,9 +1643,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-    a
-    ''",
+                &"\
+''
+....a
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1539,9 +1663,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
-    a
-    ''",
+                &"\
+''....
+....a
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1557,9 +1683,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''        a
-    a
-    ''",
+                &"\
+''........a
+....a
+....''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1576,9 +1704,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
+                &"\
+''
 
-    a''",
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1594,9 +1724,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
+                &"\
+''....
 
-    a''",
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1612,64 +1744,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''        a
+                &"\
+''........a
 
-    a''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-                    a
-
-                a''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: true,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''
-    
-    a''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-
-                a''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: true,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''    
-    
-    a''",
-                3,
-                "    ",
-            )
-            .unwrap(),
-            "''
-
-                a''",
-        );
-        assert_eq!(
-            render_enforced_indentation(
-                &EnforceIndentation {
-                    last_line_break_significant: true,
-                    start: "''".to_owned(),
-                    end: "''".to_owned(),
-                },
-                "''        a
-    
-    a''",
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1686,9 +1765,72 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-        a
-    a''",
+                &"\
+''
+....
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+
+                a''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+
+                a''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''........a
+....
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+            )
+            .unwrap(),
+            "''
+                    a
+
+                a''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+........a
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1704,9 +1846,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''    
-        a
-    a''",
+                &"\
+''....
+........a
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1722,9 +1866,11 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''            a
-        a
-    a''",
+                &"\
+''............a
+........a
+....a''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1745,10 +1891,12 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-                    a
-                     
-                ''",
+                &"\
+''
+....................a
+.....................
+................''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
@@ -1769,10 +1917,12 @@ mod tests {
                     start: "''".to_owned(),
                     end: "''".to_owned(),
                 },
-                "''
-                    a
-                     
-                ''",
+                &"\
+''
+....................a
+.....................
+................''"
+                    .replace('.', " "),
                 3,
                 "    ",
             )
