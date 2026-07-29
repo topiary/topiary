@@ -53,6 +53,38 @@ respectively, after) them.
 ] @append_indent_end
 ```
 
+## `@multi_line_string`
+
+To be used on multi line strings in languages like Nix and Nickel that ignore indentation common to all lines of the multi line string. Consider the following Nickel example.
+```Nickel
+m%"a
+b"%
+```
+
+`@multi_line_string` could format this as follows.
+```Nickel
+m%"
+  a
+  b
+"%
+```
+
+Nickel considers these 2 strings above as equal because Nickel ignores indentation common to all lines of the multi line string. Otherwise, `@multi_line_string` would not be admissible in a Nickel formatter.
+
+As illustrated in the example below, `@multi_line_string` requires both a `@multi_line_string.start` and a `@multi_line_string.end` directive in the same query matching the start and end delimiters of the string, for example `m%"` and `"%` in Nickel.
+
+As illustrated in the example below, you can add an optional `#multi_line_string.last_insignificant!` predicate. It indicates that a line break can be introduced before the end delimiter if, in the input, the end delimiter is on the same line as the string's last nonwhitespace line, as illustrated by `b"%` in the examples above. Nickel considers this not to change the string's value. Otherwise, `#multi_line_string.last_insignificant!` would not be admissible in a Nickel formatter. For example, Nix does consider this to change the string's value.
+
+### Example
+
+```scheme
+(str_chunks_multi
+  start: (multstr_start) @multi_line_string.start
+  end: (multstr_end) @multi_line_string.end
+  (#multi_line_string.last_insignificant!)
+) @multi_line_string
+```
+
 ## `@multi_line_indent_all`
 
 To be used on comments, or other leaf nodes, to indicate that we should
