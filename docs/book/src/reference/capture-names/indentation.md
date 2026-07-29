@@ -73,7 +73,7 @@ Nickel considers these 2 strings above as equal because Nickel ignores indentati
 
 As illustrated in the example below, `@multi_line_string` requires both a `@multi_line_string.start` and a `@multi_line_string.end` directive in the same query matching the start and end delimiters of the string, for example `m%"` and `"%` in Nickel.
 
-As illustrated in the example below, you can add an optional `#multi_line_string.last_insignificant!` predicate. It indicates that a line break can be introduced before the end delimiter if, in the input, the end delimiter is on the same line as the string's last nonwhitespace line, as illustrated by `b"%` in the examples above. Nickel considers this not to change the string's value. Otherwise, `#multi_line_string.last_insignificant!` would not be admissible in a Nickel formatter. For example, Nix does consider this to change the string's value.
+As illustrated in the example below, you can add an optional `#multi_line_string.last_insignificant!` predicate. It indicates that a line break can be introduced before the end delimiter if, in the input, the end delimiter is on the same line as the string's last non-whitespace line, as illustrated by `b"%` in the examples above. Nickel considers this not to change the string's value. Otherwise, `#multi_line_string.last_insignificant!` would not be admissible in a Nickel formatter. For example, Nix does consider this to change the string's value.
 
 ### Example
 
