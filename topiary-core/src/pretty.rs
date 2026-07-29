@@ -204,7 +204,7 @@ fn render_enforced_indentation(
             ))
         })?
         .split("\n")
-        .map(|s| s.strip_suffix("\r").unwrap_or(s)) // to do. remove this?
+        .map(|s| s.strip_suffix("\r").unwrap_or(s))
         .collect(); // because we need `DoubleEndedIterator::next_back`.
 
     if content.len() == 1 {
