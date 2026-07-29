@@ -19,5 +19,8 @@ Options:
 ```
 <!-- usage:end -->
 
+For more information about configuration sources, their precedence, and
+merging behaviour, see [Configuration](../configuration.md).
+
 > **Note**\
 > `cfg` is a recognised alias of the `config` subcommand.
