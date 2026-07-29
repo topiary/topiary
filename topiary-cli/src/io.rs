@@ -246,7 +246,7 @@ impl InputFile<'_> {
 }
 
 #[cfg(feature = "nickel")]
-pub async fn to_language_from_config<T: AsRef<str>>(
+pub(crate) async fn to_language_from_config<T: AsRef<str>>(
     config: &Configuration,
     name: T,
 ) -> CLIResult<Language> {
