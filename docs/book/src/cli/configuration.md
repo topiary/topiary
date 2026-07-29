@@ -49,9 +49,9 @@ following order (highest to lowest):
 3. The user configuration file in the OS's configuration directory.
 4. The built-in configuration file.
 
-One can call `topiary config show-sources` to display configuration
-sources along with any detected `language.ncl` files or `queries`
-directories therein:
+One can call [`topiary config show-sources`](usage/config.md) to display
+configuration sources along with any detected `language.ncl` files or
+`queries` directories therein:
 
 ```
 $ topiary config show-sources
