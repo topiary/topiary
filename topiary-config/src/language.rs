@@ -161,13 +161,11 @@ impl Language {
     ///
     /// Prefer `languages.<language>.<query_name>` config entires over implicit query paths.
     #[cfg(not(target_arch = "wasm32"))]
-    #[allow(clippy::result_large_err)]
     pub fn find_query_file(&self, query_name: &str) -> TopiaryConfigResult<PathBuf> {
         self.find_query_file_with(query_name, &LocalRepos::new())
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    #[allow(clippy::result_large_err)]
     pub fn find_query_file_with(
         &self,
         query_name: &str,
@@ -311,7 +309,6 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
     }
 
     #[cfg(target_arch = "wasm32")]
-    #[allow(clippy::result_large_err)]
     pub async fn grammar(&self) -> TopiaryConfigResult<topiary_tree_sitter_facade::Language> {
         let language_name = self.name.as_str();
 

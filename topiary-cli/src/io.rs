@@ -7,12 +7,9 @@ use std::{
     sync::Arc,
 };
 
-#[cfg(feature = "nickel")]
-use std::io::BufWriter;
-
+use nickel_lang_core::eval::value::NickelValue;
 #[cfg(feature = "nickel")]
 use nickel_lang_core::{
-    eval::value::NickelValue,
     term::{Term, record::Field},
     traverse::{Traverse, TraverseOrder},
 };
@@ -29,8 +26,6 @@ use topiary_config::{Configuration, language::LocalRepos};
 use topiary_core::{
     ErrorSpan, FormatterError, InjectionQuery, Language, SpanAttachment, TopiaryQuery,
 };
-#[cfg(feature = "nickel")]
-use topiary_core::{Operation, formatter};
 
 use crate::{
     cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
@@ -251,7 +246,7 @@ impl InputFile<'_> {
 }
 
 #[cfg(feature = "nickel")]
-pub(crate) async fn to_language_from_config<T: AsRef<str>>(
+pub async fn to_language_from_config<T: AsRef<str>>(
     config: &Configuration,
     name: T,
 ) -> CLIResult<Language> {
@@ -653,22 +648,24 @@ fn strip_metadata(value: NickelValue) -> NickelValue {
         .unwrap_or_else(|never: std::convert::Infallible| match never {})
 }
 
-// convenience function to bundle nickel config formatting errors in one return value
+// uses nickel queries and topiary proper to format the nickel record
 #[cfg(feature = "nickel")]
 pub(crate) async fn format_config(
     config: &Configuration,
-    nickel_term: &NickelValue,
+    config_ncl: &NickelValue,
+    output: &mut impl io::Write,
 ) -> CLIResult<()> {
+    use topiary_core::{Operation, formatter};
+
     // TODO handle verbose flag
-    let stripped = strip_metadata(nickel_term.clone());
+    let stripped = strip_metadata(config_ncl.clone());
     let nickel_config = format!("{stripped}");
-    let mut formatted_config = BufWriter::new(OutputFile::Stdout);
     // if errors are encountered in formatting, return
     let language = to_language_from_config(config, "nickel").await?;
 
     formatter(
         &mut nickel_config.as_bytes(),
-        &mut formatted_config,
+        output,
         &language,
         Operation::Format {
             skip_idempotence: true,
@@ -676,6 +673,17 @@ pub(crate) async fn format_config(
         },
         None,
     )?;
+
+    Ok(())
+}
+
+#[cfg(not(feature = "nickel"))]
+pub(crate) async fn format_config(
+    _config: &Configuration,
+    config_ncl: &NickelValue,
+    output: &mut impl io::Write,
+) -> CLIResult<()> {
+    write!(output, "{config_ncl}")?;
 
     Ok(())
 }

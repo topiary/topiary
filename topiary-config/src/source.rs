@@ -136,7 +136,6 @@ impl Source {
         source
     }
 
-    #[allow(clippy::result_large_err)]
     pub fn read(&self) -> TopiaryConfigResult<Vec<u8>> {
         match self {
             Self::Builtin => Ok(self.builtin_nickel().into()),
