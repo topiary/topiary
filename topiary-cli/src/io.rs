@@ -21,7 +21,6 @@ use topiary_core::{
 };
 
 use crate::cli::{AtLeastOneInput, ExactlyOneInput, FromStdin};
-#[cfg(feature = "nickel")]
 use crate::config::Configuration;
 use crate::error::{CLIResult, ResultPreformat, TopiaryError};
 
