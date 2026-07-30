@@ -521,7 +521,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
     // The web bindings for tree-sitter do not have support for pattern_count, so instead we will resize as needed
     // Only reallocate if we are actually going to use the vec
     #[cfg(not(target_arch = "wasm32"))]
-    if log::log_enabled!(log::Level::Info) {
+    if log::log_enabled!(log::Level::Debug) {
         pattern_positions.resize(query.query.pattern_count(), None);
     }
 
@@ -558,7 +558,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
         check_predicates(&predicates)?;
 
         // NOTE: Only performed if logging is enabled to avoid unnecessary computation of Position
-        if log::log_enabled!(log::Level::Info) {
+        if log::log_enabled!(log::Level::Debug) {
             #[cfg(target_arch = "wasm32")]
             // Resize the pattern_positions vector if we need to store more positions
             if m.pattern_index >= pattern_positions.len() {
@@ -578,6 +578,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
                 "".into()
             };
 
+            // do not change the log level without changing it in the 2 if conditions above.
             log::debug!("Processing match{query_name_info}: {m} at location {pos}");
         }
 
