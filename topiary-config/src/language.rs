@@ -193,7 +193,7 @@ impl Language {
         let potentials: [Option<PathBuf>; 5] = [
             std::env::var("TOPIARY_LANGUAGE_DIR").map(PathBuf::from).ok(),
             option_env!("TOPIARY_LANGUAGE_DIR").map(PathBuf::from),
-            Source::fetch_one(&None).queries_dir(),
+            Source::fetch_one(None).queries_dir(),
             Some(PathBuf::from("./topiary-queries/queries")),
             Some(PathBuf::from("../topiary-queries/queries")),
         ];

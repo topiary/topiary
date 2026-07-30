@@ -60,9 +60,12 @@ default = [
   "ocamllex",
   "toml",
   "tree_sitter_query",
+  "fancy-config",
 ]
 
+
 # Included by default
+fancy-config = ["nickel"]
 contributed = [
   "css",
   "openscad",
@@ -90,3 +93,4 @@ toml = ["topiary-config/toml", "topiary-queries/toml"]
 tree_sitter_query = ["topiary-config/tree_sitter_query", "topiary-queries/tree_sitter_query"]
 markdown = ["topiary-config/markdown", "topiary-queries/markdown"]
 wit = ["topiary-config/wit", "topiary-queries/wit"]
+

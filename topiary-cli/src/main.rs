@@ -1,5 +1,6 @@
 mod check;
 mod cli;
+mod config;
 mod error;
 mod fs;
 mod io;
@@ -16,7 +17,7 @@ use std::{
 use error::Benign;
 use rootcause::prelude::ResultExt;
 use tabled::{Table, settings::Style};
-use topiary_config::{Configuration, error::TopiaryConfigError, source::Source};
+use topiary_config::error::TopiaryConfigError;
 use topiary_core::{
     FormatterError, FormatterResult, Language, Operation, SpanAttachment, check_query_coverage,
     formatter,
@@ -24,7 +25,8 @@ use topiary_core::{
 
 use crate::{
     cli::Commands,
-    error::{CLIResult, ResultPreformat, exit_code},
+    config::Configuration,
+    error::{CLIResult, exit_code},
     io::{Inputs, OutputFile, process_inputs, read_input},
     language::LanguageDefinitionCache,
 };
@@ -32,19 +34,19 @@ use crate::{
 use miette::NamedSource;
 
 fn resolve_injected_language(
-    cache: &LanguageDefinitionCache,
-    config: &Configuration,
+    _cache: &LanguageDefinitionCache,
+    config: &topiary_config::Configuration,
     name: &str,
 ) -> FormatterResult<Option<Arc<Language>>> {
     if matches!(
         config.get_language(name),
-        Err(TopiaryConfigError::UnknownLanguage(_))
+        Err(topiary_config::error::TopiaryConfigError::UnknownLanguage(_))
     ) {
         return Ok(None);
     }
 
-    match cache.fetch_from_config(config, name) {
-        Ok(language) => Ok(Some(language)),
+    match crate::io::to_language_from_config_sync(config, name) {
+        Ok(language) => Ok(Some(Arc::new(language))),
         Err(report) => Err(report.context(FormatterError::InjectionLanguageResolution {
             language: name.to_owned(),
         })),
@@ -66,10 +68,10 @@ async fn main() -> ExitCode {
 async fn run() -> CLIResult<()> {
     let args = cli::get_args()?;
 
-    let config_path = &args.global.configuration;
-    let (config, nickel_config) =
-        topiary_config::Configuration::fetch(args.global.merge_configuration, config_path)
-            .preformat_context()?;
+    let config = Configuration::new(
+        args.global.merge_configuration,
+        args.global.configuration.as_deref(),
+    )?;
     let cache_cell = OnceCell::new();
     let get_cache = || {
         cache_cell
@@ -86,7 +88,7 @@ async fn run() -> CLIResult<()> {
             inputs,
         } => {
             let inputs = Inputs::new(&config, &inputs);
-            let config = config.clone();
+            let inner_config = config.as_ref();
             process_inputs(
                 inputs,
                 move |input, language, cache| {
@@ -103,7 +105,7 @@ async fn run() -> CLIResult<()> {
                         &language,
                         skip_idempotence,
                         tolerate_parsing_errors,
-                        Some(&|name| resolve_injected_language(&cache, &config, name)),
+                        Some(&|name| resolve_injected_language(&cache, inner_config, name)),
                     )
                     .attach_filepath(filepath.as_deref())
                 },
@@ -118,7 +120,7 @@ async fn run() -> CLIResult<()> {
             ..
         } => {
             let inputs = Inputs::new(&config, &inputs);
-            let config = config.clone();
+            let inner_config = config.as_ref();
 
             process_inputs(
                 inputs,
@@ -151,7 +153,7 @@ async fn run() -> CLIResult<()> {
                                 skip_idempotence,
                                 tolerate_parsing_errors,
                             },
-                            Some(&|name| resolve_injected_language(&cache, &config, name)),
+                            Some(&|name| resolve_injected_language(&cache, inner_config, name)),
                         )?;
                     }
 
@@ -225,7 +227,7 @@ async fn run() -> CLIResult<()> {
                     false => "\u{274C}", // Cross Mark
                 }
             };
-            let sources = Source::config_sources(config_path)
+            let sources = config.config_sources()
                 .map(|(hint, source)| {
                     let languages_exists = bool_emoji(source.languages_exists());
                     let queries_exists =
@@ -243,30 +245,27 @@ async fn run() -> CLIResult<()> {
 
         Commands::Config {
             command: None,
-            field,
+            field: Some(field),
         } => {
-            let nickel_config = match field {
-                Some(field_path) => Configuration::extract_field(
-                    args.global.merge_configuration,
-                    config_path,
-                    &field_path,
-                )
-                .preformat_context()?,
-                None => nickel_config,
-            };
+            let nickel_config = config.extract_field(args.global.merge_configuration, &field)?;
 
             // Output the collated nickel configuration.
-            // Don't fail on error but merely log the event since the original `nickel_config` is
-            // already valid.
             let mut output = std::io::BufWriter::new(OutputFile::Stdout);
-            io::format_config(&config, &nickel_config, &mut output)
-                .await
-                .attach("Config formatting error")?;
+            write!(output, "{nickel_config}")?;
+        }
+
+        Commands::Config {
+            command: None,
+            field: None,
+        } => {
+            // Output the collated nickel configuration.
+            let mut output = std::io::BufWriter::new(OutputFile::Stdout);
+            write!(output, "{config}")?;
         }
 
         Commands::Prefetch { force, language } => match language {
-            Some(l) => config.prefetch_language(l, force).preformat_context()?,
-            _ => config.prefetch_languages(force).preformat_context()?,
+            Some(l) => config.prefetch_language(l, force)?,
+            _ => config.prefetch_languages(force)?,
         },
 
         Commands::Coverage { input } => {

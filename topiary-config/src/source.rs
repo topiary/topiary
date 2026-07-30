@@ -42,14 +42,14 @@ impl Source {
     /// 3. `~/.config/topiary/languages.ncl`
     /// 4. OS configuration directory (if different from #3)
     /// 5. Built-in configuration: [`Self::builtin_nickel`]
-    pub fn config_sources(path: &Option<PathBuf>) -> impl Iterator<Item = (&'static str, Self)> {
+    pub fn config_sources(path: Option<&Path>) -> impl Iterator<Item = (&'static str, Self)> {
         let mut sources = Vec::new();
 
         if let Some(path) = path {
             let source = if path.is_dir() {
-                Self::Directory(path.clone())
+                Self::Directory(path.to_owned())
             } else {
-                Self::File(path.clone())
+                Self::File(path.to_owned())
             };
 
             sources.push(("CLI", source));
@@ -86,7 +86,7 @@ impl Source {
     }
 
     // return an iterator containing all config sources that have been shown to exist
-    fn valid_config_sources(file: &Option<PathBuf>) -> impl Iterator<Item = (&'static str, Self)> {
+    fn valid_config_sources(file: Option<&Path>) -> impl Iterator<Item = (&'static str, Self)> {
         Self::config_sources(file).filter_map(|(hint, candidate)| {
             if matches!(candidate, Self::Builtin) {
                 return Some((hint, candidate));
@@ -102,7 +102,7 @@ impl Source {
     }
     /// Return all valid configuration sources.
     /// See [`Self::config_sources`].
-    pub fn fetch_all(file: &Option<PathBuf>) -> Vec<Self> {
+    pub fn fetch_all(file: Option<&Path>) -> Vec<Self> {
         // We always include the built-in configuration, as a fallback
         log::info!("Adding built-in configuration to merge");
         Self::valid_config_sources(file)
@@ -128,7 +128,7 @@ impl Source {
 
     /// Return a valid source of configuration with the highest priority.
     /// See [`Self::config_sources`].
-    pub fn fetch_one(file: &Option<PathBuf>) -> Self {
+    pub fn fetch_one(file: Option<&Path>) -> Self {
         let (hint, source) = Self::valid_config_sources(file)
             .next()
             .expect("built-in should always be present");

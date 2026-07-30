@@ -7,12 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use nickel_lang_core::eval::value::NickelValue;
-#[cfg(feature = "nickel")]
-use nickel_lang_core::{
-    term::{Term, record::Field},
-    traverse::{Traverse, TraverseOrder},
-};
+use nickel_lang_core::error::NullReporter;
 use rootcause::{
     Report,
     markers::{ObjectMarkerFor, SendSync},
@@ -22,11 +17,13 @@ use rootcause::{
 };
 use rootcause_preformat::PreformatReportExt;
 use tempfile::tempfile;
-use topiary_config::{Configuration, language::LocalRepos};
+use topiary_config::language::LocalRepos;
 use topiary_core::{
     ErrorSpan, FormatterError, InjectionQuery, Language, SpanAttachment, TopiaryQuery,
 };
 
+#[cfg(feature = "nickel")]
+use crate::config::Configuration;
 use crate::{
     cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
     error::{CLIResult, ResultPreformat, TopiaryError},
@@ -250,7 +247,7 @@ pub(crate) async fn to_language_from_config<T: AsRef<str>>(
     config: &Configuration,
     name: T,
 ) -> CLIResult<Language> {
-    let config_language = config.get_language(name.as_ref()).preformat_context()?;
+    let config_language = config.get_language(name.as_ref())?;
     let grammar = config_language.grammar()?;
     let repos = LocalRepos::new();
     let query_source = to_query_from_language(
@@ -601,91 +598,6 @@ where
         },
         _ => Err(TopiaryError::UnsupportedLanguage(name_str.to_string()).into()),
     }
-}
-
-// Strip field metadata (doc strings, type/contract annotations, `| default`,
-// `| optional`, priority) and unwrap `Term::Annotated` nodes from a NickelValue
-// so that the pretty printer emits a plain data record.
-#[cfg(feature = "nickel")]
-fn strip_metadata(value: NickelValue) -> NickelValue {
-    use nickel_lang_core::eval::value::{RecordData, ValueContent};
-    value
-        .traverse(
-            &mut |v: NickelValue| -> std::result::Result<NickelValue, std::convert::Infallible> {
-                let pos_idx = v.pos_idx();
-                match v.content() {
-                    ValueContent::Record(lens) => {
-                        let Some(record) = lens.take().into_opt() else {
-                            return Ok(NickelValue::record_posless(RecordData::empty())
-                                .with_pos_idx(pos_idx));
-                        };
-                        let fields = record
-                            .fields
-                            .into_iter()
-                            .map(|(id, field)| {
-                                let Field { value, .. } = field;
-                                (id, Field::from(value.unwrap_or_else(NickelValue::null)))
-                            })
-                            .collect();
-                        Ok(NickelValue::record(
-                            RecordData::new_shared_tail(fields, record.attrs, record.sealed_tail),
-                            pos_idx,
-                        ))
-                    }
-                    ValueContent::Term(lens) => {
-                        let term = lens.take();
-                        if let Term::Annotated(data) = term {
-                            Ok(data.inner.clone())
-                        } else {
-                            Ok(NickelValue::term(term, pos_idx))
-                        }
-                    }
-                    other => Ok(other.restore()),
-                }
-            },
-            TraverseOrder::BottomUp,
-        )
-        .unwrap_or_else(|never: std::convert::Infallible| match never {})
-}
-
-// uses nickel queries and topiary proper to format the nickel record
-#[cfg(feature = "nickel")]
-pub(crate) async fn format_config(
-    config: &Configuration,
-    config_ncl: &NickelValue,
-    output: &mut impl io::Write,
-) -> CLIResult<()> {
-    use topiary_core::{Operation, formatter};
-
-    // TODO handle verbose flag
-    let stripped = strip_metadata(config_ncl.clone());
-    let nickel_config = format!("{stripped}");
-    // if errors are encountered in formatting, return
-    let language = to_language_from_config(config, "nickel").await?;
-
-    formatter(
-        &mut nickel_config.as_bytes(),
-        output,
-        &language,
-        Operation::Format {
-            skip_idempotence: true,
-            tolerate_parsing_errors: false,
-        },
-        None,
-    )?;
-
-    Ok(())
-}
-
-#[cfg(not(feature = "nickel"))]
-pub(crate) async fn format_config(
-    _config: &Configuration,
-    config_ncl: &NickelValue,
-    output: &mut impl io::Write,
-) -> CLIResult<()> {
-    write!(output, "{config_ncl}")?;
-
-    Ok(())
 }
 
 // meant to be used in scenarios where multiple inputs are possible

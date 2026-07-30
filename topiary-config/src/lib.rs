@@ -55,7 +55,7 @@ impl Configuration {
     /// with the path that was not found.
     /// If the configuration file exists, but cannot be parsed, this function will return a
     /// `TopiaryConfigError` with the error that occurred.
-    pub fn fetch(merge: bool, file: &Option<PathBuf>) -> TopiaryConfigResult<(Self, NickelValue)> {
+    pub fn fetch(merge: bool, file: Option<&Path>) -> TopiaryConfigResult<(Self, NickelValue)> {
         // If we have an explicit file, fail if it doesn't exist
         if let Some(path) = file
             && !path.exists()
@@ -247,9 +247,9 @@ impl Configuration {
         }
 
         let sources: Vec<Source> = if merge {
-            Source::fetch_all(file)
+            Source::fetch_all(file.as_deref())
         } else {
-            match Source::fetch_one(file) {
+            match Source::fetch_one(file.as_deref()) {
                 Source::Builtin => vec![Source::Builtin],
                 source => vec![source, Source::Builtin],
             }
