@@ -84,9 +84,9 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
 
                         // The following assumes spaces are used for indenting
                         match indenting {
+                            ..0 => try_removing_spaces_after_newlines(content, -indenting),
                             0 => content.into(),
-                            n if n > 0 => add_spaces_after_newlines(content, indenting),
-                            _ => try_removing_spaces_after_newlines(content, -indenting),
+                            1.. => add_spaces_after_newlines(content, indenting),
                         }
                     }
                     MultiLineIndent::EnforceIndentation(absolute_indentation) => {
