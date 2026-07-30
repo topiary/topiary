@@ -58,8 +58,9 @@ This name should be decided amongst the team before the release.
 - [#1270](https://github.com/topiary/topiary/pull/1270) Add initial `languages.ncl` Nickel contracts
 - [#1139](https://github.com/topiary/topiary/pull/1139) Added `rootcause::Report` handling in topiary-cli.
 - [#1283](https://github.com/topiary/topiary/pull/1283) Render Nickel parsing error diagnostics
-- [#1298] https://github.com/topiary/topiary/pull/1298) Update WIT formatter for tree-sitter-wit to v1.4
-- [#1303] https://github.com/topiary/topiary/pull/1303) Add `bin/verify-documented-usage.sh --no-nix-shell` flag
+- [#1298](https://github.com/topiary/topiary/pull/1298) Update WIT formatter for tree-sitter-wit to v1.4
+- [#1303](https://github.com/topiary/topiary/pull/1303) Add `bin/verify-documented-usage.sh --no-nix-shell` flag
+- [#1306](https://github.com/topiary/topiary/pull/1306) Move topiary-cli configuration logic into its own module
 
 ### Fixed
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
