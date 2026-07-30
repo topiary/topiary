@@ -7,7 +7,6 @@ use std::{
     sync::Arc,
 };
 
-use nickel_lang_core::error::NullReporter;
 use rootcause::{
     Report,
     markers::{ObjectMarkerFor, SendSync},
@@ -17,7 +16,6 @@ use rootcause::{
 };
 use rootcause_preformat::PreformatReportExt;
 use tempfile::tempfile;
-use topiary_config::language::LocalRepos;
 use topiary_core::{
     ErrorSpan, FormatterError, InjectionQuery, Language, SpanAttachment, TopiaryQuery,
 };
@@ -66,15 +64,6 @@ impl QuerySource {
             QuerySource::Path(p) => Some(p.as_path()),
             QuerySource::BuiltIn(_) => None,
         }
-    }
-
-    #[cfg(feature = "nickel")]
-    async fn get_content(&self) -> CLIResult<String> {
-        let contents = match self {
-            Self::Path(query) => tokio::fs::read_to_string(query).await?,
-            Self::BuiltIn(contents) => contents.to_owned(),
-        };
-        Ok(contents)
     }
 
     pub(crate) fn get_content_sync(&self) -> CLIResult<String> {
@@ -271,7 +260,6 @@ impl<'cfg, 'i> Inputs<'cfg> {
     where
         &'i T: Into<InputFrom>,
     {
-        let repos = LocalRepos::new();
         let inputs = match inputs.into() {
             InputFrom::Stdin(language_name, query) => {
                 vec![(|| {
@@ -283,18 +271,12 @@ impl<'cfg, 'i> Inputs<'cfg> {
                         // The user specified a query file
                         Some(p) => p,
                         // The user did not specify a file, try the default locations
-                        None => to_query_from_language(
-                            language,
-                            topiary_queries::FORMATTING_QUERY,
-                            Some(&repos),
-                        )?,
+                        None => config
+                            .get_query_source(&language_name, topiary_queries::FORMATTING_QUERY)?,
                     };
-                    let injection_query = to_query_from_language(
-                        language,
-                        topiary_queries::INJECTIONS_QUERY,
-                        Some(&repos),
-                    )
-                    .ok();
+                    let injection_query = config
+                        .get_query_source(&language_name, topiary_queries::INJECTIONS_QUERY)
+                        .ok();
                     Ok(InputFile {
                         source: InputSource::Stdin,
                         language,
@@ -307,17 +289,12 @@ impl<'cfg, 'i> Inputs<'cfg> {
                 .into_iter()
                 .map(|path| {
                     let language = config.detect(&path).preformat_context()?;
-                    let query: QuerySource = to_query_from_language(
-                        language,
-                        topiary_queries::FORMATTING_QUERY,
-                        Some(&repos),
-                    )?;
-                    let injection_query = to_query_from_language(
-                        language,
-                        topiary_queries::INJECTIONS_QUERY,
-                        Some(&repos),
-                    )
-                    .ok();
+                    let language_name = language.name.clone();
+                    let query: QuerySource = config
+                        .get_query_source(&language_name, topiary_queries::FORMATTING_QUERY)?;
+                    let injection_query = config
+                        .get_query_source(&language_name, topiary_queries::INJECTIONS_QUERY)
+                        .ok();
 
                     Ok(InputFile {
                         source: InputSource::Disk(path.into(), None),
@@ -333,32 +310,6 @@ impl<'cfg, 'i> Inputs<'cfg> {
     }
 }
 
-pub(crate) fn to_query_from_language(
-    language: &topiary_config::language::Language,
-    query_name: &str,
-    repos: Option<&LocalRepos>,
-) -> CLIResult<QuerySource> {
-    let find = match repos {
-        Some(repos) => language.find_query_file_with(query_name, repos),
-        None => language.find_query_file(query_name),
-    };
-    let query: QuerySource = match find {
-        Ok(p) => p.into(),
-        // For some reason, Topiary could not find any
-        // matching file in a default location. As a final attempt, try the
-        // builtin ones. Store the error, return that if we
-        // fail to find anything, because the builtin error might be unexpected.
-        Err(e) => {
-            log::warn!(
-                "No {query_name} query files found in any of the expected locations. Falling back to compile-time included files."
-            );
-            to_query_from_builtin(&language.name, query_name)
-                .local_context(e)
-                .preformat_context()?
-        }
-    };
-    Ok(query)
-}
 impl<'cfg> Iterator for Inputs<'cfg> {
     type Item = CLIResult<InputFile<'cfg>>;
 
@@ -448,74 +399,6 @@ impl TryFrom<&InputFile<'_>> for OutputFile {
             InputSource::Stdin => Ok(Self::Stdout),
             InputSource::Disk(path, _) => Self::new(path.to_string_lossy().as_ref()),
         }
-    }
-}
-
-fn to_query_from_builtin<T, Q>(language: T, query: Q) -> CLIResult<QuerySource>
-where
-    T: AsRef<str> + fmt::Display,
-    Q: AsRef<str>,
-{
-    let name_str = language.as_ref();
-    match query.as_ref() {
-        topiary_queries::FORMATTING_QUERY => match name_str {
-            #[cfg(feature = "bash")]
-            "bash" => Ok(topiary_queries::bash().into()),
-
-            #[cfg(feature = "css")]
-            "css" => Ok(topiary_queries::css().into()),
-
-            #[cfg(feature = "json")]
-            "json" => Ok(topiary_queries::json().into()),
-
-            #[cfg(feature = "markdown")]
-            "markdown" => Ok(topiary_queries::markdown().into()),
-
-            #[cfg(feature = "nickel")]
-            "nickel" => Ok(topiary_queries::nickel().into()),
-
-            #[cfg(feature = "ocaml")]
-            "ocaml" => Ok(topiary_queries::ocaml().into()),
-
-            #[cfg(feature = "ocaml_interface")]
-            "ocaml_interface" => Ok(topiary_queries::ocaml_interface().into()),
-
-            #[cfg(feature = "ocamllex")]
-            "ocamllex" => Ok(topiary_queries::ocamllex().into()),
-
-            #[cfg(feature = "openscad")]
-            "openscad" => Ok(topiary_queries::openscad().into()),
-
-            #[cfg(feature = "rust")]
-            "rust" => Ok(topiary_queries::rust().into()),
-
-            #[cfg(feature = "sdml")]
-            "sdml" => Ok(topiary_queries::sdml().into()),
-
-            #[cfg(feature = "toml")]
-            "toml" => Ok(topiary_queries::toml().into()),
-
-            #[cfg(feature = "tree_sitter_query")]
-            "tree_sitter_query" => Ok(topiary_queries::tree_sitter_query().into()),
-
-            #[cfg(feature = "wit")]
-            "wit" => Ok(topiary_queries::wit().into()),
-
-            _ => Err(TopiaryError::UnsupportedLanguage(name_str.to_string()).into()),
-        },
-        topiary_queries::INJECTIONS_QUERY => match name_str {
-            #[cfg(feature = "markdown")]
-            "markdown" => Ok(topiary_queries::markdown_injections().into()),
-
-            #[cfg(feature = "ocamllex")]
-            "ocamllex" => Ok(topiary_queries::ocamllex_injections().into()),
-
-            #[cfg(feature = "rust")]
-            "rust" => Ok(topiary_queries::rust_injections().into()),
-
-            _ => Err(TopiaryError::UnsupportedLanguage(name_str.to_string()).into()),
-        },
-        _ => Err(TopiaryError::UnsupportedLanguage(name_str.to_string()).into()),
     }
 }
 

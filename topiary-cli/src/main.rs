@@ -14,7 +14,6 @@ use std::{
 };
 
 use error::Benign;
-use rootcause::prelude::ResultExt;
 use tabled::{Table, settings::Style};
 use topiary_core::{
     FormatterError, FormatterResult, Language, Operation, SpanAttachment, check_query_coverage,
@@ -29,27 +28,6 @@ use crate::{
 pub(crate) use config::Configuration;
 
 use miette::NamedSource;
-
-fn resolve_injected_language(
-    config: &Configuration,
-    name: &str,
-) -> FormatterResult<Option<Arc<Language>>> {
-    if matches!(
-        config.get_language_cfg(name),
-        Err(topiary_config::error::TopiaryConfigError::UnknownLanguage(
-            _
-        ))
-    ) {
-        return Ok(None);
-    }
-
-    match config.get_language(name) {
-        Ok(language) => Ok(Some(Arc::new(language))),
-        Err(report) => Err(report.context(FormatterError::InjectionLanguageResolution {
-            language: name.to_owned(),
-        })),
-    }
-}
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -96,7 +74,7 @@ async fn run() -> CLIResult<()> {
                         &language,
                         skip_idempotence,
                         tolerate_parsing_errors,
-                        Some(&|name| resolve_injected_language(&config, name)),
+                        Some(&|name| config.resolve_injected_language(name)),
                     )
                     .attach_filepath(filepath.as_deref())
                 },
@@ -143,7 +121,7 @@ async fn run() -> CLIResult<()> {
                                 skip_idempotence,
                                 tolerate_parsing_errors,
                             },
-                            Some(&|name| resolve_injected_language(&config, name)),
+                            Some(&|name| config.resolve_injected_language(name)),
                         )?;
                     }
 
@@ -161,7 +139,7 @@ async fn run() -> CLIResult<()> {
 
             process_inputs(
                 inputs,
-                |mut input, language, config| {
+                |mut input, language, _config| {
                     let input_content = read_input(&mut input)?;
                     log::debug!(
                         "Checking {}, as {} for grammar correctness",
@@ -218,7 +196,7 @@ async fn run() -> CLIResult<()> {
                 }
             };
             let sources = config
-                .config_sources()
+                .iter_sources()
                 .map(|(hint, source)| {
                     let languages_exists = bool_emoji(source.languages_exists());
                     let queries_exists =

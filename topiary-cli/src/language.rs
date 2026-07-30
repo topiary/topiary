@@ -10,11 +10,10 @@ use std::{
 use crate::Configuration;
 use topiary_config::language::LocalRepos;
 use topiary_core::Language;
+use topiary_queries;
 
-use crate::{
-    error::{CLIResult, ResultPreformat},
-    io::{InputFile, to_query_from_language},
-};
+use crate::error::CLIResult;
+use crate::io::InputFile;
 
 /// Thread-safe language definition cache
 #[derive(Debug)]
@@ -29,6 +28,10 @@ impl LanguageDefinitionCache {
             languages: Mutex::new(HashMap::new()),
             repos: LocalRepos::new(),
         }
+    }
+
+    pub fn repos(&self) -> &LocalRepos {
+        &self.repos
     }
 
     fn key_for_parts(
@@ -97,18 +100,10 @@ impl LanguageDefinitionCache {
         config: &Configuration,
         name: &str,
     ) -> CLIResult<Arc<Language>> {
-        let config_language = config.get_language_cfg(name).preformat_context()?;
-        let formatting_query = to_query_from_language(
-            config_language,
-            topiary_queries::FORMATTING_QUERY,
-            Some(&self.repos),
-        )?;
-        let injection_query = to_query_from_language(
-            config_language,
-            topiary_queries::INJECTIONS_QUERY,
-            Some(&self.repos),
-        )
-        .ok();
+        let formatting_query = config.get_query_source(name, topiary_queries::FORMATTING_QUERY)?;
+        let injection_query = config
+            .get_query_source(name, topiary_queries::INJECTIONS_QUERY)
+            .ok();
         let key = Self::key_for_parts(name, &formatting_query, injection_query.as_ref());
 
         let mut cache = self

@@ -5,12 +5,13 @@ use std::{ops::Deref, path::Path};
 
 use nickel_lang_core::eval::value::NickelValue;
 use rootcause::prelude::ResultExt;
-use topiary_config::language::LocalRepos;
 use topiary_config::source::Source;
-use topiary_core::{FormatterError, InjectionQuery, SpanAttachment, TopiaryQuery};
+use topiary_core::{
+    FormatterError, FormatterResult, InjectionQuery, Language, SpanAttachment, TopiaryQuery,
+};
+use topiary_queries;
 
-use crate::error::{CLIResult, ResultPreformat};
-use crate::io::to_query_from_language;
+use crate::error::{CLIResult, ResultPreformat, TopiaryError};
 use crate::language::LanguageDefinitionCache;
 
 thread_local! {
@@ -65,6 +66,8 @@ impl Configuration {
     /// `Configuration::new()` call, ensuring the index is always within bounds of the thread-local storage.
     pub fn ncl(&self) -> Arc<NickelValue> {
         NICKEL_VALUES.with(|values| {
+            // `Cell` does not give out mutable references (unsafe in thread-local context);
+            // instead one has to take a value, modify/use it, and put it back.
             let vec = values.take();
             // SAFETY: We have a guarantee that the index is valid because:
             // 1. Each `Configuration` stores an `ncl_id` from `NEXT_ID`
@@ -78,7 +81,7 @@ impl Configuration {
     }
 
     /// Get the config sources
-    pub fn config_sources(&self) -> impl Iterator<Item = (&'static str, Source)> {
+    pub fn iter_sources(&self) -> impl Iterator<Item = (&'static str, Source)> {
         Source::config_sources(self.path.as_deref())
     }
 
@@ -114,33 +117,25 @@ impl Configuration {
     where
         T: AsRef<str> + std::fmt::Display,
     {
-        let config_language = self.get_language_cfg(name.as_ref()).preformat_context()?;
+        let name_ref = name.as_ref();
+        let config_language = self.get_language_cfg(name_ref).preformat_context()?;
         let grammar = config_language.grammar()?;
-        let repos = LocalRepos::new();
-        let query_source = to_query_from_language(
-            config_language,
-            topiary_queries::FORMATTING_QUERY,
-            Some(&repos),
-        )?;
+        let query_source = self.get_query_source(name_ref, topiary_queries::FORMATTING_QUERY)?;
         let query_content = query_source.get_content_sync()?;
         let formatting_query = TopiaryQuery::new(&grammar, &query_content)
             .attach_filepath(query_source.filepath())
             .context(FormatterError::Parsing)?;
-        let injection_query = match to_query_from_language(
-            config_language,
-            topiary_queries::INJECTIONS_QUERY,
-            Some(&repos),
-        )
-        .ok()
+        let injection_query = match self
+            .get_query_source(name_ref, topiary_queries::INJECTIONS_QUERY)
         {
-            Some(source) => {
+            Ok(source) => {
                 let contents = source.get_content_sync()?;
                 Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
             }
-            None => None,
+            Err(_) => None,
         };
         Ok(topiary_core::Language {
-            name: name.as_ref().to_string(),
+            name: name_ref.to_string(),
             formatting_query,
             injection_query,
             grammar,
@@ -148,8 +143,128 @@ impl Configuration {
         })
     }
 
+    /// Get a query source for the given language and query name, using the cached repos
+    pub fn get_query_source(
+        &self,
+        language_name: &str,
+        query_name: &str,
+    ) -> CLIResult<crate::io::QuerySource> {
+        let config_language = self.get_language_cfg(language_name).preformat_context()?;
+        let cache = self.cache();
+        let repos = cache.repos();
+        let find = config_language.find_query_file_with(query_name, repos);
+        let query: crate::io::QuerySource = match find {
+            Ok(p) => p.into(),
+            // For some reason, Topiary could not find any
+            // matching file in a default location. As a final attempt, try the
+            // builtin ones. Store the error, return that if we
+            // fail to find anything, because the builtin error might be unexpected.
+            Err(e) => {
+                log::warn!(
+                    "No {query_name} query files found in any of the expected locations. Falling back to compile-time included files."
+                );
+                query_from_builtin(&config_language.name, query_name)
+                    .local_context(e)
+                    .preformat_context()?
+            }
+        };
+        Ok(query)
+    }
+
     pub(crate) fn cache(&self) -> Arc<LanguageDefinitionCache> {
         self.cache.clone()
+    }
+
+    /// Resolve an injected language by name, returning None if the language is unknown.
+    ///
+    /// This is used to fetch language definitions for code injections during formatting.
+    /// Returns `Ok(None)` if the language is not configured, `Ok(Some(language))` if found,
+    /// or `Err` if there was an error resolving the language.
+    pub fn resolve_injected_language(&self, name: &str) -> FormatterResult<Option<Arc<Language>>> {
+        if matches!(
+            self.get_language_cfg(name),
+            Err(topiary_config::error::TopiaryConfigError::UnknownLanguage(
+                _
+            ))
+        ) {
+            return Ok(None);
+        }
+
+        match self.cache().fetch_from_config(self, name) {
+            Ok(language) => Ok(Some(language)),
+            Err(report) => Err(report.context(FormatterError::InjectionLanguageResolution {
+                language: name.to_owned(),
+            })),
+        }
+    }
+}
+
+/// Get a builtin query for the given language and query name
+fn query_from_builtin<T, Q>(language: T, query: Q) -> CLIResult<crate::io::QuerySource>
+where
+    T: AsRef<str> + std::fmt::Display,
+    Q: AsRef<str>,
+{
+    let name_str = language.as_ref();
+    match query.as_ref() {
+        topiary_queries::FORMATTING_QUERY => match name_str {
+            #[cfg(feature = "bash")]
+            "bash" => Ok(topiary_queries::bash().into()),
+
+            #[cfg(feature = "css")]
+            "css" => Ok(topiary_queries::css().into()),
+
+            #[cfg(feature = "json")]
+            "json" => Ok(topiary_queries::json().into()),
+
+            #[cfg(feature = "markdown")]
+            "markdown" => Ok(topiary_queries::markdown().into()),
+
+            #[cfg(feature = "nickel")]
+            "nickel" => Ok(topiary_queries::nickel().into()),
+
+            #[cfg(feature = "ocaml")]
+            "ocaml" => Ok(topiary_queries::ocaml().into()),
+
+            #[cfg(feature = "ocaml_interface")]
+            "ocaml_interface" => Ok(topiary_queries::ocaml_interface().into()),
+
+            #[cfg(feature = "ocamllex")]
+            "ocamllex" => Ok(topiary_queries::ocamllex().into()),
+
+            #[cfg(feature = "openscad")]
+            "openscad" => Ok(topiary_queries::openscad().into()),
+
+            #[cfg(feature = "rust")]
+            "rust" => Ok(topiary_queries::rust().into()),
+
+            #[cfg(feature = "sdml")]
+            "sdml" => Ok(topiary_queries::sdml().into()),
+
+            #[cfg(feature = "toml")]
+            "toml" => Ok(topiary_queries::toml().into()),
+
+            #[cfg(feature = "tree_sitter_query")]
+            "tree_sitter_query" => Ok(topiary_queries::tree_sitter_query().into()),
+
+            #[cfg(feature = "wit")]
+            "wit" => Ok(topiary_queries::wit().into()),
+
+            _ => Err(TopiaryError::UnsupportedLanguage(name_str.to_string()).into()),
+        },
+        topiary_queries::INJECTIONS_QUERY => match name_str {
+            #[cfg(feature = "markdown")]
+            "markdown" => Ok(topiary_queries::markdown_injections().into()),
+
+            #[cfg(feature = "ocamllex")]
+            "ocamllex" => Ok(topiary_queries::ocamllex_injections().into()),
+
+            #[cfg(feature = "rust")]
+            "rust" => Ok(topiary_queries::rust_injections().into()),
+
+            _ => Err(TopiaryError::UnsupportedLanguage(name_str.to_string()).into()),
+        },
+        _ => Err(TopiaryError::UnsupportedLanguage(name_str.to_string()).into()),
     }
 }
 
@@ -167,7 +282,7 @@ impl AsRef<topiary_config::Configuration> for Configuration {
     }
 }
 
-#[cfg(feature = "nickel")]
+#[cfg(feature = "fancy-config")]
 impl std::fmt::Display for Configuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use topiary_core::{Operation, formatter};
@@ -183,7 +298,7 @@ impl std::fmt::Display for Configuration {
         };
 
         let mut output = Vec::new();
-        if let Err(_) = formatter(
+        if let Err(err) = formatter(
             &mut nickel_config.as_bytes(),
             &mut output,
             &language,
@@ -193,6 +308,10 @@ impl std::fmt::Display for Configuration {
             },
             None,
         ) {
+            log::error!(
+                "error calling {}::fmt : {err}",
+                std::any::type_name::<Self>()
+            );
             return write!(f, "{}", self.ncl());
         }
 
@@ -210,7 +329,7 @@ impl std::fmt::Display for Configuration {
 // Strip field metadata (doc strings, type/contract annotations, `| default`,
 // `| optional`, priority) and unwrap `Term::Annotated` nodes from a NickelValue
 // so that the pretty printer emits a plain data record.
-#[cfg(feature = "nickel")]
+#[cfg(feature = "fancy-config")]
 fn strip_metadata(value: NickelValue) -> NickelValue {
     use nickel_lang_core::eval::value::{RecordData, ValueContent};
     use nickel_lang_core::term::Term;
