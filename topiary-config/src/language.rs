@@ -159,7 +159,7 @@ impl Language {
     /// Locate a query file for this language by well-known name (e.g. `"formatting"`,
     /// `"injections"`, matching the constants exported by `topiary-queries`).
     ///
-    /// Prefer `languages.<language>.<query_name>` config entires over implicit query paths.
+    /// Prefer `languages.<language>.<query_name>` config entries over implicit query paths.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn find_query_file(&self, query_name: &str) -> TopiaryConfigResult<PathBuf> {
         self.find_query_file_with(query_name, &LocalRepos::new())

@@ -15,10 +15,7 @@ use std::{
 
 use error::Benign;
 use tabled::{Table, settings::Style};
-use topiary_core::{
-    Operation, SpanAttachment, check_query_coverage,
-    formatter,
-};
+use topiary_core::{Operation, SpanAttachment, check_query_coverage, formatter};
 
 use crate::{
     cli::Commands,
