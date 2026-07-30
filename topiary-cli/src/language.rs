@@ -10,7 +10,6 @@ use std::{
 use crate::Configuration;
 use topiary_config::language::LocalRepos;
 use topiary_core::Language;
-use topiary_queries;
 
 use crate::error::CLIResult;
 use crate::io::InputFile;

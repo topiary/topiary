@@ -16,7 +16,7 @@ use std::{
 use error::Benign;
 use tabled::{Table, settings::Style};
 use topiary_core::{
-    FormatterError, FormatterResult, Language, Operation, SpanAttachment, check_query_coverage,
+    Operation, SpanAttachment, check_query_coverage,
     formatter,
 };
 

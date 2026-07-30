@@ -1,5 +1,6 @@
 use std::cell::Cell;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::{ops::Deref, path::Path};
 
@@ -9,14 +10,13 @@ use topiary_config::source::Source;
 use topiary_core::{
     FormatterError, FormatterResult, InjectionQuery, Language, SpanAttachment, TopiaryQuery,
 };
-use topiary_queries;
 
 use crate::error::{CLIResult, ResultPreformat, TopiaryError};
 use crate::language::LanguageDefinitionCache;
 
 thread_local! {
-    static NICKEL_VALUES: Cell<Vec<Arc<NickelValue>>> = Cell::new(Vec::new());
-    static NEXT_ID: Cell<u32> = Cell::new(0);
+    static NICKEL_VALUES: Cell<Vec<Rc<NickelValue>>> = const { Cell::new(Vec::new()) };
+    static NEXT_ID: Cell<u32> = const { Cell::new(0) };
 }
 
 /// Wrapper around Configuration and its raw Nickel representation.
@@ -47,7 +47,7 @@ impl Configuration {
 
         NICKEL_VALUES.with(|values| {
             let mut vec = values.take();
-            vec.push(Arc::new(ncl));
+            vec.push(Rc::new(ncl));
             values.set(vec);
         });
 
@@ -61,10 +61,10 @@ impl Configuration {
 
     /// Get the Nickel value for this configuration
     ///
-    /// Returns an [`Arc<NickelValue>`] which allows cheap cloning via reference counting.
+    /// Returns an [`Rc<NickelValue>`] which allows cheap cloning via reference counting.
     /// The reference is guaranteed to be valid because we increment the counter on every
     /// `Configuration::new()` call, ensuring the index is always within bounds of the thread-local storage.
-    pub fn ncl(&self) -> Arc<NickelValue> {
+    pub fn ncl(&self) -> Rc<NickelValue> {
         NICKEL_VALUES.with(|values| {
             // `Cell` does not give out mutable references (unsafe in thread-local context);
             // instead one has to take a value, modify/use it, and put it back.
