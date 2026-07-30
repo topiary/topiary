@@ -84,7 +84,7 @@ impl Configuration {
     ///
     /// If the provided language name cannot be found in the `Configuration`, this
     /// function returns a `TopiaryConfigError`
-    pub fn get_language<T>(&self, name: T) -> TopiaryConfigResult<&Language>
+    pub fn get_language_cfg<T>(&self, name: T) -> TopiaryConfigResult<&Language>
     where
         T: AsRef<str> + fmt::Display,
     {
@@ -177,7 +177,7 @@ impl Configuration {
         T: AsRef<str> + fmt::Display,
     {
         let repos = LocalRepos::new();
-        let l = self.get_language(language)?;
+        let l = self.get_language_cfg(language)?;
         Configuration::fetch_language(l, force, &repos)?;
         Ok(())
     }

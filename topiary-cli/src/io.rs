@@ -64,7 +64,7 @@ impl Display for QuerySource {
 }
 
 impl QuerySource {
-    fn filepath(&self) -> Option<&Path> {
+    pub(crate) fn filepath(&self) -> Option<&Path> {
         match self {
             QuerySource::Path(p) => Some(p.as_path()),
             QuerySource::BuiltIn(_) => None,
@@ -80,7 +80,7 @@ impl QuerySource {
         Ok(contents)
     }
 
-    fn get_content_sync(&self) -> CLIResult<String> {
+    pub(crate) fn get_content_sync(&self) -> CLIResult<String> {
         let contents = match self {
             Self::Path(query) => std::fs::read_to_string(query)?,
             Self::BuiltIn(contents) => contents.to_owned(),
@@ -242,84 +242,6 @@ impl InputFile<'_> {
     }
 }
 
-#[cfg(feature = "nickel")]
-pub(crate) async fn to_language_from_config<T: AsRef<str>>(
-    config: &Configuration,
-    name: T,
-) -> CLIResult<Language> {
-    let config_language = config.get_language(name.as_ref())?;
-    let grammar = config_language.grammar()?;
-    let repos = LocalRepos::new();
-    let query_source = to_query_from_language(
-        config_language,
-        topiary_queries::FORMATTING_QUERY,
-        Some(&repos),
-    )?;
-    let query_content = query_source.get_content().await?;
-    let formatting_query = TopiaryQuery::new(&grammar, &query_content)
-        .attach_filepath(query_source.filepath())
-        .context(FormatterError::Parsing)?;
-    let injection_query = match to_query_from_language(
-        config_language,
-        topiary_queries::INJECTIONS_QUERY,
-        Some(&repos),
-    )
-    .ok()
-    {
-        Some(source) => {
-            let contents = source.get_content().await?;
-            Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
-        }
-        None => None,
-    };
-
-    Ok(Language {
-        name: name.as_ref().to_string(),
-        formatting_query,
-        injection_query,
-        grammar,
-        indent: config_language.indent(),
-    })
-}
-
-pub(crate) fn to_language_from_config_sync<T: AsRef<str> + fmt::Display>(
-    config: &Configuration,
-    name: T,
-) -> CLIResult<Language> {
-    let config_language = config.get_language(name.as_ref()).preformat_context()?;
-    let grammar = config_language.grammar()?;
-    let repos = LocalRepos::new();
-    let query_source = to_query_from_language(
-        config_language,
-        topiary_queries::FORMATTING_QUERY,
-        Some(&repos),
-    )?;
-    let query_content = query_source.get_content_sync()?;
-    let formatting_query = TopiaryQuery::new(&grammar, &query_content)
-        .attach_filepath(query_source.filepath())
-        .context(FormatterError::Parsing)?;
-    let injection_query = match to_query_from_language(
-        config_language,
-        topiary_queries::INJECTIONS_QUERY,
-        Some(&repos),
-    )
-    .ok()
-    {
-        Some(source) => {
-            let contents = source.get_content_sync()?;
-            Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
-        }
-        None => None,
-    };
-
-    Ok(Language {
-        name: name.as_ref().to_string(),
-        formatting_query,
-        injection_query,
-        grammar,
-        indent: config_language.indent(),
-    })
-}
 /// Simple helper function to read the full content of an io Read stream
 pub(crate) fn read_input(input: &mut dyn io::Read) -> CLIResult<String> {
     let mut content = String::new();
@@ -357,7 +279,7 @@ impl<'cfg, 'i> Inputs<'cfg> {
             InputFrom::Stdin(language_name, query) => {
                 vec![(|| {
                     let language = config
-                        .get_language(&language_name)
+                        .get_language_cfg(&language_name)
                         .map_err(|e| report!(e).preformat())
                         .context(TopiaryError::Config)?;
                     let query_source: QuerySource = match query {

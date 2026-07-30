@@ -7,15 +7,17 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use topiary_config::{Configuration, language::LocalRepos};
+use crate::Configuration;
+use topiary_config::language::LocalRepos;
 use topiary_core::Language;
 
 use crate::{
     error::{CLIResult, ResultPreformat},
-    io::{InputFile, to_language_from_config_sync, to_query_from_language},
+    io::{InputFile, to_query_from_language},
 };
 
 /// Thread-safe language definition cache
+#[derive(Debug)]
 pub struct LanguageDefinitionCache {
     languages: Mutex<HashMap<u64, Arc<Language>>>,
     repos: LocalRepos,
@@ -95,7 +97,7 @@ impl LanguageDefinitionCache {
         config: &Configuration,
         name: &str,
     ) -> CLIResult<Arc<Language>> {
-        let config_language = config.get_language(name).preformat_context()?;
+        let config_language = config.get_language_cfg(name).preformat_context()?;
         let formatting_query = to_query_from_language(
             config_language,
             topiary_queries::FORMATTING_QUERY,
@@ -122,7 +124,7 @@ impl LanguageDefinitionCache {
 
             Entry::Vacant(slot) => {
                 log::debug!("Cache {:p}: Insert at {:#016x} ({name})", self, key);
-                let lang_def = Arc::new(to_language_from_config_sync(config, name)?);
+                let lang_def = Arc::new(config.get_language(name)?);
                 slot.insert(lang_def).to_owned()
             }
         })

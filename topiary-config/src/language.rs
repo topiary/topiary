@@ -601,7 +601,7 @@ mod tests {
 
         let (config, _) = crate::Configuration::fetch(false, &Some(config_file)).unwrap();
         let formatting = config
-            .get_language("markdown")
+            .get_language_cfg("markdown")
             .unwrap()
             .config_query("formatting")
             .unwrap();

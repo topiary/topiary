@@ -3,9 +3,14 @@ use std::sync::Arc;
 use std::{ops::Deref, path::Path};
 
 use nickel_lang_core::eval::value::NickelValue;
+use rootcause::prelude::ResultExt;
+use topiary_config::language::LocalRepos;
 use topiary_config::source::Source;
+use topiary_core::{FormatterError, InjectionQuery, SpanAttachment, TopiaryQuery};
 
 use crate::error::{CLIResult, ResultPreformat};
+use crate::io::to_query_from_language;
+use crate::language::LanguageDefinitionCache;
 
 /// Wrapper around Configuration and its raw Nickel representation.
 ///
@@ -16,6 +21,7 @@ pub struct Configuration {
     inner: topiary_config::Configuration,
     ncl: Arc<NickelValue>,
     path: Option<PathBuf>,
+    cache: Arc<LanguageDefinitionCache>,
 }
 
 impl Configuration {
@@ -26,6 +32,7 @@ impl Configuration {
             inner,
             ncl: Arc::new(ncl),
             path: path.map(|p| p.to_owned()),
+            cache: Arc::new(LanguageDefinitionCache::new()),
         })
     }
 
@@ -61,12 +68,47 @@ impl Configuration {
         Ok(())
     }
 
-    /// Get a language by name synchronously
+    /// Build a [`topiary_core::Language`]
     pub fn get_language<T>(&self, name: T) -> CLIResult<topiary_core::Language>
     where
         T: AsRef<str> + std::fmt::Display,
     {
-        crate::io::to_language_from_config_sync(&self.inner, name)
+        let config_language = self.get_language_cfg(name.as_ref()).preformat_context()?;
+        let grammar = config_language.grammar()?;
+        let repos = LocalRepos::new();
+        let query_source = to_query_from_language(
+            config_language,
+            topiary_queries::FORMATTING_QUERY,
+            Some(&repos),
+        )?;
+        let query_content = query_source.get_content_sync()?;
+        let formatting_query = TopiaryQuery::new(&grammar, &query_content)
+            .attach_filepath(query_source.filepath())
+            .context(FormatterError::Parsing)?;
+        let injection_query = match to_query_from_language(
+            config_language,
+            topiary_queries::INJECTIONS_QUERY,
+            Some(&repos),
+        )
+        .ok()
+        {
+            Some(source) => {
+                let contents = source.get_content_sync()?;
+                Some(InjectionQuery::new(&grammar, &contents).attach_filepath(source.filepath())?)
+            }
+            None => None,
+        };
+        Ok(topiary_core::Language {
+            name: name.as_ref().to_string(),
+            formatting_query,
+            injection_query,
+            grammar,
+            indent: config_language.indent(),
+        })
+    }
+
+    pub(crate) fn cache(&self) -> Arc<LanguageDefinitionCache> {
+        self.cache.clone()
     }
 }
 

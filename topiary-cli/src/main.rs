@@ -25,27 +25,28 @@ use topiary_core::{
 
 use crate::{
     cli::Commands,
-    config::Configuration,
     error::{CLIResult, exit_code},
     io::{Inputs, OutputFile, process_inputs, read_input},
     language::LanguageDefinitionCache,
 };
+pub(crate) use config::Configuration;
 
 use miette::NamedSource;
 
 fn resolve_injected_language(
-    _cache: &LanguageDefinitionCache,
-    config: &topiary_config::Configuration,
+    config: &Configuration,
     name: &str,
 ) -> FormatterResult<Option<Arc<Language>>> {
     if matches!(
-        config.get_language(name),
-        Err(topiary_config::error::TopiaryConfigError::UnknownLanguage(_))
+        config.get_language_cfg(name),
+        Err(topiary_config::error::TopiaryConfigError::UnknownLanguage(
+            _
+        ))
     ) {
         return Ok(None);
     }
 
-    match crate::io::to_language_from_config_sync(config, name) {
+    match config.get_language(name) {
         Ok(language) => Ok(Some(Arc::new(language))),
         Err(report) => Err(report.context(FormatterError::InjectionLanguageResolution {
             language: name.to_owned(),
@@ -105,7 +106,7 @@ async fn run() -> CLIResult<()> {
                         &language,
                         skip_idempotence,
                         tolerate_parsing_errors,
-                        Some(&|name| resolve_injected_language(&cache, inner_config, name)),
+                        Some(&|name| resolve_injected_language(inner_config, name)),
                     )
                     .attach_filepath(filepath.as_deref())
                 },
@@ -153,7 +154,7 @@ async fn run() -> CLIResult<()> {
                                 skip_idempotence,
                                 tolerate_parsing_errors,
                             },
-                            Some(&|name| resolve_injected_language(&cache, inner_config, name)),
+                            Some(&|name| resolve_injected_language(inner_config, name)),
                         )?;
                     }
 
@@ -227,7 +228,8 @@ async fn run() -> CLIResult<()> {
                     false => "\u{274C}", // Cross Mark
                 }
             };
-            let sources = config.config_sources()
+            let sources = config
+                .config_sources()
                 .map(|(hint, source)| {
                     let languages_exists = bool_emoji(source.languages_exists());
                     let queries_exists =

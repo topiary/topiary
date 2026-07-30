@@ -526,7 +526,7 @@ mod tests {
 
     fn language(name: &str, formatting_query: &str, injection_query: Option<&str>) -> Language {
         let config = topiary_config::Configuration::default();
-        let config_language = config.get_language(name).unwrap();
+        let config_language = config.get_language_cfg(name).unwrap();
         let grammar = config_language.grammar().unwrap();
 
         Language {
