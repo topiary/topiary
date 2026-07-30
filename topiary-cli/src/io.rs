@@ -22,13 +22,10 @@ use topiary_core::{
     ErrorSpan, FormatterError, InjectionQuery, Language, SpanAttachment, TopiaryQuery,
 };
 
+use crate::cli::{AtLeastOneInput, ExactlyOneInput, FromStdin};
 #[cfg(feature = "nickel")]
 use crate::config::Configuration;
-use crate::{
-    cli::{AtLeastOneInput, ExactlyOneInput, FromStdin},
-    error::{CLIResult, ResultPreformat, TopiaryError},
-    language::LanguageDefinitionCache,
-};
+use crate::error::{CLIResult, ResultPreformat, TopiaryError};
 
 #[derive(Debug, Clone, Hash)]
 pub enum QuerySource {
@@ -526,10 +523,10 @@ where
 pub(crate) async fn process_inputs<F>(
     inputs: Inputs<'_>,
     process_fn: F,
-    cache: Arc<LanguageDefinitionCache>,
+    config: Arc<crate::config::Configuration>,
 ) -> CLIResult<()>
 where
-    F: Fn(InputFile, Arc<Language>, Arc<LanguageDefinitionCache>) -> Result<(), Report>
+    F: Fn(InputFile, Arc<Language>, Arc<Configuration>) -> Result<(), Report>
         + Send
         + Sync
         + 'static,
@@ -537,16 +534,21 @@ where
 {
     let (_, mut results) = async_scoped::TokioScope::scope_and_block(|scope| {
         for input in inputs {
-            let cache = cache.clone();
             let process_fn = &process_fn;
+            let config = config.clone();
             scope.spawn(async move {
                 // This happens when the input resolver cannot establish an input
                 // source, language or query file.
                 let input = input?;
                 let location = input.source().location();
                 tokio::task::block_in_place(|| {
-                    let language = cache.fetch_input(&input)?;
-                    process_fn(input, language, cache)
+                    let language_name = input.language().name.clone();
+                    let language = Arc::new(
+                        config
+                            .get_language(&language_name)
+                            .attach_filepath(location.to_path())?,
+                    );
+                    process_fn(input, language, config)
                         .map_err(|e| e.attach_filepath(location.to_path()))
                 })
             });

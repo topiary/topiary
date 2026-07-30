@@ -8,7 +8,6 @@ mod language;
 mod visualisation;
 
 use std::{
-    cell::OnceCell,
     io::{BufReader, BufWriter, Write},
     process::ExitCode,
     sync::Arc,
@@ -17,7 +16,6 @@ use std::{
 use error::Benign;
 use rootcause::prelude::ResultExt;
 use tabled::{Table, settings::Style};
-use topiary_config::error::TopiaryConfigError;
 use topiary_core::{
     FormatterError, FormatterResult, Language, Operation, SpanAttachment, check_query_coverage,
     formatter,
@@ -27,7 +25,6 @@ use crate::{
     cli::Commands,
     error::{CLIResult, exit_code},
     io::{Inputs, OutputFile, process_inputs, read_input},
-    language::LanguageDefinitionCache,
 };
 pub(crate) use config::Configuration;
 
@@ -69,16 +66,10 @@ async fn main() -> ExitCode {
 async fn run() -> CLIResult<()> {
     let args = cli::get_args()?;
 
-    let config = Configuration::new(
+    let config = Arc::new(Configuration::new(
         args.global.merge_configuration,
         args.global.configuration.as_deref(),
-    )?;
-    let cache_cell = OnceCell::new();
-    let get_cache = || {
-        cache_cell
-            .get_or_init(|| Arc::new(LanguageDefinitionCache::new()))
-            .clone()
-    };
+    )?);
 
     // Delegate by subcommand
     match args.command {
@@ -89,10 +80,9 @@ async fn run() -> CLIResult<()> {
             inputs,
         } => {
             let inputs = Inputs::new(&config, &inputs);
-            let inner_config = config.as_ref();
             process_inputs(
                 inputs,
-                move |input, language, cache| {
+                move |input, language, config| {
                     log::info!(
                         "Checking {}, as {} using {}",
                         input.source(),
@@ -106,11 +96,11 @@ async fn run() -> CLIResult<()> {
                         &language,
                         skip_idempotence,
                         tolerate_parsing_errors,
-                        Some(&|name| resolve_injected_language(inner_config, name)),
+                        Some(&|name| resolve_injected_language(&config, name)),
                     )
                     .attach_filepath(filepath.as_deref())
                 },
-                get_cache(),
+                config.clone(),
             )
             .await?;
         }
@@ -121,11 +111,10 @@ async fn run() -> CLIResult<()> {
             ..
         } => {
             let inputs = Inputs::new(&config, &inputs);
-            let inner_config = config.as_ref();
 
             process_inputs(
                 inputs,
-                move |input, language, cache| {
+                move |input, language, config| {
                     let output = OutputFile::try_from(&input)?;
 
                     log::info!(
@@ -154,7 +143,7 @@ async fn run() -> CLIResult<()> {
                                 skip_idempotence,
                                 tolerate_parsing_errors,
                             },
-                            Some(&|name| resolve_injected_language(inner_config, name)),
+                            Some(&|name| resolve_injected_language(&config, name)),
                         )?;
                     }
 
@@ -162,7 +151,7 @@ async fn run() -> CLIResult<()> {
 
                     CLIResult::Ok(())
                 },
-                get_cache(),
+                config.clone(),
             )
             .await?;
         }
@@ -172,7 +161,7 @@ async fn run() -> CLIResult<()> {
 
             process_inputs(
                 inputs,
-                |mut input, language, _cache| {
+                |mut input, language, config| {
                     let input_content = read_input(&mut input)?;
                     log::debug!(
                         "Checking {}, as {} for grammar correctness",
@@ -184,7 +173,7 @@ async fn run() -> CLIResult<()> {
 
                     Ok(())
                 },
-                get_cache(),
+                config.clone(),
             )
             .await?;
         }
@@ -194,7 +183,7 @@ async fn run() -> CLIResult<()> {
             let input = Inputs::new(&config, &input).next().unwrap()?;
             let output = OutputFile::Stdout;
 
-            let language = tokio::task::block_in_place(|| get_cache().fetch_input(&input))?;
+            let language = tokio::task::block_in_place(|| config.cache().fetch_input(&input))?;
 
             log::info!(
                 "Visualising {}, as {}, to {}",
@@ -275,7 +264,7 @@ async fn run() -> CLIResult<()> {
             let input = Inputs::new(&config, &input).next().unwrap()?;
             let output = OutputFile::Stdout;
 
-            let language = tokio::task::block_in_place(|| get_cache().fetch_input(&input))?;
+            let language = tokio::task::block_in_place(|| config.cache().fetch_input(&input))?;
 
             log::info!(
                 "Checking query coverage of {}, as {}",

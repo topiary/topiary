@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::{ops::Deref, path::Path};
@@ -12,14 +13,21 @@ use crate::error::{CLIResult, ResultPreformat};
 use crate::io::to_query_from_language;
 use crate::language::LanguageDefinitionCache;
 
+thread_local! {
+    static NICKEL_VALUES: Cell<Vec<Arc<NickelValue>>> = Cell::new(Vec::new());
+    static NEXT_ID: Cell<u32> = Cell::new(0);
+}
+
 /// Wrapper around Configuration and its raw Nickel representation.
 ///
 /// [`NickelValue`] is used for operations that require the using the Nickel AST,
 /// such as formatting or querying the configuration with Nickel-aware tooling.
+///
+/// The NickelValue is stored in thread-local storage to avoid Send+Sync issues.
 #[derive(Debug, Clone)]
 pub struct Configuration {
     inner: topiary_config::Configuration,
-    ncl: Arc<NickelValue>,
+    ncl_id: u32,
     path: Option<PathBuf>,
     cache: Arc<LanguageDefinitionCache>,
 }
@@ -28,11 +36,44 @@ impl Configuration {
     /// Create a new Configuration by fetching from the given path
     pub fn new(merge: bool, path: Option<&Path>) -> CLIResult<Self> {
         let (inner, ncl) = topiary_config::Configuration::fetch(merge, path).preformat_context()?;
+
+        // Store the NickelValue in thread-local storage
+        let ncl_id = NEXT_ID.with(|id| {
+            let current = id.get();
+            id.set(current + 1);
+            current
+        });
+
+        NICKEL_VALUES.with(|values| {
+            let mut vec = values.take();
+            vec.push(Arc::new(ncl));
+            values.set(vec);
+        });
+
         Ok(Self {
             inner,
-            ncl: Arc::new(ncl),
+            ncl_id,
             path: path.map(|p| p.to_owned()),
             cache: Arc::new(LanguageDefinitionCache::new()),
+        })
+    }
+
+    /// Get the Nickel value for this configuration
+    ///
+    /// Returns an [`Arc<NickelValue>`] which allows cheap cloning via reference counting.
+    /// The reference is guaranteed to be valid because we increment the counter on every
+    /// `Configuration::new()` call, ensuring the index is always within bounds of the thread-local storage.
+    pub fn ncl(&self) -> Arc<NickelValue> {
+        NICKEL_VALUES.with(|values| {
+            let vec = values.take();
+            // SAFETY: We have a guarantee that the index is valid because:
+            // 1. Each `Configuration` stores an `ncl_id` from `NEXT_ID`
+            // 2. Each `Configuration::new()` increments `NEXT_ID` after pushing to `NICKEL_VALUES`
+            // 3. We never remove items from `NICKEL_VALUES,` only add
+            // Therefore, the index is always valid.
+            let result = vec.get(self.ncl_id as usize).unwrap().clone();
+            values.set(vec);
+            result
         })
     }
 
@@ -132,13 +173,13 @@ impl std::fmt::Display for Configuration {
         use topiary_core::{Operation, formatter};
 
         // TODO handle verbose flag
-        let stripped = strip_metadata(self.ncl.as_ref().clone());
+        let stripped = strip_metadata((*self.ncl()).clone());
         let nickel_config = format!("{stripped}");
 
         // if errors are encountered in formatting, return
         let language = match self.get_language("nickel") {
             Ok(lang) => lang,
-            Err(_) => return write!(f, "{}", self.ncl),
+            Err(_) => return write!(f, "{}", self.ncl()),
         };
 
         let mut output = Vec::new();
@@ -152,7 +193,7 @@ impl std::fmt::Display for Configuration {
             },
             None,
         ) {
-            return write!(f, "{}", self.ncl);
+            return write!(f, "{}", self.ncl());
         }
 
         write!(f, "{}", String::from_utf8_lossy(&output))
@@ -162,7 +203,7 @@ impl std::fmt::Display for Configuration {
 #[cfg(not(feature = "nickel"))]
 impl std::fmt::Display for Configuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.ncl)
+        write!(f, "{}", self.ncl())
     }
 }
 
