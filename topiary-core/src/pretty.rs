@@ -8,6 +8,7 @@ use rootcause::prelude::ResultExt;
 
 use crate::{
     Atom, Capitalisation, EnforceIndentation, FormatterError, FormatterResult, MultiLineIndent,
+    tree_sitter::Position,
 };
 
 /// Renders a slice of [`Atom`]s into formatted source code.
@@ -94,6 +95,7 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                             content,
                             indent_level,
                             indent,
+                            original_position,
                         )?
                     }
                 };
@@ -181,6 +183,7 @@ fn render_enforced_indentation(
     content_original: &str,
     indent_level: usize,
     indent: &str,
+    start_position: &Position,
 ) -> FormatterResult<String> {
     let EnforceIndentation {
         last_line_break_significant,
@@ -251,20 +254,23 @@ fn render_enforced_indentation(
         .map(str::chars)
         .map(|s| s.take_while(|c| c.is_whitespace()));
     if let Some(common_whitespace_prefix) = common_prefix(whitespace_prefixes.clone()) {
-        // purely for warning generation
-        match common_whitespace_prefix.clone().count().cmp(
-            &whitespace_prefixes.map(Iterator::count).min().expect(
-                "whitespace_prefixes should not be empty if `common_prefix` returns `Some`.",
-            ),
-        ) {
-            Ordering::Less => println!(
-                // to do
-                "is this indentation? then you should not mix different kinds of whitespace characters."
-            ),
-            Ordering::Equal => (),
-            Ordering::Greater => panic!(
-                "the common whitespace prefix should be a substring of the shortest whitespace prefix."
-            ),
+        if log::log_enabled!(log::Level::Info) {
+            match common_whitespace_prefix.clone().count().cmp(
+                &whitespace_prefixes.map(Iterator::count).min().expect(
+                    "whitespace_prefixes should not be empty if `common_prefix` returns `Some`.",
+                ),
+            ) {
+                // do not change the log level without changing it in the if condition 6 lines above.
+                Ordering::Less => log::info!(
+                    "the multi line string starting at {} mixes different whitespace characters like spaces and tabs in its lines' whitespace prefixes. \
+                    is this supposed to be indentation? then you should not mix different whitespace characters.",
+                    start_position
+                ),
+                Ordering::Equal => (),
+                Ordering::Greater => panic!(
+                    "the common whitespace prefix should be a substring of the shortest whitespace prefix."
+                ),
+            }
         }
 
         let common_whitespace_prefix_len_utf8: usize =
@@ -324,8 +330,8 @@ where
     }))
 }
 
+#[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
     use super::*;
 
     #[test]
@@ -337,6 +343,10 @@ mod tests {
                 .map(String::as_str),
             Some("01")
         );
+    }
+
+    fn start_position() -> Position {
+        Position { row: 1, column: 1 }
     }
 
     #[test]
@@ -356,6 +366,7 @@ mod tests {
 ''",
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -382,7 +393,8 @@ mod tests {
      c
 ''",
                 3,
-                "    "
+                "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -407,6 +419,7 @@ mod tests {
                     line,
                     3,
                     "  ",
+                    &start_position(),
                 )
                 .unwrap(),
                 line,
@@ -427,6 +440,7 @@ mod tests {
                     line,
                     3,
                     "  ",
+                    &start_position(),
                 )
                 .unwrap(),
                 line,
@@ -449,6 +463,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''''",
@@ -466,6 +481,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''''",
@@ -483,6 +499,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -502,6 +519,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''''",
@@ -519,6 +537,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''''",
@@ -536,6 +555,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -555,6 +575,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -574,6 +595,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -593,6 +615,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -617,6 +640,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''''",
@@ -634,6 +658,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''''",
@@ -651,6 +676,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -670,6 +696,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''''",
@@ -687,6 +714,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''''",
@@ -704,6 +732,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -723,6 +752,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -741,6 +771,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -759,6 +790,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -783,6 +815,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -803,6 +836,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -823,6 +857,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -844,6 +879,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -864,6 +900,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -884,6 +921,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -905,6 +943,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -925,6 +964,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -945,6 +985,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -966,6 +1007,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -986,6 +1028,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1006,6 +1049,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1027,6 +1071,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1047,6 +1092,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1067,6 +1113,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1088,6 +1135,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1108,6 +1156,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1128,6 +1177,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1149,6 +1199,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1170,6 +1221,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1191,6 +1243,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1213,6 +1266,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1234,6 +1288,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1255,6 +1310,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1277,6 +1333,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1298,6 +1355,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1319,6 +1377,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1345,6 +1404,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1365,6 +1425,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1385,6 +1446,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1406,6 +1468,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1426,6 +1489,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1446,6 +1510,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1467,6 +1532,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1487,6 +1553,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1507,6 +1574,7 @@ mod tests {
                 .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1528,6 +1596,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1548,6 +1617,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1568,6 +1638,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1589,6 +1660,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1609,6 +1681,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1629,6 +1702,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1650,6 +1724,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1670,6 +1745,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1690,6 +1766,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1711,6 +1788,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1731,6 +1809,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1751,6 +1830,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1772,6 +1852,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1792,6 +1873,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1812,6 +1894,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1833,6 +1916,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1853,6 +1937,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1873,6 +1958,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1899,6 +1985,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
@@ -1925,6 +2012,7 @@ mod tests {
                     .replace('.', " "),
                 3,
                 "    ",
+                &start_position(),
             )
             .unwrap(),
             "''
