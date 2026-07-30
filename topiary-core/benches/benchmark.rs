@@ -9,7 +9,11 @@ fn setup() -> (String, Language) {
     // The grammar is loaded dynamically via `topiary-config` rather than
     // depending on the `tree-sitter-nickel` crate directly.
     let config = topiary_config::Configuration::default();
-    let grammar = config.get_language("nickel").unwrap().grammar().unwrap();
+    let grammar = config
+        .get_language_cfg("nickel")
+        .unwrap()
+        .grammar()
+        .unwrap();
 
     let language: Language = Language {
         name: "nickel".to_owned(),

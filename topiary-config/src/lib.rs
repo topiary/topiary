@@ -55,7 +55,7 @@ impl Configuration {
     /// with the path that was not found.
     /// If the configuration file exists, but cannot be parsed, this function will return a
     /// `TopiaryConfigError` with the error that occurred.
-    pub fn fetch(merge: bool, file: &Option<PathBuf>) -> TopiaryConfigResult<(Self, NickelValue)> {
+    pub fn fetch(merge: bool, file: Option<&Path>) -> TopiaryConfigResult<(Self, NickelValue)> {
         // If we have an explicit file, fail if it doesn't exist
         if let Some(path) = file
             && !path.exists()
@@ -84,7 +84,7 @@ impl Configuration {
     ///
     /// If the provided language name cannot be found in the `Configuration`, this
     /// function returns a `TopiaryConfigError`
-    pub fn get_language<T>(&self, name: T) -> TopiaryConfigResult<&Language>
+    pub fn get_language_cfg<T>(&self, name: T) -> TopiaryConfigResult<&Language>
     where
         T: AsRef<str> + fmt::Display,
     {
@@ -177,7 +177,7 @@ impl Configuration {
         T: AsRef<str> + fmt::Display,
     {
         let repos = LocalRepos::new();
-        let l = self.get_language(language)?;
+        let l = self.get_language_cfg(language)?;
         Configuration::fetch_language(l, force, &repos)?;
         Ok(())
     }
@@ -247,9 +247,9 @@ impl Configuration {
         }
 
         let sources: Vec<Source> = if merge {
-            Source::fetch_all(file)
+            Source::fetch_all(file.as_deref())
         } else {
-            match Source::fetch_one(file) {
+            match Source::fetch_one(file.as_deref()) {
                 Source::Builtin => vec![Source::Builtin],
                 source => vec![source, Source::Builtin],
             }

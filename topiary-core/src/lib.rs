@@ -231,7 +231,7 @@ pub enum Operation {
 /// // The grammar is loaded dynamically via `topiary-config` rather than
 /// // depending on the `tree-sitter-json` crate directly.
 /// let config = topiary_config::Configuration::default();
-/// let grammar = config.get_language("json").unwrap().grammar().unwrap();
+/// let grammar = config.get_language_cfg("json").unwrap().grammar().unwrap();
 ///
 /// let language: Language = Language {
 ///     name: "json".to_owned(),
@@ -526,7 +526,7 @@ mod tests {
 
     fn language(name: &str, formatting_query: &str, injection_query: Option<&str>) -> Language {
         let config = topiary_config::Configuration::default();
-        let config_language = config.get_language(name).unwrap();
+        let config_language = config.get_language_cfg(name).unwrap();
         let grammar = config_language.grammar().unwrap();
 
         Language {

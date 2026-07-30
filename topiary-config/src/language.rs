@@ -159,7 +159,7 @@ impl Language {
     /// Locate a query file for this language by well-known name (e.g. `"formatting"`,
     /// `"injections"`, matching the constants exported by `topiary-queries`).
     ///
-    /// Prefer `languages.<language>.<query_name>` config entires over implicit query paths.
+    /// Prefer `languages.<language>.<query_name>` config entries over implicit query paths.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn find_query_file(&self, query_name: &str) -> TopiaryConfigResult<PathBuf> {
         self.find_query_file_with(query_name, &LocalRepos::new())
@@ -193,7 +193,7 @@ impl Language {
         let potentials: [Option<PathBuf>; 5] = [
             std::env::var("TOPIARY_LANGUAGE_DIR").map(PathBuf::from).ok(),
             option_env!("TOPIARY_LANGUAGE_DIR").map(PathBuf::from),
-            Source::fetch_one(&None).queries_dir(),
+            Source::fetch_one(None).queries_dir(),
             Some(PathBuf::from("./topiary-queries/queries")),
             Some(PathBuf::from("../topiary-queries/queries")),
         ];
@@ -601,7 +601,7 @@ mod tests {
 
         let (config, _) = crate::Configuration::fetch(false, &Some(config_file)).unwrap();
         let formatting = config
-            .get_language("markdown")
+            .get_language_cfg("markdown")
             .unwrap()
             .config_query("formatting")
             .unwrap();
