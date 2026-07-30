@@ -41,7 +41,7 @@ topiary-tree-sitter-facade.workspace = true
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 tabled = { workspace = true }
 rootcause.workspace = true
-similar = "3.1"
+similar = { workspace = true }
 rootcause-preformat.workspace = true
 
 [dev-dependencies]

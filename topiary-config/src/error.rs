@@ -26,7 +26,11 @@ pub enum TopiaryConfigError {
         error: Box<nickel_lang_core::error::Error>,
         files: Box<Files>,
     },
-    NickelDeserialization(nickel_lang_core::deserialize::RustDeserializationError),
+    /// See [`Self::Nickel`] about [`Files`].
+    NickelDeserialization {
+        error: nickel_lang_core::deserialize::RustDeserializationError,
+        files: Box<Files>,
+    },
     #[cfg(not(target_arch = "wasm32"))]
     Fetching(TopiaryConfigFetchingError),
 }
@@ -85,7 +89,9 @@ impl fmt::Display for TopiaryConfigError {
                 f,
                 "Nickel error: {error:#?}\n\nDid you forget to add a \"priority\" annotation in your config file?"
             ),
-            TopiaryConfigError::NickelDeserialization(e) => write!(f, "Nickel error: {e:#?}"),
+            TopiaryConfigError::NickelDeserialization { error, .. } => {
+                write!(f, "Failed to deserialize Topiary configuration: {error}")
+            }
             #[cfg(not(target_arch = "wasm32"))]
             TopiaryConfigError::Fetching(e) => write!(f, "Error Fetching Language: {e}"),
         }
@@ -110,12 +116,6 @@ impl fmt::Display for TopiaryConfigFetchingError {
                 path.display()
             ),
         }
-    }
-}
-
-impl From<nickel_lang_core::deserialize::RustDeserializationError> for TopiaryConfigError {
-    fn from(e: nickel_lang_core::deserialize::RustDeserializationError) -> Self {
-        Self::NickelDeserialization(e)
     }
 }
 

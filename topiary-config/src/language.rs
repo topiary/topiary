@@ -11,11 +11,18 @@ use gix::{
     remote::{self, Direction, fetch, fetch::refmap},
     worktree::state::checkout,
 };
-use std::collections::HashSet;
 #[cfg(not(target_arch = "wasm32"))]
 use std::num::NonZero;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::Mutex;
+use std::{
+    collections::{HashMap, HashSet, hash_map::Entry},
+    path::Path,
+};
+#[cfg(not(target_arch = "wasm32"))]
+use tempfile::TempDir;
 
 use crate::error::TopiaryConfigResult;
 #[cfg(not(target_arch = "wasm32"))]
@@ -47,6 +54,13 @@ pub struct LanguageConfiguration {
 
     /// The tree-sitter source of the language, contains all that is needed to pull and compile the tree-sitter grammar
     pub grammar: Grammar,
+
+    /// Optional map of named queries (e.g. `formatting`, `injections`). When present, entries
+    /// override the disk-search chain in `find_query_file`.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[serde(default)]
+    // TODO Query source
+    pub queries: Option<HashMap<String, Query>>,
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
@@ -63,21 +77,45 @@ pub struct Grammar {
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
 #[cfg(not(target_arch = "wasm32"))]
 pub enum GrammarSource {
-    #[serde(rename = "git")]
-    Git(GitSource),
     #[serde(rename = "path")]
     Path(PathBuf),
+    #[serde(rename = "git")]
+    Git {
+        #[serde(flatten)]
+        git: GitSource,
+        #[serde(default)]
+        subdir: Option<PathBuf>,
+    },
 }
 
+/// A query file location. Either a local `path`, or a `path` inside a git checkout that
+/// Topiary will fetch and cache on demand.
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
+#[cfg(not(target_arch = "wasm32"))]
+pub struct QuerySource {
+    /// Optional git source; when present, `path` is resolved relative to the checkout root.
+    pub git: Option<GitSource>,
+    /// Path to the query file (relative to the git checkout root when `git` is set,
+    /// otherwise resolved as-is).
+    pub path: PathBuf,
+}
+
+/// A named query entry (e.g. `formatting`, `injections`). The Nickel contract is
+/// non-exhaustive so this is a struct rather than a tuple around `QuerySource` to allow
+/// future per-query metadata.
+#[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
+#[cfg(not(target_arch = "wasm32"))]
+pub struct Query {
+    pub source: QuerySource,
+}
+
+#[derive(Debug, serde::Deserialize, PartialEq, Eq, Hash, serde::Serialize, Clone)]
 #[cfg(not(target_arch = "wasm32"))]
 pub struct GitSource {
     /// The URL of the git repository that contains the tree-sitter grammar.
     pub git: String,
     /// The revision of the git repository to use.
     pub rev: String,
-    /// The sub-directory within the repository where the grammar is located. Defaults to the root of the repository
-    pub subdir: Option<String>,
 }
 
 impl Language {
@@ -89,42 +127,67 @@ impl Language {
         self.config.indent.clone()
     }
 
+    /// Look up a named `Query` entry (e.g. "formatting", "injections") on this language's config.
     #[cfg(not(target_arch = "wasm32"))]
-    #[allow(clippy::result_large_err)]
-    pub fn find_query_file(&self) -> TopiaryConfigResult<PathBuf> {
-        use crate::source::Source;
+    pub fn config_query(&self, query_name: &str) -> Option<&Query> {
+        self.config.queries.as_ref()?.get(query_name)
+    }
 
-        let name = self.name.as_str();
-
-        #[rustfmt::skip]
-        let potentials: [Option<PathBuf>; 5] = [
-            std::env::var("TOPIARY_LANGUAGE_DIR").map(PathBuf::from).ok(),
-            option_env!("TOPIARY_LANGUAGE_DIR").map(PathBuf::from),
-            Source::fetch_one(&None).queries_dir(),
-            Some(PathBuf::from("./topiary-queries/queries")),
-            Some(PathBuf::from("../topiary-queries/queries")),
-        ];
-
-        potentials
-            .into_iter()
-            .flatten()
-            .flat_map(|path| {
-                [
-                    // New layout: <dir>/<lang>/formatting.scm
-                    path.join(name).join(topiary_queries::FORMATTING_QUERY),
-                    // Old layout: <dir>/<lang>.scm
-                    path.join(format!("{name}.scm")),
-                ]
-            })
-            .find(|path| path.exists())
-            .ok_or_else(|| TopiaryConfigError::QueryFileNotFound(PathBuf::from(name)))
+    /// Resolve a [`QuerySource`] to an on-disk path
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn resolve_query_path(
+        &self,
+        source: &QuerySource,
+    ) -> Result<PathBuf, TopiaryConfigFetchingError> {
+        self.resolve_query_path_with(source, &LocalRepos::new())
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn find_injections_file(&self) -> Option<PathBuf> {
+    pub fn resolve_query_path_with(
+        &self,
+        source: &QuerySource,
+        repos: &LocalRepos,
+    ) -> Result<PathBuf, TopiaryConfigFetchingError> {
+        let Some(git) = source.git.as_ref() else {
+            return Ok(source.path.clone());
+        };
+
+        let checkout = repos.get_or_insert(git)?;
+        Ok(checkout.join(&source.path))
+    }
+
+    /// Locate a query file for this language by well-known name (e.g. `"formatting"`,
+    /// `"injections"`, matching the constants exported by `topiary-queries`).
+    ///
+    /// Prefer `languages.<language>.<query_name>` config entires over implicit query paths.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn find_query_file(&self, query_name: &str) -> TopiaryConfigResult<PathBuf> {
+        self.find_query_file_with(query_name, &LocalRepos::new())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn find_query_file_with(
+        &self,
+        query_name: &str,
+        repos: &LocalRepos,
+    ) -> TopiaryConfigResult<PathBuf> {
         use crate::source::Source;
 
-        let name = self.name.as_str();
+        let language_name = self.name.as_str();
+
+        if let Some(query) = self.config_query(query_name) {
+            let path = self
+                .resolve_query_path_with(&query.source, repos)
+                .map_err(TopiaryConfigError::Fetching)?;
+            if path.is_file() {
+                log::debug!(
+                    "detected  {language_name}.{query_name} query at {}",
+                    path.display()
+                );
+                return Ok(path);
+            }
+            return Err(TopiaryConfigError::QueryFileNotFound(path));
+        }
 
         #[rustfmt::skip]
         let potentials: [Option<PathBuf>; 5] = [
@@ -135,25 +198,50 @@ impl Language {
             Some(PathBuf::from("../topiary-queries/queries")),
         ];
 
-        potentials
+        let path_match = potentials
             .into_iter()
             .flatten()
-            .map(|path| path.join(name).join(topiary_queries::INJECTIONS_QUERY))
-            .find(|path| path.exists())
+            .flat_map(|path| {
+                let mut paths = vec![
+                    // New layout: <dir>/<lang>/<query_name>.scm
+                    path.join(language_name).join(format!("{query_name}.scm")),
+                ];
+                if query_name == topiary_queries::FORMATTING_QUERY {
+                    // Old layout: <dir>/<lang>.scm
+                    paths.push(path.join(format!("{language_name}.scm")));
+                }
+                paths
+            })
+            .find(|path| {
+                log::trace!("checking if {} exists", path.display());
+                path.exists()
+            })
+            .ok_or_else(|| TopiaryConfigError::QueryFileNotFound(PathBuf::from(language_name)))?;
+
+        // handle old formatting filepath warning here
+        if query_name == topiary_queries::FORMATTING_QUERY {
+            let lang_file = format!("{language_name}.scm");
+            if path_match.ends_with(&lang_file) {
+                log::warn!("deprecated formatter file: {lang_file}
+formatting queries with '<language_name>.scm' filenames deprecated and will not be searched for in a future release"
+                );
+            }
+        }
+        Ok(path_match)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     // Returns the library path, and ensures the parent directories exist.
     pub fn library_path(&self) -> std::io::Result<PathBuf> {
         match &self.config.grammar.source {
-            GrammarSource::Git(git_source) => {
+            GrammarSource::Git { git, .. } => {
                 let mut library_path = crate::project_dirs().cache_dir().to_path_buf();
                 library_path.push(self.name.clone());
                 std::fs::create_dir_all(&library_path)?;
 
                 // Set the output path as the revision of the grammar,
                 // with a platform-appropriate extension
-                library_path.push(git_source.rev.clone());
+                library_path.push(git.rev.clone());
                 library_path.set_extension(std::env::consts::DLL_EXTENSION);
 
                 Ok(library_path)
@@ -169,13 +257,27 @@ impl Language {
     pub fn grammar(
         &self,
     ) -> Result<topiary_tree_sitter_facade::Language, TopiaryConfigFetchingError> {
+        self.grammar_with(&LocalRepos::new())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn grammar_with(
+        &self,
+        repos: &LocalRepos,
+    ) -> Result<topiary_tree_sitter_facade::Language, TopiaryConfigFetchingError> {
         let library_path = self.library_path()?;
 
         // Ensure the compile exists
         if !library_path.is_file() {
             match &self.config.grammar.source {
-                GrammarSource::Git(git_source) => {
-                    git_source.fetch_and_compile(&self.name, library_path.clone())?
+                GrammarSource::Git { git, subdir } => {
+                    let checkout = repos.get_or_insert(git)?;
+                    GitSource::compile_grammar(
+                        &self.name,
+                        library_path.clone(),
+                        &checkout,
+                        subdir.as_deref(),
+                    )?;
                 }
                 GrammarSource::Path(_) => {
                     return Err(TopiaryConfigFetchingError::GrammarFileNotFound(
@@ -207,7 +309,6 @@ impl Language {
     }
 
     #[cfg(target_arch = "wasm32")]
-    #[allow(clippy::result_large_err)]
     pub async fn grammar(&self) -> TopiaryConfigResult<topiary_tree_sitter_facade::Language> {
         let language_name = self.name.as_str();
 
@@ -241,38 +342,54 @@ impl<T, E: Into<anyhow::Error>> GitResult<T> for Result<T, E> {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-impl GitSource {
-    fn fetch_and_compile(
-        &self,
-        name: &str,
-        library_path: PathBuf,
-    ) -> Result<(), TopiaryConfigFetchingError> {
-        log::info!("{name}: Language Grammar not found, attempting to fetch and compile it");
-        // Create a temporary directory to clone the repository to. We could
-        // cached the repositories, but the additional disk space is probably
-        // not worth the benefits gained by caching. The tempdir is deleted
-        // when dropped
-        let tmp_dir = tempfile::tempdir()?;
+/// A single shallow checkout of a [`GitSource`] holding a  [`TempDir`], deleted on drop.
+#[derive(Debug)]
+pub struct LocalRepo(TempDir);
 
-        self.fetch_and_compile_with_dir(name, library_path, false, tmp_dir.keep())
+impl LocalRepo {
+    /// Root of the checkout on disk.
+    pub fn path(&self) -> &Path {
+        self.0.path()
+    }
+}
+
+impl AsRef<Path> for LocalRepo {
+    fn as_ref(&self) -> &Path {
+        self.0.as_ref()
+    }
+}
+
+/// Process-local cache of shallow git checkouts keyed by [`GitSource`],
+/// this way a single repo hosting multiple grammars or queries is fetched once per Topiary run.
+#[derive(Debug, Default)]
+pub struct LocalRepos {
+    // TODO we should eventually omit indexing by rev
+    // and just use the normalized git url + git switch <rev>
+    repos: Mutex<HashMap<GitSource, LocalRepo>>,
+}
+
+impl LocalRepos {
+    pub fn new() -> Self {
+        Self::default()
     }
 
+    /// fetch on first use
+    pub fn get_or_insert(&self, source: &GitSource) -> Result<PathBuf, TopiaryConfigFetchingError> {
+        let mut repos = self.repos.lock().unwrap();
+        let repo = match repos.entry(source.clone()) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(slot) => slot.insert(source.fetch()?),
+        };
+        Ok(repo.path().to_path_buf())
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl GitSource {
     /// This function is heavily inspired by the one used in Nickel:
     /// <https://github.com/tweag/nickel/blob/master/git/src/lib.rs>
-    pub fn fetch_and_compile_with_dir(
-        &self,
-        name: &str,
-        library_path: PathBuf,
-        force: bool,
-        tmp_dir: PathBuf,
-    ) -> Result<(), TopiaryConfigFetchingError> {
-        if !force && library_path.is_file() {
-            log::info!("{name}: Built grammar already exists; nothing to do");
-            return Ok(());
-        }
-        let tmp_dir = tmp_dir.join(name);
-        std::fs::create_dir_all(&tmp_dir)?;
+    pub fn fetch(&self) -> Result<LocalRepo, TopiaryConfigFetchingError> {
+        let dest = tempfile::tempdir()?;
 
         // Fetch the git directory somewhere temporary.
         let git_tempdir = tempfile::tempdir().wrap_err()?;
@@ -311,10 +428,10 @@ impl GitSource {
         let tree_id = object.peel_to_tree().wrap_err()?.id();
         let mut index = repo.index_from_tree(&tree_id).wrap_err()?;
 
-        log::info!("{}: Checking out {} {}", name, self.git, self.rev);
+        log::info!("Checking out {} {}", self.git, self.rev);
         checkout(
             &mut index,
-            &tmp_dir,
+            dest.path(),
             repo.objects.clone(),
             &Discard,
             &Discard,
@@ -327,14 +444,21 @@ impl GitSource {
         .wrap_err()?;
         index.write(Default::default()).wrap_err()?;
 
-        // Update the build path for grammars that are not defined at the repo root
-        let grammar_path = match self.subdir.clone() {
-            // Some grammars are in a subdirectory, go there
-            Some(subdir) => tmp_dir.join(subdir),
-            None => tmp_dir,
+        Ok(LocalRepo(dest))
+    }
+
+    /// Compile the tree-sitter grammar rooted at `checkout` + optional `subdir`.
+    pub fn compile_grammar(
+        name: &str,
+        library_path: PathBuf,
+        checkout: &Path,
+        subdir: Option<&Path>,
+    ) -> Result<(), TopiaryConfigFetchingError> {
+        let grammar_path = match subdir {
+            Some(subdir) => checkout.join(subdir),
+            None => checkout.to_path_buf(),
         };
 
-        // Build grammar
         log::info!("{name}: Building grammar");
         let mut loader =
             tree_sitter_loader::Loader::new().map_err(TopiaryConfigFetchingError::Build)?;
@@ -361,5 +485,146 @@ fn source_object_id(source: &refmap::Source) -> Result<ObjectId> {
                 .wrap_err()?
                 .to_owned())
         }
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use std::assert_matches;
+
+    use super::*;
+    use nickel_lang_core::deserialize::from_str as from_nickel_str;
+
+    #[test]
+    fn language_local_sources() {
+        let src = r#"
+{
+  extensions = ["ncl"],
+  grammar.source.path = "/tmp/grammar.so",
+  queries.formatting.source.path = "/path/to/nickel/formatting.scm",
+}
+        "#;
+        let config: LanguageConfiguration = from_nickel_str(src).unwrap();
+
+        assert_matches!(
+            &config.grammar,
+            Grammar {
+                source: GrammarSource::Path(p),
+                symbol: None,
+             }
+             if p == Path::new("/tmp/grammar.so")
+        );
+
+        let formatting = config.queries.unwrap().get("formatting").cloned().unwrap();
+        assert_matches!(
+            &formatting,
+            Query { source: QuerySource { git: None, path } } if *path == Path::new("/path/to/nickel/formatting.scm")
+        );
+    }
+
+    #[test]
+    fn language_git_sources() {
+        let src = r#"
+{
+  extensions | default = ["md"],
+  grammar.source | default = {
+    git = {
+      git = "https://github.com/tree-sitter-grammars/tree-sitter-markdown.git",
+      rev = "c3570720f7f7bbad22fe96603f106276618e0cf5",
+      subdir = "tree-sitter-markdown",
+      nixHash = "sha256-wQKcqU0V6gHj84qOkUwdXsBW3f6MNfJMFxuGTucAgh8=",
+    },
+  },
+  queries = {
+    formatting.source = {
+      git = {
+        git = "https://github.com/topiary/topiary.git",
+        rev = "d2c79b9ecd341d40aa0baf87f4a761ae242dfa67",
+      },
+      path = "topiary-queries/queries/markdown/formatting.scm"
+    },
+    injections.source = {
+      git = formatting.source.git,
+      path = "topiary-queries/queries/markdown/injections.scm",
+    },
+  }
+}
+        "#;
+        let config: LanguageConfiguration = from_nickel_str(src).unwrap();
+
+        assert!(config.extensions.contains("md"));
+
+        let expected_git = GitSource {
+            git: "https://github.com/tree-sitter-grammars/tree-sitter-markdown.git".to_string(),
+            rev: "c3570720f7f7bbad22fe96603f106276618e0cf5".to_string(),
+        };
+        assert_matches!(
+            config.grammar.source,
+            GrammarSource::Git {
+                git,
+                subdir: Some(p),
+            } if git == expected_git && p == Path::new("tree-sitter-markdown")
+        );
+
+        let queries = config.queries.unwrap();
+
+        let expected_git = GitSource {
+            git: "https://github.com/topiary/topiary.git".to_string(),
+            rev: "d2c79b9ecd341d40aa0baf87f4a761ae242dfa67".to_string(),
+        };
+        let formatting = queries.get("formatting").unwrap();
+        assert_matches!(
+            formatting,
+            Query {
+                source: QuerySource { git: Some(git), path }
+            } if git == &expected_git && path.ends_with("formatting.scm")
+        );
+
+        let injections = queries.get("injections").unwrap();
+        assert_matches!(
+            injections,
+            Query {
+                source: QuerySource { git: Some(git), path }
+            } if git == &expected_git && path.ends_with("injections.scm")
+        );
+    }
+
+    #[test]
+    fn languages_merge_built_queries() {
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let config_file = tmp_dir.path().join("languages.ncl");
+        std::fs::write(
+            &config_file,
+            r#"{ languages.markdown.queries.formatting.source.path = "/tmp/formatting.scm" }"#,
+        )
+        .unwrap();
+
+        let (config, _) = crate::Configuration::fetch(false, &Some(config_file)).unwrap();
+        let formatting = config
+            .get_language("markdown")
+            .unwrap()
+            .config_query("formatting")
+            .unwrap();
+
+        assert_matches!(
+            &formatting.source,
+            QuerySource { git: None, path } if path == Path::new("/tmp/formatting.scm")
+        );
+    }
+
+    #[test]
+    fn grammar_symbol_override() {
+        let src = r#"
+{
+  source = { path = "/tmp/grammar.so" },
+  symbol = "tree_sitter_query"
+}
+        "#;
+        let grammar: Grammar = from_nickel_str(src).unwrap();
+        assert_eq!(grammar.symbol.as_deref(), Some("tree_sitter_query"));
+        assert_eq!(
+            grammar.source,
+            GrammarSource::Path(PathBuf::from("/tmp/grammar.so"))
+        );
     }
 }

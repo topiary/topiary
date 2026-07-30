@@ -154,6 +154,11 @@ pub enum Commands {
     /// Print the current configuration
     #[command(alias = "cfg", display_order = 3)]
     Config {
+        /// Return a specific field path of the configuration.
+        /// e.g., `topiary config --field languages.json.grammar.source`.
+        #[arg(short, long, value_name = "FIELD_PATH")]
+        field: Option<String>,
+
         #[command(subcommand)]
         command: Option<ConfigCommand>,
     },

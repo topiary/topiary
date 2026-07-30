@@ -8,7 +8,10 @@ use rootcause_preformat::PreformatReportExt;
 use std::{any::Any, error, fmt, io, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
 
-use nickel_lang_core::error::report::{ColorOpt, report_as_str};
+use nickel_lang_core::error::{
+    Diagnostic,
+    report::{ColorOpt, report_as_str},
+};
 
 use similar::TextDiff;
 use topiary_core::FormatterError;
@@ -194,7 +197,7 @@ pub(crate) trait ResultPreformat<T, C> {
 
 impl<T, C: 'static> ResultPreformat<T, C> for Result<T, C>
 where
-    C: 'static,
+    C: 'static + fmt::Debug,
     for<'a> TopiaryError: From<&'a C>,
 {
     fn preformat_context(self) -> Result<T, Report<TopiaryError>> {
@@ -211,6 +214,17 @@ where
                             (**error).clone(),
                             ColorOpt::Never,
                         )),
+                        // NOTE: NickelDeserialization does not currently support IntoDiagnostics
+                        // so the rendering is not as fancy
+                        TopiaryConfigError::NickelDeserialization { error, files } => {
+                            Some(report_as_str(
+                                &mut (**files).clone(),
+                                Diagnostic::error()
+                                    .with_message(error)
+                                    .with_note("Failed to deserialize Topiary configuration."),
+                                ColorOpt::Never,
+                            ))
+                        }
                         _ => None,
                     });
                 let mut report = report!(e).preformat();

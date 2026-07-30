@@ -13,14 +13,17 @@ use std::{
 
 use language::{Language, LanguageConfiguration};
 use nickel_lang_core::{
-    error::NullReporter, eval::cache::CacheImpl, eval::value::NickelValue, program::ProgramBuilder,
+    error::NullReporter,
+    eval::cache::CacheImpl,
+    eval::value::NickelValue,
+    program::{Program, ProgramBuilder},
 };
 use serde::Deserialize;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::error::TopiaryConfigFetchingError;
 #[cfg(not(target_arch = "wasm32"))]
-use tempfile::tempdir;
+use crate::language::LocalRepos;
 
 use crate::error::{TopiaryConfigError, TopiaryConfigResult};
 
@@ -52,7 +55,6 @@ impl Configuration {
     /// with the path that was not found.
     /// If the configuration file exists, but cannot be parsed, this function will return a
     /// `TopiaryConfigError` with the error that occurred.
-    #[allow(clippy::result_large_err)]
     pub fn fetch(merge: bool, file: &Option<PathBuf>) -> TopiaryConfigResult<(Self, NickelValue)> {
         // If we have an explicit file, fail if it doesn't exist
         if let Some(path) = file
@@ -82,7 +84,6 @@ impl Configuration {
     ///
     /// If the provided language name cannot be found in the `Configuration`, this
     /// function returns a `TopiaryConfigError`
-    #[allow(clippy::result_large_err)]
     pub fn get_language<T>(&self, name: T) -> TopiaryConfigResult<&Language>
     where
         T: AsRef<str> + fmt::Display,
@@ -93,7 +94,7 @@ impl Configuration {
             .ok_or(TopiaryConfigError::UnknownLanguage(name.to_string()))
     }
 
-    /// Prefetch a language per its configuration
+    /// Prefetch a language's grammar and queries per its configuration.
     ///
     /// # Errors
     ///
@@ -102,26 +103,34 @@ impl Configuration {
     fn fetch_language(
         language: &Language,
         force: bool,
-        tmp_dir: &Path,
+        repos: &LocalRepos,
     ) -> Result<(), TopiaryConfigFetchingError> {
         match &language.config.grammar.source {
-            language::GrammarSource::Git(git_source) => {
+            language::GrammarSource::Git { git, subdir } => {
                 let library_path = language.library_path()?;
 
                 log::info!(
                     "Fetch \"{}\": Configured via Git ({} ({})); to {}",
                     language.name,
-                    git_source.git,
-                    git_source.rev,
+                    git.git,
+                    git.rev,
                     library_path.display()
                 );
 
-                git_source.fetch_and_compile_with_dir(
-                    &language.name,
-                    library_path,
-                    force,
-                    tmp_dir.to_path_buf(),
-                )
+                if !force && library_path.is_file() {
+                    log::info!(
+                        "{}: Built grammar already exists; nothing to do",
+                        language.name
+                    );
+                } else {
+                    let checkout = repos.get_or_insert(git)?;
+                    language::GitSource::compile_grammar(
+                        &language.name,
+                        library_path,
+                        &checkout,
+                        subdir.as_deref(),
+                    )?;
+                }
             }
 
             language::GrammarSource::Path(path) => {
@@ -132,14 +141,28 @@ impl Configuration {
                 );
 
                 if !path.exists() {
-                    Err(TopiaryConfigFetchingError::GrammarFileNotFound(
+                    return Err(TopiaryConfigFetchingError::GrammarFileNotFound(
                         path.to_path_buf(),
-                    ))
-                } else {
-                    Ok(())
+                    ));
                 }
             }
         }
+
+        // Ensure `topiary prefetch` covers both grammars and queries.
+        if let Some(queries) = language.config.queries.as_ref() {
+            for (query_name, query) in queries {
+                if query.source.git.is_none() {
+                    continue;
+                }
+                log::info!(
+                    "Fetch \"{}\": prefetching {query_name} query",
+                    language.name,
+                );
+                language.resolve_query_path_with(&query.source, repos)?;
+            }
+        }
+
+        Ok(())
     }
 
     /// Prefetches and builds the desired language.
@@ -149,15 +172,13 @@ impl Configuration {
     ///
     /// If the language could not be found or the Grammar could not be build, a `TopiaryConfigError` is returned.
     #[cfg(not(target_arch = "wasm32"))]
-    #[allow(clippy::result_large_err)]
     pub fn prefetch_language<T>(&self, language: T, force: bool) -> TopiaryConfigResult<()>
     where
         T: AsRef<str> + fmt::Display,
     {
-        let tmp_dir = tempdir()?;
-        let tmp_dir_path = tmp_dir.path().to_owned();
+        let repos = LocalRepos::new();
         let l = self.get_language(language)?;
-        Configuration::fetch_language(l, force, &tmp_dir_path)?;
+        Configuration::fetch_language(l, force, &repos)?;
         Ok(())
     }
 
@@ -168,10 +189,8 @@ impl Configuration {
     ///
     /// If any Grammar could not be build, a `TopiaryConfigError` is returned.
     #[cfg(not(target_arch = "wasm32"))]
-    #[allow(clippy::result_large_err)]
     pub fn prefetch_languages(&self, force: bool) -> TopiaryConfigResult<()> {
-        let tmp_dir = tempdir()?;
-        let tmp_dir_path = tmp_dir.path().to_owned();
+        let repos = LocalRepos::new();
 
         // When the `parallel` feature is enabled (which it is by default), we use Rayon to fetch
         // and compile all found grammars concurrently.
@@ -182,7 +201,7 @@ impl Configuration {
             use rayon::prelude::*;
             self.languages
                 .par_iter()
-                .map(|l| Configuration::fetch_language(l, force, &tmp_dir_path))
+                .map(|l| Configuration::fetch_language(l, force, &repos))
                 .collect::<Result<Vec<_>, TopiaryConfigFetchingError>>()?;
         }
 
@@ -190,11 +209,10 @@ impl Configuration {
         {
             self.languages
                 .iter()
-                .map(|l| Configuration::fetch_language(l, force, &tmp_dir_path))
+                .map(|l| Configuration::fetch_language(l, force, &repos))
                 .collect::<Result<Vec<_>, TopiaryConfigFetchingError>>()?;
         }
 
-        tmp_dir.close()?;
         Ok(())
     }
 
@@ -203,7 +221,6 @@ impl Configuration {
     /// # Errors
     ///
     /// If the file extension is not supported, a `FormatterError` will be returned.
-    #[allow(clippy::result_large_err)]
     pub fn detect<P: AsRef<Path>>(&self, path: P) -> TopiaryConfigResult<&Language> {
         let pb = &path.as_ref().to_path_buf();
         if let Some(extension) = pb.extension().and_then(|ext| ext.to_str()) {
@@ -217,7 +234,51 @@ impl Configuration {
         Err(TopiaryConfigError::NoExtension(pb.clone()))
     }
 
-    #[allow(clippy::result_large_err)]
+    /// Evaluate `field_path` using [`Program::parse_field_path`]
+    pub fn extract_field(
+        merge: bool,
+        file: &Option<PathBuf>,
+        field_path: &str,
+    ) -> TopiaryConfigResult<NickelValue> {
+        if let Some(path) = file
+            && !path.exists()
+        {
+            return Err(TopiaryConfigError::FileNotFound(path.to_path_buf()));
+        }
+
+        let sources: Vec<Source> = if merge {
+            Source::fetch_all(file)
+        } else {
+            match Source::fetch_one(file) {
+                Source::Builtin => vec![Source::Builtin],
+                source => vec![source, Source::Builtin],
+            }
+        };
+
+        let mut builder = ProgramBuilder::new()
+            .with_trace(std::io::stderr())
+            .with_reporter(NullReporter {});
+        for source in sources {
+            builder = source.add_to(builder);
+        }
+        let mut program: Program<CacheImpl> = builder.build()?;
+
+        let field = program
+            .parse_field_path(field_path.to_owned())
+            .map_err(|error| TopiaryConfigError::Nickel {
+                error: Box::new(error.into()),
+                files: Box::new(program.files()),
+            })?;
+        program.field = field;
+
+        program
+            .eval_full_for_export()
+            .map_err(|error| TopiaryConfigError::Nickel {
+                error: Box::new(error),
+                files: Box::new(program.files()),
+            })
+    }
+
     fn parse_and_merge(sources: &[Source]) -> TopiaryConfigResult<(Self, NickelValue)> {
         let mut builder = ProgramBuilder::new()
             .with_trace(std::io::stderr())
@@ -234,12 +295,16 @@ impl Configuration {
                 files: Box::new(program.files()),
             })?;
 
-        let serde_config = SerdeConfiguration::deserialize(term.clone())?;
+        let serde_config = SerdeConfiguration::deserialize(term.clone()).map_err(|error| {
+            TopiaryConfigError::NickelDeserialization {
+                error,
+                files: Box::new(program.files()),
+            }
+        })?;
 
         Ok((serde_config.into(), term))
     }
 
-    #[allow(clippy::result_large_err)]
     fn parse(source: Source) -> TopiaryConfigResult<(Self, NickelValue)> {
         let mut program = source
             .add_to(
@@ -256,7 +321,12 @@ impl Configuration {
                 files: Box::new(program.files()),
             })?;
 
-        let serde_config = SerdeConfiguration::deserialize(term.clone())?;
+        let serde_config = SerdeConfiguration::deserialize(term.clone()).map_err(|error| {
+            TopiaryConfigError::NickelDeserialization {
+                error,
+                files: Box::new(program.files()),
+            }
+        })?;
 
         Ok((serde_config.into(), term))
     }
