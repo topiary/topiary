@@ -248,47 +248,54 @@ fn render_enforced_indentation(
         return Ok(format!("{start}{end}"));
     }
 
-    let whitespace_prefixes = content
-        .clone()
-        .filter(|s| !s.chars().all(char::is_whitespace))
-        .map(str::chars)
-        .map(|s| s.take_while(|c| c.is_whitespace()));
-    if let Some(common_whitespace_prefix) = common_prefix(whitespace_prefixes.clone()) {
-        if log::log_enabled!(log::Level::Info) {
-            match common_whitespace_prefix.clone().count().cmp(
-                &whitespace_prefixes.map(Iterator::count).min().expect(
-                    "whitespace_prefixes should not be empty if `common_prefix` returns `Some`.",
-                ),
-            ) {
-                // do not change the log level without changing it in the if condition 6 lines above.
-                Ordering::Less => log::info!(
-                    "the multi line string starting at {} mixes different whitespace characters like spaces and tabs in its lines' whitespace prefixes. \
+    let mut common_whitespace_prefix_len: usize = 0;
+    let mut common_whitespace_prefix_len_utf8 = 0;
+    let mut content_collected: Vec<_> = content.clone().map(str::chars).collect();
+    loop {
+        let mut nexts = content_collected.iter_mut().filter_map(Iterator::next);
+        if let Some(first) = nexts.next()
+            && first.is_whitespace()
+            && nexts.all(|c| c == first)
+        {
+            common_whitespace_prefix_len += 1;
+            common_whitespace_prefix_len_utf8 += first.len_utf8();
+        } else {
+            break;
+        }
+    }
+
+    if log::log_enabled!(log::Level::Info) {
+        match content
+            .clone()
+            .filter(|s| !s.chars().all(char::is_whitespace))
+            .map(str::chars)
+            .map(|s| s.take_while(|c| c.is_whitespace()))
+            .map(Iterator::count)
+            .min()
+            .map(|min_whitespace_prefix_len| {
+                common_whitespace_prefix_len.cmp(&min_whitespace_prefix_len)
+            }) {
+            None => (), // no lines other than whitespace lines
+            // do not change the log level without changing it in the if condition 6 lines above.
+            Some(Ordering::Less) => log::info!(
+                "the multi line string starting at {} mixes different whitespace characters like spaces and tabs in its lines' whitespace prefixes. \
                     is this supposed to be indentation? then you should not mix different whitespace characters.",
-                    start_position
-                ),
-                Ordering::Equal => (),
-                Ordering::Greater => panic!(
-                    "the common whitespace prefix should be a substring of the shortest whitespace prefix."
-                ),
-            }
+                start_position
+            ),
+            Some(Ordering::Equal) => (),
+            Some(Ordering::Greater) => panic!(
+                "the common whitespace prefix should be a substring of the shortest whitespace prefix."
+            ),
         }
+    }
 
-        let common_whitespace_prefix_len_utf8: usize =
-            common_whitespace_prefix.map(char::len_utf8).sum();
-        let content =
-            content.map(|line| &line[line.len().min(common_whitespace_prefix_len_utf8)..]);
+    let content = content.map(|line| &line[line.len().min(common_whitespace_prefix_len_utf8)..]);
 
-        for line in content {
-            if line.is_empty() {
-                writeln!(buffer).unwrap();
-            } else {
-                write!(buffer, "\n{}{line}", indent.repeat(indent_level + 1)).unwrap();
-            }
-        }
-    } else {
-        // no lines other than whitespace lines
-        for _ in content {
+    for line in content {
+        if line.is_empty() {
             writeln!(buffer).unwrap();
+        } else {
+            write!(buffer, "\n{}{line}", indent.repeat(indent_level + 1)).unwrap();
         }
     }
     #[allow(clippy::nonminimal_bool)]
@@ -299,51 +306,9 @@ fn render_enforced_indentation(
     Ok(buffer)
 }
 
-/// returns an iterator over the longest common prefix shared by all the
-/// inner iterables of `list_of_lists`, or `none` if `list_of_lists` is empty.
-///
-/// the prefix is computed element-wise: items at the same position in each
-/// inner iterable are compared, and the iteration stops as soon as any pair
-/// differs (or one of the inner iterables is exhausted).
-fn common_prefix<TSS>(
-    list_of_lists: TSS,
-) -> Option<impl Iterator<Item = <TSS::Item as IntoIterator>::Item> + Clone>
-where
-    TSS: IntoIterator,
-    TSS::Item: IntoIterator,
-    <TSS::Item as IntoIterator>::IntoIter: Clone,
-    <TSS::Item as IntoIterator>::Item: PartialEq,
-{
-    let mut iters = list_of_lists
-        .into_iter()
-        .map(IntoIterator::into_iter)
-        .collect::<Vec<_>>();
-    if iters.is_empty() {
-        return None;
-    }
-    Some(std::iter::from_fn(move || {
-        let mut items = iters.iter_mut().map(Iterator::next);
-        let first = items.next().expect("`iters` should not be empty.")?;
-        items
-            .all(|item| item.as_ref() == Some(&first))
-            .then_some(first)
-    }))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_common_prefix() {
-        assert_eq!(
-            common_prefix(["012a", "01b", "0123c"].map(str::chars))
-                .map(Iterator::collect::<String>)
-                .as_ref()
-                .map(String::as_str),
-            Some("01")
-        );
-    }
 
     fn start_position() -> Position {
         Position { row: 1, column: 1 }
@@ -2018,6 +1983,56 @@ mod tests {
             "''
                 a
                  
+            ''",
+        );
+    }
+
+    #[test]
+    fn test_render_enforced_indentation_mixed_whitespace0() {
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+                     a
+                    \t
+                ''",
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                 a
+                \t
+            ''",
+        );
+    }
+
+    #[test]
+    fn test_render_enforced_indentation_mixed_whitespace1() {
+        assert_eq!(
+            render_enforced_indentation(
+                &EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+                     a
+                    \t
+                ''",
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                 a
+                \t
             ''",
         );
     }
