@@ -15,9 +15,9 @@ in
   inherit (topiaryPkgs)
     clippy
     fmt
-    topiary-core
     audit
     benchmark
+    workspace-tests
     topiary-cli
     ;
 

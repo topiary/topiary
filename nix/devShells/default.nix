@@ -21,7 +21,7 @@
       inherit (checks)
         clippy
         fmt
-        topiary-core
+        workspace-tests
         topiary-cli
         ;
     };
