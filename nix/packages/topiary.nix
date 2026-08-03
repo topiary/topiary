@@ -4,6 +4,10 @@
   craneLib,
   prefetchLanguagesFile,
   prefetchLanguagesNickelFile,
+  prefetchLanguages,
+  generateNcl,
+  fromNickelFile,
+  topiaryLib,
 }:
 
 let
@@ -284,6 +288,88 @@ let
       };
     };
 
+  # This runs the Topiary CLI in a controlled PTY for stable output
+  # while testing in CI (90 columns and no ANSI extensions)
+  topiary-wrapped = pkgs.writeShellApplication {
+    name = "topiary-wrapped";
+
+    runtimeInputs = [
+      topiary-cli
+      pkgs.expect
+    ];
+
+    text = ''
+      export COLUMNS=90
+      export NO_COLOR=1
+
+      unbuffer topiary "$@"
+    '';
+  };
+
+  # Topiary CLI wrapped with a declaratively-configured `languages.ncl`.
+  #
+  # This is a PoC for the Home Manager module proposed in
+  # https://github.com/topiary/bud/discussions/5#discussioncomment-16902980 .
+  # The option schema lives in `nix/modules/topiary.nix`; here we evaluate it
+  # with `lib.evalModules`, then turn the resulting config into a wrapped
+  # package (generated `languages.ncl` with grammar sources normalised to
+  # store paths, plus a `TOPIARY_LANGUAGE_DIR` for any custom queries).
+  #
+  #   mkTopiaryWithNixConfig {
+  #     programs.topiary = {
+  #       includeDefaultLanguages = true;
+  #       settings.languages.foo = {
+  #         extensions = [ "foo" ];
+  #         indent = "  ";                          # optional
+  #         grammar = {
+  #           symbol = "tree_sitter_foo";           # optional
+  #           package = pkgs.tree-sitter-grammars.tree-sitter-foo;  # OR
+  #           source.git = { git = "..."; rev = "..."; nixHash = "sha256-..."; };
+  #         };
+  #         query.formatting = ./foo.scm;           # optional
+  #       };
+  #     };
+  #   }
+  mkTopiaryWithNixConfig =
+    settings:
+    let
+      inherit (pkgs.lib) mkDefault;
+
+      eval = pkgs.lib.evalModules {
+        specialArgs = { inherit pkgs; };
+        modules = [
+          ../modules/topiary.nix
+          { programs.topiary.package = mkDefault topiary-cli; }
+          settings
+        ];
+      };
+      cfg = eval.config.programs.topiary;
+
+      configInfo = topiaryLib.evalConfig { inherit cfg; };
+      
+      wrapped = topiaryLib.wrapWithConfigFile {
+        package = cfg.package;
+        inherit (configInfo) configFile;
+        languageDir = if configInfo.hasCustomQueries then configInfo.queriesDir else null;
+      };
+    in
+    wrapped.overrideAttrs (old: {
+      name = "topiary-with-nix-config-${cfg.package.version}";
+      pname = "topiary-with-nix-config";
+      inherit (cfg.package) version;
+      passthru = (old.passthru or {}) // {
+        inherit (configInfo) configFile queriesDir;
+        config = cfg;
+      };
+      meta = cfg.package.meta or { } // {
+        mainProgram = "topiary";
+      };
+    });
+
+  # Instance built from the declarative settings in `nix/topiary-config.nix`,
+  # evaluated through the option schema with `lib.evalModules`.
+  topiary-with-nix-config = mkTopiaryWithNixConfig ../topiary-config.nix;
+
 in
 {
   inherit
@@ -301,6 +387,8 @@ in
     mdbook-manmunge
     topiary-book
     topiary-manpages
+    topiary-wrapped
+    topiary-with-nix-config
     ;
 
   default = topiary-cli;

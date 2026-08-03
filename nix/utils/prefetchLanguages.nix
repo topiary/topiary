@@ -7,13 +7,10 @@
 {
   lib,
   fetchgit,
-  nickel,
-  runCommand,
-  writeText,
   tree-sitter,
   toJSONFile,
-  toNickelValue,
   fromNickelFile,
+  generateNcl,
 }:
 
 let
@@ -21,16 +18,11 @@ let
     attrNames
     concatStringsSep
     mapAttrs
-    toFile
-    readFile
-    toJSON
-    fromJSON
     baseNameOf
     ;
   inherit (lib) warn;
   inherit (lib.strings) removeSuffix;
   inherit (lib.attrsets) updateManyAttrsByPath;
-  inherit (lib.attrsets) mapAttrsToList;
 
   prefetchLanguageSourceGit =
     name: source:
@@ -51,12 +43,13 @@ let
 
   prefetchLanguageSource =
     name: source:
-    if source ? "path" then
-      { inherit (source) path; }
-    else if source ? "git" then
+    # If the user correctly provided *only* a git source, prefetch it and convert it to a path.
+    # Otherwise, pass the raw source through unmodified so that Topiary's native Nickel
+    # `languages.ncl` contract can handle any errors (e.g. conflicting keys, missing keys).
+    if (source ? "git" && !(source ? "path")) then
       { path = "${prefetchLanguageSourceGit name source.git}/parser"; }
     else
-      throw ("Unsupported Topiary language sources: " ++ concatStringsSep ", " (attrNames source));
+      source;
 
   updateByPath = path: update: updateManyAttrsByPath [ { inherit path update; } ];
 
@@ -92,36 +85,6 @@ let
       prefetchLanguages (fromNickelFile topiaryConfigFile)
     );
 
-  # Convert a single language config to Nickel source with | default annotations
-  languageToNickel =
-    name: lang:
-    let
-      fields = [
-        "extensions | default = ${toNickelValue lang.extensions}"
-      ]
-      ++ lib.optional (lang ? indent) "indent | default = ${toNickelValue lang.indent}"
-      ++ [
-        (
-          let
-            grammarFields = [
-              "source | default = ${toNickelValue lang.grammar.source}"
-            ]
-            ++ lib.optional (lang.grammar ? symbol) "symbol = ${toNickelValue lang.grammar.symbol}";
-          in
-          "grammar = { ${concatStringsSep ", " grammarFields} }"
-        )
-      ];
-    in
-    "${name} = {\n      ${concatStringsSep ",\n      " fields},\n    }";
-
-  ## HACK: The following function exists because Nickel has no native way to
-  ## export/convert to its own source format. We therefore reconstruct Nickel
-  ## source from a Nix attribute set, manually re-adding `| default`
-  ## annotations. This is fragile: if the shape of the Topiary configuration
-  ## changes (e.g., new per-language fields), this function must be updated to
-  ## match. Ideally, Nickel would support `--format nickel` in `nickel export`,
-  ## which would make all of this unnecessary.
-
   /**
     Same as `prefetchLanguages`, but expects a path to a Nickel file, and
     produces a path to a Nickel file with `| default` annotations preserved.
@@ -136,17 +99,10 @@ let
   */
   prefetchLanguagesNickelFile =
     topiaryConfigFile:
-    let
+    generateNcl {
+      name = "${removeSuffix ".ncl" (baseNameOf topiaryConfigFile)}-prefetched.ncl";
       config = prefetchLanguages (fromNickelFile topiaryConfigFile);
-      body = concatStringsSep ",\n\n    " (mapAttrsToList languageToNickel config.languages);
-    in
-    writeText "${removeSuffix ".ncl" (baseNameOf topiaryConfigFile)}-prefetched.ncl" ''
-      {
-        languages = {
-          ${body},
-        }
-      }
-    '';
+    };
 
 in
 {

@@ -48,5 +48,10 @@
       lib = forAllSystems (system: topiaryNix.${system}.lib);
       checks = forAllSystems (system: topiaryNix.${system}.checks);
       devShells = forAllSystems (system: topiaryNix.${system}.devShells);
+
+      homeManagerModules = rec {
+        topiary = import ./nix/modules/home-manager.nix { inherit topiaryNix; };
+        default = topiary;
+      };
     };
 }

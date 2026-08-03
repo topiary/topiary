@@ -4,6 +4,10 @@
   craneLib,
   prefetchLanguagesFile,
   prefetchLanguagesNickelFile,
+  prefetchLanguages,
+  generateNcl,
+  fromNickelFile,
+  topiaryLib,
 }:
 
 let
@@ -15,6 +19,10 @@ let
       craneLib
       prefetchLanguagesFile
       prefetchLanguagesNickelFile
+      prefetchLanguages
+      generateNcl
+      fromNickelFile
+      topiaryLib
       ;
   };
 in
