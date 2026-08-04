@@ -27,16 +27,16 @@ static injected language name:
 ```scheme
 (
   (ocaml) @injection.content
-  (#injection_language! "ocaml")
+  (#set! injection.language "ocaml")
 )
 ```
 
 The `@injection.content` capture marks the host node whose source text
 will be formatted by the injected language. The
-`#injection_language!` predicate declares the Topiary language
+`#set! injection.language` property declares the Topiary language
 identifier to use for that captured content.
 
-Patterns without `#injection_language!` are skipped with a warning.
+Patterns without `#set! injection.language` are skipped with a warning.
 Patterns without `@injection.content` do not inject anything.
 
 Dynamic language selection is also supported. For example, taking the language name from a Markdown code fence can be done using the `@injection.language` capture:
@@ -50,7 +50,7 @@ Dynamic language selection is also supported. For example, taking the language n
 )
 ```
 
-Topiary will check for `#injection_language!` first, and if absent, it will fall back to using the text of the `@injection.language` captured node.
+Topiary will check for `#set! injection.language` first, and if absent, it will fall back to using the text of the `@injection.language` captured node.
 
 ## Formatting model
 

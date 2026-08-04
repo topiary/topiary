@@ -170,7 +170,7 @@ pub type FormatterResult<T, E = FormatterError> = Result<T, rootcause::Report<E>
 /// Resolves an injected language name to a Topiary language definition.
 ///
 /// The input is the language name declared by an injection query's
-/// `#injection_language!` predicate.
+/// `#set! injection.language` predicate.
 ///
 /// Return `Ok(Some(language))` when the language is available. Return
 /// `Ok(None)` when the resolver ran successfully but does not know that
