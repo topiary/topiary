@@ -5,8 +5,9 @@ const CHANGELOG_MD: path = $ROOT_DIR | path join "CHANGELOG.md"
 
 export def main [
     pr_ref?: oneof<int, string> # PR number, url, or feature branch name
-    --save
-    --section: string = "Changed"
+    --save # save the changes back to CHANGELOG.md
+    --section: string = "Changed" # the "Unreleased" h3 section to add the entry to
+    --no-cc-header # strip the leading conventional commit header: 'feat(core): bla bla'
 ] {
     # default to feature branch name if $pr_ref is not provided
     let $pr_ref = $pr_ref | default (git rev-parse --abbrev-ref HEAD)
@@ -42,7 +43,15 @@ export def main [
         gh pr view $pr_ref --json title,url,number
         | from json
     )
-    let list_item = $"- [#($pr.number)]\(($pr.url)) ($pr.title)"
+
+
+    # strip conventional commit header and titlecase the first word
+    let title = if $no_cc_header {
+        $pr.title | str replace -r '^\S+: ?' ''
+    } else {
+        $pr.title
+    } | str title-case
+    let list_item = $"- [#($pr.number)]\(($pr.url)) ($title)"
 
     # Split the raw changelog into lines
     mut changelog_lines: list<string> = ($changelog_raw | split row "\n")
