@@ -47,10 +47,10 @@ export def main [
 
     # strip conventional commit header and titlecase the first word
     let title = if $no_cc_header {
-        $pr.title | str replace -r '^\S+: ?' ''
+        $pr.title | str replace --regex '^\S+: ?' ''
     } else {
         $pr.title
-    } | str title-case
+    } | str replace --regex '^(\w)' {|match| $match | str uppercase}
     let list_item = $"- [#($pr.number)]\(($pr.url)) ($title)"
 
     # Split the raw changelog into lines
