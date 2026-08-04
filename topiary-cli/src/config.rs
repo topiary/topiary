@@ -256,6 +256,9 @@ where
             #[cfg(feature = "markdown")]
             "markdown" => Ok(topiary_queries::markdown_injections().into()),
 
+            #[cfg(feature = "menhir")]
+            "menhir" => Ok(topiary_queries::menhir_injections().into()),
+
             #[cfg(feature = "ocamllex")]
             "ocamllex" => Ok(topiary_queries::ocamllex_injections().into()),
 
