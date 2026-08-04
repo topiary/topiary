@@ -1,7 +1,8 @@
 #!/usr/bin/env nu
 
-const ROOT_DIR: path = (path self | path dirname --num-levels 2)
-const CHANGELOG_MD: path = $ROOT_DIR | path join "CHANGELOG.md"
+def changelog_path []: nothing -> path {
+    (git rev-parse --show-toplevel) | path join "CHANGELOG.md"
+}
 
 # Note that this requires `git` and `gh` (GitHub CLI) to function and for a Pull Request to already be up
 export def main [
@@ -13,7 +14,8 @@ export def main [
     # default to feature branch name if $pr_ref is not provided
     let $pr_ref = $pr_ref | default (git rev-parse --abbrev-ref HEAD)
 
-    let changelog_raw = open $CHANGELOG_MD --raw
+    let changelog_path = changelog_path
+    let changelog_raw = $changelog_path | open --raw
     let changelog_md: table = $changelog_raw
         | from md --verbose
         | enumerate # index our AST
@@ -45,13 +47,12 @@ export def main [
         | from json
     )
 
-
     # strip conventional commit header and titlecase the first word
     let title = if $no_cc_header {
         $pr.title | str replace --regex '^\S+: ?' ''
     } else {
         $pr.title
-    } | str replace --regex '^(\w)' {|match| $match | str uppercase}
+    } | str replace --regex '^(\w)' {|match| $match | str uppercase }
     let list_item = $"- [#($pr.number)]\(($pr.url)) ($title)"
 
     # Split the raw changelog into lines
@@ -63,8 +64,8 @@ export def main [
     )
 
     if $save {
-        $changelog_output | save --force $CHANGELOG_MD
-        git diff $CHANGELOG_MD
+        $changelog_output | save --force $changelog_path
+        git diff $changelog_path
     } else {
         {addition: $list_item}
     }
