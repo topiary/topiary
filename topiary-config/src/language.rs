@@ -490,6 +490,8 @@ fn source_object_id(source: &refmap::Source) -> Result<ObjectId> {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
     use nickel_lang_core::deserialize::from_str as from_nickel_str;
 
@@ -504,20 +506,20 @@ mod tests {
         "#;
         let config: LanguageConfiguration = from_nickel_str(src).unwrap();
 
-        assert!(matches!(
+        assert_matches!(
             &config.grammar,
             Grammar {
                 source: GrammarSource::Path(p),
                 symbol: None,
              }
              if p == Path::new("/tmp/grammar.so")
-        ));
+        );
 
         let formatting = config.queries.unwrap().get("formatting").cloned().unwrap();
-        assert!(matches!(
+        assert_matches!(
             &formatting,
-            Query { source: QuerySource { git: None, path } } if path == Path::new("/path/to/nickel/formatting.scm")
-        ));
+            Query { source: QuerySource { git: None, path } } if *path == Path::new("/path/to/nickel/formatting.scm")
+        );
     }
 
     #[test]
@@ -556,13 +558,13 @@ mod tests {
             git: "https://github.com/tree-sitter-grammars/tree-sitter-markdown.git".to_string(),
             rev: "c3570720f7f7bbad22fe96603f106276618e0cf5".to_string(),
         };
-        assert!(matches!(
+        assert_matches!(
             config.grammar.source,
             GrammarSource::Git {
                 git,
                 subdir: Some(p),
             } if git == expected_git && p == Path::new("tree-sitter-markdown")
-        ));
+        );
 
         let queries = config.queries.unwrap();
 
@@ -571,20 +573,20 @@ mod tests {
             rev: "d2c79b9ecd341d40aa0baf87f4a761ae242dfa67".to_string(),
         };
         let formatting = queries.get("formatting").unwrap();
-        assert!(matches!(
+        assert_matches!(
             formatting,
             Query {
                 source: QuerySource { git: Some(git), path }
             } if git == &expected_git && path.ends_with("formatting.scm")
-        ));
+        );
 
         let injections = queries.get("injections").unwrap();
-        assert!(matches!(
+        assert_matches!(
             injections,
             Query {
                 source: QuerySource { git: Some(git), path }
             } if git == &expected_git && path.ends_with("injections.scm")
-        ));
+        );
     }
 
     #[test]
@@ -597,17 +599,17 @@ mod tests {
         )
         .unwrap();
 
-        let (config, _) = crate::Configuration::fetch(false, Some(config_file.as_path())).unwrap();
+        let (config, _) = crate::Configuration::fetch(false, &Some(config_file)).unwrap();
         let formatting = config
             .get_language_cfg("markdown")
             .unwrap()
             .config_query("formatting")
             .unwrap();
 
-        assert!(matches!(
+        assert_matches!(
             &formatting.source,
             QuerySource { git: None, path } if path == Path::new("/tmp/formatting.scm")
-        ));
+        );
     }
 
     #[test]
