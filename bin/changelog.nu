@@ -3,6 +3,7 @@
 const ROOT_DIR: path = (path self | path dirname --num-levels 2)
 const CHANGELOG_MD: path = $ROOT_DIR | path join "CHANGELOG.md"
 
+# Note that this requires `git` and `gh` (GitHub CLI) to function
 export def main [
     pr_ref?: oneof<int, string> # PR number, url, or feature branch name
     --save # save the changes back to CHANGELOG.md
