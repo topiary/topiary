@@ -335,7 +335,7 @@ pub fn formatter_tree(
         } => {
             let spans = match skip_stage {
                 Some(SkipStage::HostLanguage) => {
-                    log::debug!("Skipping root formatting; only processing injections");
+                    log::debug!("Skipping host formatting; only processing injections");
                     let spans = language.collect_injections(&tree, input_content);
                     let rendered = splice_formatted_injections(
                         input_content,
@@ -918,10 +918,10 @@ mod tests {
 ]);
 "#;
     #[test(tokio::test)]
-    async fn skip_root_formats_json() {
+    async fn skip_host_formats_json() {
         use crate::SkipStage;
 
-        let skip_root_expected: &str = r#"const JSON2: Value
+        let skip_host_expected: &str = r#"const JSON2: Value
 = json!([
   "foo",
   "bar",
@@ -943,7 +943,7 @@ mod tests {
         .unwrap();
 
         let formatted = String::from_utf8(output).unwrap();
-        pretty_assert_eq(skip_root_expected, formatted.trim_end());
+        pretty_assert_eq(skip_host_expected, formatted.trim_end());
     }
 
     #[test(tokio::test)]

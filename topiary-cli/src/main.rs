@@ -84,11 +84,10 @@ async fn run() -> CLIResult<()> {
         Commands::Format {
             tolerate_parsing_errors,
             skip_idempotence,
-            skip_stage: skip,
+            skip_stage,
             inputs,
             ..
         } => {
-            let skip = skip.map(topiary_core::SkipStage::from);
             let inputs = Inputs::new(&config, &inputs);
 
             process_inputs(
@@ -121,7 +120,7 @@ async fn run() -> CLIResult<()> {
                             Operation::Format {
                                 skip_idempotence,
                                 tolerate_parsing_errors,
-                                skip_stage: skip,
+                                skip_stage: skip_stage.map(|s| s.into()),
                             },
                             Some(&|name| config.resolve_injected_language(name)),
                         )?;
