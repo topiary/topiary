@@ -24,10 +24,12 @@ your query file to be able to iterate on formatting query writing.
 
 ```nickel
     clang = {
-      extensions = ["c", "h"],
-      grammar.source.git = {
-        git = "https://github.com/tree-sitter/tree-sitter-c.git",
-        rev = "6c7f459ddc0bcf78b615d3a3f4e8fed87b8b3b1b",
+      extensions | default = ["c", "h"],
+      grammar.source | default = {
+        git = {
+            git = "https://github.com/tree-sitter/tree-sitter-c.git",
+            rev = "6c7f459ddc0bcf78b615d3a3f4e8fed87b8b3b1b",
+        },
       },
     },
 ```
