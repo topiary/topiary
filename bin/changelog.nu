@@ -40,8 +40,8 @@ export def main [
         | last
         | get position.end.line
 
-    let pr: record<title, number> = (
-        gh pr view $pr_ref --json title,number
+    let pr: record<title, url, number> = (
+        gh pr view $pr_ref --json title,url,number
         | from json
     )
 
