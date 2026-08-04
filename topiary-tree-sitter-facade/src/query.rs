@@ -49,6 +49,11 @@ mod native {
         }
 
         #[inline]
+        pub fn property_settings(&self, index: usize) -> Vec<&tree_sitter::QueryProperty> {
+            self.inner.property_settings(index).iter().collect()
+        }
+
+        #[inline]
         pub fn pattern_count(&self) -> usize {
             self.inner.pattern_count()
         }
