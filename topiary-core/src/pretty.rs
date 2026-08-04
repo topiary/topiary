@@ -195,15 +195,17 @@ fn render_enforced_indentation(
         .strip_prefix(start)
         .ok_or_else(|| {
             FormatterError::Query(format!(
-                "the multi line leaf starting with {:?} should start with {start:?} as marked by the query",
-                &content_original[..content_original.len().min(16)]
+                "the multi line leaf starting with {:?} at {} should start with {start:?} as marked by the query.",
+                &content_original[..content_original.len().min(16)],
+                start_position,
             ))
         })?
         .strip_suffix(end)
         .ok_or_else(|| {
             FormatterError::Query(format!(
-                "the multi line leaf ending with {:?} should end with {end:?} as marked by the query",
-                &content_original[content_original.len().saturating_sub(16)..]
+                "the multi line leaf ending with {:?} at {} should end with {end:?} as marked by the query.",
+                &content_original[content_original.len().saturating_sub(16)..],
+                start_position,
             ))
         })?
         .split("\n")
@@ -278,9 +280,10 @@ fn render_enforced_indentation(
             None => (), // no lines other than whitespace lines
             // do not change the log level without changing it in the if condition 6 lines above.
             Some(Ordering::Less) => log::info!(
-                "the multi line string starting at {} mixes different whitespace characters like spaces and tabs in its lines' whitespace prefixes. \
+                "the multi line leaf starting with {:?} at {} mixes different whitespace characters like spaces and tabs in its lines' whitespace prefixes. \
                     is this supposed to be indentation? then you should not mix different whitespace characters.",
-                start_position
+                &content_original[..content_original.len().min(16)],
+                start_position,
             ),
             Some(Ordering::Equal) => (),
             Some(Ordering::Greater) => panic!(
