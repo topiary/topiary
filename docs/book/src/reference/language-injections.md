@@ -82,6 +82,10 @@ Idempotence is still checked at the outer formatting level by default.
 Injected spans are formatted again during that second pass, so unstable
 injected formatting can still make the top-level idempotence check fail.
 
+## Skipping formatting stages
+
+The `SkipStage` option in the Rust library API (the `skip_stage` field of `Operation::Format`) allows one to skip formatting of the host language (`SkipStage::Host`) or skip formatting of any matched injection queries (`SkipStage::Injections`).
+
 ## CLI behaviour
 
 The CLI resolves injected language names through the normal language

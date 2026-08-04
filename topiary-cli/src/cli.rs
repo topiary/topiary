@@ -1,6 +1,6 @@
 //! Command line interface argument parsing.
 
-use clap::{ArgAction, ArgGroup, Args, CommandFactory, Parser, Subcommand};
+use clap::{ArgAction, ArgGroup, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, shells::Shell};
 use rootcause::{report, report_collection::ReportCollection};
 use std::{io::stdout, path::PathBuf};
@@ -132,6 +132,10 @@ pub enum Commands {
         #[arg(short, long)]
         skip_idempotence: bool,
 
+        /// Skip a given stage of the formatting pipeline.
+        #[arg(alias = "skip", long, value_name = "STAGE")]
+        skip_stage: Option<SkipStage>,
+
         #[command(flatten)]
         inputs: AtLeastOneInput,
     },
@@ -200,6 +204,26 @@ pub enum Commands {
 pub enum ConfigCommand {
     /// Display config sources that Topiary looks through
     ShowSources,
+}
+
+/// Skip a given stage of the formatting pipeline.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+pub enum SkipStage {
+    /// Skip host/root language formatting, only format injections.
+    #[value(name = "host")]
+    HostLanguage,
+    /// Skip injection formatting.
+    #[value(name = "injections")]
+    Injections,
+}
+
+impl From<SkipStage> for topiary_core::SkipStage {
+    fn from(stage: SkipStage) -> Self {
+        match stage {
+            SkipStage::HostLanguage => topiary_core::SkipStage::HostLanguage,
+            SkipStage::Injections => topiary_core::SkipStage::Injections,
+        }
+    }
 }
 
 /// Parse CLI arguments and normalise them for the caller
