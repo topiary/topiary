@@ -204,7 +204,7 @@ pub fn collect_injections<'a>(
             .into_iter()
             .find_map(|p| {
                 (&*p.key == "injection.language")
-                    .then(|| p.value.as_ref())
+                    .then_some(p.value.as_ref())
                     .flatten()
             })
             .map(|s| s.to_string())
