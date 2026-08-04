@@ -2,6 +2,7 @@
   lib,
   stdenv,
   writeShellApplication,
+  writeTextFile,
 
   inotify-tools,
   emscripten,
@@ -12,6 +13,8 @@
   gnused,
   nixdoc,
   jq,
+  nushell,
+  gh,
 }:
 
 let
@@ -60,9 +63,20 @@ let
     text = readFile ../../bin/verify-documented-usage.sh;
   };
 
+  changelog = writeTextFile {
+    name = "changelog";
+    destination = "/bin/changelog";
+    executable = true;
+    text = ''
+      #!${nushell}/bin/nu
+      ${readFile ../../bin/changelog.nu}
+    '';
+  };
+
 in
 {
   inherit
+    changelog
     generate-nix-documentation
     playground
     verify-documented-usage
