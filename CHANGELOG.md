@@ -75,6 +75,7 @@ This name should be decided amongst the team before the release.
 - [#1227](https://github.com/topiary/topiary/pull/1227) Add `@append_empty_input_softline` and `@prepend_empty_input_softline` captures, thanks to @BirdeeHub
 - [#1244](https://github.com/topiary/topiary/pull/1244) Add language injection support for injection languages known at query writing.
 - [#1254](https://github.com/topiary/topiary/pull/1254) Add Markdown formatting support with dynamic language injections for fenced code blocks (via the `@injection.language` capture).
+- [#1279](https://github.com/topiary/topiary/pull/1279) Added experimental formatting support for the Menhir language.
 - [#1299](https://github.com/topiary/topiary/pull/1299) Add `QuerySource` config fetching to topiary-config.
 
 ### Removed

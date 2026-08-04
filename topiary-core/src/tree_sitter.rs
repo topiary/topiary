@@ -226,6 +226,17 @@ pub fn collect_injections<'a>(
 
         for capture in content_captures {
             let node = capture.node();
+            // Skip empty (zero-width) injected nodes. An empty Menhir semantic
+            // action `{ }` or an empty trailer after `%%` still produces a
+            // zero-width `(ocaml)` node that matches the injection query, but
+            // `AtomCollection::collect_leaves_inner` deliberately skips zero-byte
+            // nodes, so no leaf atom is ever created for it. Pushing a span here
+            // would later fail the leaf lookup in `rewrite_injected_leaves`
+            // ("Could not find leaf for injected … span"), and there is nothing
+            // to format anyway.
+            if node.start_byte() == node.end_byte() {
+                continue;
+            }
             spans.push(InjectionSpan {
                 content: input_content
                     .get(node.byte_range())

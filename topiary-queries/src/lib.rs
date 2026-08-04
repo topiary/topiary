@@ -2,7 +2,7 @@
 pub const FORMATTING_QUERY: &str = "formatting";
 
 /// The default file stem used for language injection queries within each language's query directory.
-pub const INJECTIONS_QUERY: &str = "injections.scm";
+pub const INJECTIONS_QUERY: &str = "injections";
 
 /// Returns the Topiary-compatible query file for Bash.
 #[cfg(feature = "bash")]
@@ -32,6 +32,18 @@ pub fn markdown() -> &'static str {
 #[cfg(feature = "markdown")]
 pub fn markdown_injections() -> &'static str {
     include_str!("../queries/markdown/injections.scm")
+}
+
+/// Returns the Topiary-compatible query file for menhir.
+#[cfg(feature = "menhir")]
+pub fn menhir() -> &'static str {
+    include_str!("../queries/menhir/formatting.scm")
+}
+
+/// Returns the Topiary-compatible injection query file for menhir.
+#[cfg(feature = "menhir")]
+pub fn menhir_injections() -> &'static str {
+    include_str!("../queries/menhir/injections.scm")
 }
 
 /// Returns the Topiary-compatible query file for Nickel.
