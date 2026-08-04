@@ -52,7 +52,7 @@ export def main [
     } else {
         $pr.title
     } | str replace --regex '^(\w)' {|match| $match | str uppercase}
-    let list_item = $"- #($pr.number) ($title)"
+    let list_item = $"- [#($pr.number)]\(($pr.url)) ($title)"
 
     # Split the raw changelog into lines
     mut changelog_lines: list<string> = ($changelog_raw | split row "\n")
