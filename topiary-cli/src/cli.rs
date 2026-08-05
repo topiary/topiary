@@ -2,10 +2,10 @@
 
 use clap::{ArgAction, ArgGroup, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{generate, shells::Shell};
-use rootcause::{report, report_collection::ReportCollection};
-use std::{io::stdout, path::PathBuf};
-
 use log::LevelFilter;
+use rootcause::{report, report_collection::ReportCollection};
+use rootcause_backtrace::{BacktraceCollector, BacktraceFilter};
+use std::{io::stdout, path::PathBuf};
 
 use crate::{error::CLIResult, fs, visualisation};
 
@@ -243,17 +243,35 @@ pub fn get_args() -> CLIResult<Cli> {
         args.global.verbose = 2;
     }
 
+    let level = match args.global.verbose {
+        0 => LevelFilter::Error,
+        1 => LevelFilter::Warn,
+        2 => LevelFilter::Info,
+        3 => LevelFilter::Debug,
+        _ => LevelFilter::Trace,
+    };
+
     // This is the earliest point that we can initialise the logger, from the --verbose flags,
     // before any fallible operations have started
-    env_logger::Builder::new()
-        .filter_level(match args.global.verbose {
-            0 => LevelFilter::Error,
-            1 => LevelFilter::Warn,
-            2 => LevelFilter::Info,
-            3 => LevelFilter::Debug,
-            _ => LevelFilter::Trace,
-        })
-        .init();
+    env_logger::Builder::new().filter_level(level).init();
+
+    if level > LevelFilter::Warn {
+        let collector = BacktraceCollector {
+            filter: BacktraceFilter {
+                skipped_initial_crates: &["rootcause", "rootcause-backtrace", "backtrace", "core"],
+                skipped_middle_crates: &["tokio"],
+                skipped_final_crates: &["std", "core"],
+                max_entry_count: 10,
+                show_full_path: false,
+            },
+            capture_backtrace_for_reports_with_children: false, // Only leaf errors
+        };
+
+        rootcause::hooks::Hooks::new()
+            .report_creation_hook(collector)
+            .install()
+            .expect("failed to install hooks");
+    }
 
     // NOTE We do not check that input files are actual files (with Path::is_file), because that
     // would break in the case of, for example, named pipes; thus also adding a platform dimension

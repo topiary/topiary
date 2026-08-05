@@ -106,12 +106,12 @@ impl TopiaryQuery {
 ///
 /// An injection query captures the embedded source text with
 /// `@injection.content`, and declares the inner language via a
-/// `(#injection_language! "name")` predicate on the same pattern. For example,
+/// `(#set! injection.language "name")` property on the same pattern. For example,
 /// to mark every `(ocaml)` node within an `ocamllex` source as OCaml:
 ///
 /// ```scheme
 /// ((ocaml) @injection.content
-///  (#injection_language! "ocaml"))
+///  (#set! injection.language "ocaml"))
 /// ```
 #[derive(Debug)]
 pub struct InjectionQuery {
@@ -149,8 +149,8 @@ impl InjectionQuery {
 #[derive(Clone, Debug)]
 pub struct InjectionSpan<'a> {
     pub content: &'a str,
-    /// The injected language name, taken from the `#injection_language!`
-    /// predicate of the matching pattern.
+    /// The injected language name, taken from the `#set! injection.language`
+    /// property of the matching pattern.
     pub language: String,
     /// Tree-sitter id of the captured node. Valid only against the same
     /// [`Tree`] from which these spans were collected: tree-sitter does not
@@ -166,12 +166,12 @@ pub struct InjectionSpan<'a> {
 
 /// Run an [`InjectionQuery`] against a parsed `tree`, returning every
 /// `@injection.content` capture paired with the language declared by its
-/// pattern's `#injection_language!` predicate.
+/// pattern's `#set! injection.language` property.
 ///
 /// Patterns missing an `@injection.content` capture or an injection language
 /// are skipped (with a warning logged).
 ///
-/// Missing predicates or unmatched captures are logged, not raised.
+/// Missing properties or unmatched captures are logged, not raised.
 pub fn collect_injections<'a>(
     tree: &Tree,
     input_content: &'a str,
@@ -200,15 +200,15 @@ pub fn collect_injections<'a>(
             continue;
         }
 
-        // Resolve the language of the injection either via a hardcoded `#injection_language!` predicate
+        // Resolve the language of the injection either via a `#set! injection.language` property
         // or by dynamically reading the text of the `@injection.language` capture (e.g. for Markdown code blocks).
         let language_name = query
             .query
-            .general_predicates(query_match.pattern_index())
+            .property_settings(query_match.pattern_index())
             .into_iter()
             .find_map(|p| {
-                (&*p.operator() == "injection_language!")
-                    .then(|| p.args().into_iter().next())
+                (&*p.key == "injection.language")
+                    .then_some(p.value.as_ref())
                     .flatten()
             })
             .map(|s| s.to_string())
@@ -222,7 +222,7 @@ pub fn collect_injections<'a>(
 
         let Some(language_name) = language_name else {
             log::warn!(
-                "Injection query pattern {} has neither an #injection_language! predicate nor an @injection.language capture; skipping",
+                "Injection query pattern {} has neither a #set! injection.language property nor an @injection.language capture; skipping",
                 query_match.pattern_index()
             );
             continue;
