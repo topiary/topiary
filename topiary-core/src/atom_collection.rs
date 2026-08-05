@@ -30,7 +30,7 @@ struct NodesWithLinebreaks {
 /// repeating the leaf-id search loop.
 struct LeafFlagsMut<'a> {
     single_line_no_indent: &'a mut bool,
-    multi_line_indent_all: &'a mut MultiLineIndent,
+    multi_line_indent: &'a mut MultiLineIndent,
     keep_whitespace: &'a mut bool,
 }
 
@@ -160,7 +160,7 @@ impl AtomCollection {
             if let Atom::Leaf {
                 id,
                 single_line_no_indent,
-                multi_line_indent_all,
+                multi_line_indent,
                 keep_whitespace,
                 ..
             } = atom
@@ -168,7 +168,7 @@ impl AtomCollection {
             {
                 f(LeafFlagsMut {
                     single_line_no_indent,
-                    multi_line_indent_all,
+                    multi_line_indent,
                     keep_whitespace,
                 });
             }
@@ -493,7 +493,7 @@ impl AtomCollection {
             "multi_line_string" => {
                 let (start, end) = requires_multi_line_string_delimiters()?;
                 self.mutate_leaf_flags(node.id(), |flags| {
-                    *flags.multi_line_indent_all =
+                    *flags.multi_line_indent =
                         MultiLineIndent::EnforceIndentation(EnforceIndentation {
                             last_line_break_significant: !predicates
                                 .multi_line_string_last_insignificant,
@@ -505,7 +505,7 @@ impl AtomCollection {
             // Mark a leaf to have all its lines be indented
             "multi_line_indent_all" => {
                 self.mutate_leaf_flags(node.id(), |flags| {
-                    *flags.multi_line_indent_all = MultiLineIndent::MaintainOffset;
+                    *flags.multi_line_indent = MultiLineIndent::MaintainOffset;
                 });
             }
             // Mark a leaf to disable trimming
@@ -631,7 +631,7 @@ impl AtomCollection {
                 id,
                 original_position: node.start_position().into(),
                 single_line_no_indent: false,
-                multi_line_indent_all: MultiLineIndent::None,
+                multi_line_indent: MultiLineIndent::None,
                 keep_whitespace: false,
                 capitalisation: Capitalisation::Pass,
             });

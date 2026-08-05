@@ -56,7 +56,7 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                 content,
                 original_position,
                 single_line_no_indent,
-                multi_line_indent_all,
+                multi_line_indent,
                 keep_whitespace,
                 capitalisation,
                 ..
@@ -72,7 +72,7 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                     content.trim_end_matches('\n')
                 };
 
-                let mut content = match multi_line_indent_all {
+                let mut content = match multi_line_indent {
                     MultiLineIndent::None => content.into(),
                     MultiLineIndent::MaintainOffset => {
                         let cursor = current_column(&buffer) as i32;
