@@ -24,6 +24,9 @@ resolver = "2"
 [profile.release]
 lto = true
 opt-level = 's'
+# https://docs.rs/rootcause-backtrace/latest/rootcause_backtrace/#debugging-symbols-in-release-builds
+strip = false
+debug = 1
 
 # The profile that 'cargo dist' will build with
 [profile.dist]
@@ -81,6 +84,7 @@ topiary-queries = { version = "0.7.3", path = "./topiary-queries" }
 topiary-tree-sitter-facade = { version = "0.7.3", path = "./topiary-tree-sitter-facade" }
 topiary-web-tree-sitter-sys = { version = "0.7.3", path = "./topiary-web-tree-sitter-sys" }
 similar = "3.1"
+rootcause-backtrace = "0.13.0"
 
 [profile.dev.package.lalrpop]
 opt-level = 3
