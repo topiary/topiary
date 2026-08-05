@@ -8,7 +8,7 @@ def changelog_path []: nothing -> path {
 export def main [
     pr_ref?: oneof<int, string> # PR number, url, or feature branch name
     --save # save the changes back to CHANGELOG.md
-    --section: string = "Changed" # the "Unreleased" h3 section to add the entry to
+    --section: string # the "Unreleased" h3 section to add the entry to
     --no-cc-header # strip the leading conventional commit header: 'feat(core): bla bla'
 ] {
     # default to feature branch name if $pr_ref is not provided
