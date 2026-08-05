@@ -35,7 +35,6 @@ craneLib.devShell (
             # Our own scripts
             # FIXME: Broken
             # generate-coverage
-            changelog
             generate-nix-documentation
             verify-documented-usage
           ]
