@@ -41,10 +41,11 @@ pub struct ScopeInformation {
     scope_id: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum Capitalisation {
     UpperCase,
     LowerCase,
+    #[default]
     Pass,
 }
 
