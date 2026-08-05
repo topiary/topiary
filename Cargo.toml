@@ -21,9 +21,6 @@ members = [
 default-members = ["topiary-core", "topiary-cli"]
 resolver = "2"
 
-[profile.dev]
-debug = true
-
 [profile.release]
 lto = true
 opt-level = 's'
@@ -34,7 +31,7 @@ debug = 1
 # The profile that 'cargo dist' will build with
 [profile.dist]
 inherits = "release"
-lto = true
+lto = "thin"
 
 [workspace.dependencies]
 anyhow = "1.0"
