@@ -210,7 +210,7 @@ inner language:
 ```scheme
 (
   (embedded_code) @injection.content
-  (#injection_language! "inner_language")
+  (#set! injection.language "inner_language")
 )
 ```
 

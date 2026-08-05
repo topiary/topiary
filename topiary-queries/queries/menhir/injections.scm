@@ -1,9 +1,7 @@
 (
-  (ocaml) @injection.content
-  (#injection_language! "ocaml")
-)
-
-(
-  (ocaml_type) @injection.content
-  (#injection_language! "ocaml")
+  [
+    (ocaml)
+    (ocaml_type)
+  ] @injection.content
+  (#set! injection.language "ocaml")
 )

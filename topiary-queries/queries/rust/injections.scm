@@ -11,7 +11,7 @@
     )
   )
   (#eq? @_macro_name "json")
-  (#injection_language! "json")
+  (#set! injection.language "json")
 )
 
 ; TODO: implement `strip!` or `@injection.combined`
@@ -27,7 +27,7 @@
 ;   .
 ;   (token_tree) @injection.content
 ;   .
-;   (#injection_language! "toml")
+;   (#set! injection.language "toml")
 ; )
 
 ; TODO: handle injections inside leaves
@@ -51,5 +51,5 @@
 ;       ]
 ;     )
 ;   )
-;   (#injection_language! "wit")
+;   (#set! injection.language "wit")
 ; )
