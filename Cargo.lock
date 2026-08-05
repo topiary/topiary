@@ -225,6 +225,7 @@ checksum = "bb531853791a215d7c62a30daf0dde835f381ab5de4589cfe7c649d2cbe92bd6"
 dependencies = [
  "addr2line",
  "cfg-if",
+ "cpp_demangle",
  "libc",
  "miniz_oxide",
  "object",
@@ -549,6 +550,15 @@ name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
+
+[[package]]
+name = "cpp_demangle"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0667304c32ea56cb4cd6d2d7c0cfe9a2f8041229db8c033af7f8d69492429def"
+dependencies = [
+ "cfg-if",
+]
 
 [[package]]
 name = "cpufeatures"
@@ -3505,6 +3515,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rootcause-backtrace"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d82d7dc393bb10ce642672cd7db2a8cb045cadf9a23d15582e08d913e6efe720"
+dependencies = [
+ "backtrace",
+ "rootcause",
+ "unicode-ident",
+]
+
+[[package]]
 name = "rootcause-internals"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4399,6 +4420,7 @@ dependencies = [
  "pastey",
  "predicates",
  "rootcause",
+ "rootcause-backtrace",
  "rootcause-preformat",
  "similar",
  "tabled",
