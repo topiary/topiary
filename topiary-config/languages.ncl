@@ -283,7 +283,7 @@ in
         git = {
           git = "https://github.com/bytecodealliance/tree-sitter-wit",
           rev = "v1.4.0",
-          nixHash = "sha256-scye60ETUak1mXJXC+UY5sqbuqAcjxCsm4+AVJHhGws=",
+          nixHash = "sha256-63xH63s6lgticgRtMz7LCL1ThuXegn7qFCZgeQqIZH4=",
         },
       },
     },

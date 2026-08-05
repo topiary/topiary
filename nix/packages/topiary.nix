@@ -56,6 +56,17 @@ let
 
   cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
+  workspace-tests = craneLib.cargoTest (
+    commonArgs
+    // {
+      inherit cargoArtifacts;
+      pname = "topiary-workspace-tests";
+      cargoTestExtraArgs = "--workspace --all-features";
+      preConfigurePhases = [ "prepareTopiaryDefaultConfiguration" ];
+      inherit prepareTopiaryDefaultConfiguration;
+    }
+  );
+
   clippy = craneLib.cargoClippy (
     commonArgs
     // {
@@ -292,6 +303,7 @@ in
     fmt
     audit
     benchmark
+    workspace-tests
     client-app
     topiary-core
     topiary-cli
