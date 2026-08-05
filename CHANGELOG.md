@@ -61,6 +61,7 @@ This name should be decided amongst the team before the release.
 - [#1298](https://github.com/topiary/topiary/pull/1298) Update WIT formatter for tree-sitter-wit to v1.4
 - [#1303](https://github.com/topiary/topiary/pull/1303) Add `bin/verify-documented-usage.sh --no-nix-shell` flag
 - [#1306](https://github.com/topiary/topiary/pull/1306) Move topiary-cli configuration logic into its own module
+- [#1315](https://github.com/topiary/topiary/pull/1315) Add rootcause-backtrace to cli
 
 ### Fixed
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
