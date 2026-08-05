@@ -89,9 +89,9 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                             1.. => add_spaces_after_newlines(content, indenting),
                         }
                     }
-                    MultiLineIndent::EnforceIndentation(absolute_indentation) => {
+                    MultiLineIndent::EnforceIndentation(enforce_indentation) => {
                         render_enforced_indentation(
-                            absolute_indentation,
+                            enforce_indentation,
                             content,
                             indent_level,
                             indent,
@@ -173,13 +173,13 @@ fn try_removing_spaces_after_newlines(s: &str, n: i32) -> String {
 
 /// formats multi line source code constructs like multi line strings.
 ///
-/// `absolute_indentation` contains configuration. at this stage we assume that it is a `ClosingColumnInsignificant` constructor.
+/// `enforce_indentation` contains configuration.
 /// `content_original` is the multi line string including the delimiters.
 /// `indent_level` is the current indentation level of the line containing the start delimiter.
 /// `indent` is the white space prefix of a line at indentation level 1.
 /// the returned `String` differs only in white space from `content_original`.
 fn render_enforced_indentation(
-    absolute_indentation: &EnforceIndentation,
+    enforce_indentation: &EnforceIndentation,
     content_original: &str,
     indent_level: usize,
     indent: &str,
@@ -189,7 +189,7 @@ fn render_enforced_indentation(
         last_line_break_significant,
         start,
         end,
-    } = absolute_indentation;
+    } = enforce_indentation;
 
     let content: Vec<&str> = content_original
         .strip_prefix(start)
