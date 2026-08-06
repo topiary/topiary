@@ -196,7 +196,7 @@ fn render_enforced_indentation(
         .ok_or_else(|| {
             FormatterError::Query(format!(
                 "the multi line leaf starting with {:?} at {} should start with {start:?} as marked by the query.",
-                &content_original[..content_original.len().min(16)],
+                content_original.chars().take(16).collect::<String>(),
                 start_position,
             ))
         })?
@@ -204,7 +204,7 @@ fn render_enforced_indentation(
         .ok_or_else(|| {
             FormatterError::Query(format!(
                 "the multi line leaf ending with {:?} at {} should end with {end:?} as marked by the query.",
-                &content_original[content_original.len().saturating_sub(16)..],
+                content_original.chars().rev().take(16).collect::<String>().chars().rev().collect::<String>(),
                 start_position,
             ))
         })?
