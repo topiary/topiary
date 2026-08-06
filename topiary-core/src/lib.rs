@@ -464,17 +464,15 @@ fn splice_formatted_injections(
     resolve: Option<&LanguageResolver<'_>>,
     tolerate_parsing_errors: bool,
 ) -> FormatterResult<String> {
-    // Sort by start byte so we can splice left-to-right into the output buffer.
-    spans.sort_by_key(|s| s.byte_range.start);
-
     let mut out = String::with_capacity(input_content.len());
     let mut cursor = 0;
 
+    // sort by span start so we can splice from left-to-right
+    spans.sort_by_key(|s| s.byte_range.start);
     for span in spans {
         if span.byte_range.start < cursor {
-            // Overlapping spans — leave the region alone rather than corrupting output.
             log::warn!(
-                "Overlapping injection span for language {} at byte {}; skipping",
+                "Overlapping spans detected for language {} at byte {}; skipping",
                 span.language,
                 span.byte_range.start
             );
@@ -483,7 +481,7 @@ fn splice_formatted_injections(
 
         let Some(inner_language) = resolve_injected_language(resolve, &span.language)? else {
             log::warn!(
-                "Skipping injection for unsupported language: {}",
+                "Injection for unsupported language: {}; skipping",
                 span.language
             );
             continue;
