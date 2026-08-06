@@ -545,16 +545,16 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
                 .expect("`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range.")
                 .to_owned()
         };
-        predicates.multi_line_string_delimiters = Option::zip(
-            m.captures
-                .iter()
-                .rfind(|c| c.name(&capture_names).deref() == "multi_line_string.start")
-                .map(capture_content),
-            m.captures
-                .iter()
-                .rfind(|c| c.name(&capture_names).deref() == "multi_line_string.end")
-                .map(capture_content),
-        );
+        predicates.multi_line_string_start = m
+            .captures
+            .iter()
+            .rfind(|c| c.name(&capture_names).deref() == "multi_line_string.start")
+            .map(capture_content);
+        predicates.multi_line_string_end = m
+            .captures
+            .iter()
+            .rfind(|c| c.name(&capture_names).deref() == "multi_line_string.end")
+            .map(capture_content);
         check_predicates(&predicates)?;
 
         // NOTE: Only performed if logging is enabled to avoid unnecessary computation of Position

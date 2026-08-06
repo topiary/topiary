@@ -234,15 +234,19 @@ impl AtomCollection {
                 FormatterError::Query(format!("@{name} requires a #scope_id! predicate"))
             })
         };
-        let requires_multi_line_string_delimiters = || {
-            predicates
-                .multi_line_string_delimiters
-                .as_ref()
-                .ok_or_else(|| {
+        let requires_multi_line_string_delimiters = || -> FormatterResult<(&String, &String)> {
+            Ok((
+                predicates.multi_line_string_start.as_ref().ok_or_else(|| {
                     FormatterError::Query(format!(
-                        "@{name} requires both a @multi_line_string.start and a @multi_line_string.end directive in the same query"
+                        "@{name} requires a @multi_line_string.start capture in the same query"
                     ))
-                })
+                })?,
+                predicates.multi_line_string_end.as_ref().ok_or_else(|| {
+                    FormatterError::Query(format!(
+                        "@{name} requires a @multi_line_string.end capture in the same query"
+                    ))
+                })?,
+            ))
         };
 
         // For the {prepend/append}_scope_{begin/end} captures we need this information,
@@ -1181,8 +1185,10 @@ pub struct QueryPredicates {
     pub multi_line_scope_only: Option<String>,
     /// A query name, for debugging/logging purposes
     pub query_name: Option<String>,
-    /// multi line string delimiters
-    pub multi_line_string_delimiters: Option<(String, String)>,
+    /// multi line string start delimiter
+    pub multi_line_string_start: Option<String>,
+    /// multi line string end delimiter
+    pub multi_line_string_end: Option<String>,
     /// The flag that indicates that topiary must not add any line breaks to the end of multi line strings
     pub multi_line_string_last_insignificant: bool,
 }
