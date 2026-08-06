@@ -1,2 +1,6 @@
 [advisories]
-ignore = []
+ignore = [
+    # upstream in nickel-lang-core
+    # https://github.com/nickel-lang/nickel/pull/2656
+    "RUSTSEC-2024-0436",
+]
