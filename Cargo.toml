@@ -74,8 +74,8 @@ wasm-bindgen-test = "0.3"
 web-sys = "0.3"
 
 # NOTE Keep these versions aligned
-tree-sitter = "0.26"         # NOTE Update tree-sitter-loader to match
-tree-sitter-loader = "0.26"  # NOTE Align with tree-sitter
+tree-sitter = "=0.26.10"         # NOTE Update tree-sitter-loader to match
+tree-sitter-loader = "=0.26.10"  # NOTE Align with tree-sitter
 
 # NOTE Update these appropriately
 topiary-config = { version = "0.7.3", path = "./topiary-config" }
