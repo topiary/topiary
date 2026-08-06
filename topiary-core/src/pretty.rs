@@ -218,7 +218,7 @@ fn render_enforced_indentation(
 
     let mut content = content.iter().copied();
     let mut buffer = String::new();
-    write!(buffer, "{start}").unwrap();
+    write!(buffer, "{start}").context_to()?;
 
     // skip potential empty first line
     if content
@@ -296,16 +296,16 @@ fn render_enforced_indentation(
 
     for line in content {
         if line.is_empty() {
-            writeln!(buffer).unwrap();
+            writeln!(buffer).context_to()?;
         } else {
-            write!(buffer, "\n{}{line}", indent.repeat(indent_level + 1)).unwrap();
+            write!(buffer, "\n{}{line}", indent.repeat(indent_level + 1)).context_to()?;
         }
     }
     #[allow(clippy::nonminimal_bool)]
     if last_line_is_whitespace || (!last_line_is_whitespace && !last_line_break_significant) {
-        write!(buffer, "\n{}", indent.repeat(indent_level)).unwrap();
+        write!(buffer, "\n{}", indent.repeat(indent_level)).context_to()?;
     }
-    write!(buffer, "{end}").unwrap();
+    write!(buffer, "{end}").context_to()?;
     Ok(buffer)
 }
 
