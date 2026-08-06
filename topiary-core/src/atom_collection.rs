@@ -9,8 +9,8 @@ use rootcause::prelude::ResultExt;
 use topiary_tree_sitter_facade::Node;
 
 use crate::{
-    Atom, Capitalisation, EnforceIndentation, FormatterError, FormatterResult, MultiLineIndent,
-    ScopeCondition, ScopeInformation, tree_sitter::NodeExt,
+    Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent, ScopeCondition,
+    ScopeInformation, multi_line_indent, tree_sitter::NodeExt,
 };
 
 /// A struct that holds sets of node IDs that have line breaks before or after them.
@@ -497,13 +497,14 @@ impl AtomCollection {
             "multi_line_string" => {
                 let (start, end) = requires_multi_line_string_delimiters()?;
                 self.mutate_leaf_flags(node.id(), |flags| {
-                    *flags.multi_line_indent =
-                        MultiLineIndent::EnforceIndentation(EnforceIndentation {
+                    *flags.multi_line_indent = MultiLineIndent::EnforceIndentation(
+                        multi_line_indent::EnforceIndentation {
                             last_line_break_significant: !predicates
                                 .multi_line_string_last_insignificant,
                             start: start.clone(),
                             end: end.clone(),
-                        });
+                        },
+                    );
                 });
             }
             // Mark a leaf to have all its lines be indented

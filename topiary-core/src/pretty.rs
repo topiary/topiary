@@ -7,7 +7,7 @@ use std::{cmp::Ordering, fmt::Write};
 use rootcause::prelude::ResultExt;
 
 use crate::{
-    Atom, Capitalisation, EnforceIndentation, FormatterError, FormatterResult, MultiLineIndent,
+    Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent, multi_line_indent,
     tree_sitter::Position,
 };
 
@@ -179,13 +179,13 @@ fn try_removing_spaces_after_newlines(s: &str, n: i32) -> String {
 /// `indent` is the white space prefix of a line at indentation level 1.
 /// the returned `String` differs only in white space from `content_original`.
 fn render_enforced_indentation(
-    enforce_indentation: &EnforceIndentation,
+    enforce_indentation: &multi_line_indent::EnforceIndentation,
     content_original: &str,
     indent_level: usize,
     indent: &str,
     start_position: &Position,
 ) -> FormatterResult<String> {
-    let EnforceIndentation {
+    let multi_line_indent::EnforceIndentation {
         last_line_break_significant,
         start,
         end,
@@ -321,7 +321,7 @@ mod tests {
     fn test_render_enforced_indentation0() {
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -349,7 +349,7 @@ mod tests {
     fn test_render_enforced_indentation1() {
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -379,7 +379,7 @@ mod tests {
         for line in ["''''", "'' ''", "'' a''"] {
             assert_eq!(
                 render_enforced_indentation(
-                    &EnforceIndentation {
+                    &multi_line_indent::EnforceIndentation {
                         last_line_break_significant: false,
                         start: "''".to_owned(),
                         end: "''".to_owned(),
@@ -400,7 +400,7 @@ mod tests {
         for line in ["''''", "'' ''", "'' a''"] {
             assert_eq!(
                 render_enforced_indentation(
-                    &EnforceIndentation {
+                    &multi_line_indent::EnforceIndentation {
                         last_line_break_significant: true,
                         start: "''".to_owned(),
                         end: "''".to_owned(),
@@ -420,7 +420,7 @@ mod tests {
     fn test_render_enforced_indentation_2_lines0() {
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -438,7 +438,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -456,7 +456,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -476,7 +476,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -494,7 +494,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -512,7 +512,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -532,7 +532,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -552,7 +552,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -572,7 +572,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -597,7 +597,7 @@ mod tests {
     fn test_render_enforced_indentation_2_lines1() {
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -615,7 +615,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -633,7 +633,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -653,7 +653,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -671,7 +671,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -689,7 +689,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -709,7 +709,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -728,7 +728,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -747,7 +747,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -771,7 +771,7 @@ mod tests {
     fn test_render_enforced_indentation_3_lines0() {
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -792,7 +792,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -813,7 +813,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -835,7 +835,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -856,7 +856,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -877,7 +877,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -899,7 +899,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -920,7 +920,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -941,7 +941,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -963,7 +963,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -984,7 +984,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1005,7 +1005,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1027,7 +1027,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1048,7 +1048,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1069,7 +1069,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1091,7 +1091,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1112,7 +1112,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1133,7 +1133,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1155,7 +1155,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1177,7 +1177,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1199,7 +1199,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1222,7 +1222,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1244,7 +1244,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1266,7 +1266,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1289,7 +1289,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1311,7 +1311,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1333,7 +1333,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1360,7 +1360,7 @@ mod tests {
     fn test_render_enforced_indentation_3_lines1() {
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1381,7 +1381,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1402,7 +1402,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1424,7 +1424,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1445,7 +1445,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1466,7 +1466,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1488,7 +1488,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1509,7 +1509,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1530,7 +1530,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1552,7 +1552,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1573,7 +1573,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1594,7 +1594,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1616,7 +1616,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1637,7 +1637,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1658,7 +1658,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1680,7 +1680,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1701,7 +1701,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1722,7 +1722,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1744,7 +1744,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1765,7 +1765,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1786,7 +1786,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1808,7 +1808,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1829,7 +1829,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1850,7 +1850,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1872,7 +1872,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1893,7 +1893,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1914,7 +1914,7 @@ mod tests {
         );
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1940,7 +1940,7 @@ mod tests {
     fn test_render_enforced_indentation_significant_whitespace0() {
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1967,7 +1967,7 @@ mod tests {
     fn test_render_enforced_indentation_significant_whitespace1() {
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -1994,7 +1994,7 @@ mod tests {
     fn test_render_enforced_indentation_mixed_whitespace0() {
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: false,
                     start: "''".to_owned(),
                     end: "''".to_owned(),
@@ -2019,7 +2019,7 @@ mod tests {
     fn test_render_enforced_indentation_mixed_whitespace1() {
         assert_eq!(
             render_enforced_indentation(
-                &EnforceIndentation {
+                &multi_line_indent::EnforceIndentation {
                     last_line_break_significant: true,
                     start: "''".to_owned(),
                     end: "''".to_owned(),

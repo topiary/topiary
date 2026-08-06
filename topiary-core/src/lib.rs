@@ -49,19 +49,23 @@ pub enum Capitalisation {
     Pass,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EnforceIndentation {
-    last_line_break_significant: bool,
-    start: String,
-    end: String,
+pub mod multi_line_indent {
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    pub struct EnforceIndentation {
+        pub(crate) last_line_break_significant: bool,
+        pub(crate) start: String,
+        pub(crate) end: String,
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    pub enum MultiLineIndent {
+        None,
+        MaintainOffset,
+        EnforceIndentation(EnforceIndentation),
+    }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum MultiLineIndent {
-    None,
-    MaintainOffset,
-    EnforceIndentation(EnforceIndentation),
-}
+use multi_line_indent::MultiLineIndent;
 
 /// An atom represents a small piece of the output. We turn Tree-sitter nodes
 /// into atoms, and we add white-space atoms where appropriate. The final list
