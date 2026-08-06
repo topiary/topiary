@@ -51,9 +51,9 @@ pub enum Capitalisation {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EnforceIndentation {
-    pub last_line_break_significant: bool,
-    pub start: String,
-    pub end: String,
+    last_line_break_significant: bool,
+    start: String,
+    end: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
