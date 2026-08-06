@@ -9,8 +9,8 @@ use rootcause::prelude::ResultExt;
 use topiary_tree_sitter_facade::Node;
 
 use crate::{
-    Atom, Capitalisation, FormatterError, FormatterResult, ScopeCondition, ScopeInformation,
-    tree_sitter::NodeExt,
+    Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent, ScopeCondition,
+    ScopeInformation, multi_line_indent, tree_sitter::NodeExt,
 };
 
 /// A struct that holds sets of node IDs that have line breaks before or after them.
@@ -30,7 +30,7 @@ struct NodesWithLinebreaks {
 /// repeating the leaf-id search loop.
 struct LeafFlagsMut<'a> {
     single_line_no_indent: &'a mut bool,
-    multi_line_indent_all: &'a mut bool,
+    multi_line_indent: &'a mut MultiLineIndent,
     keep_whitespace: &'a mut bool,
 }
 
@@ -160,7 +160,7 @@ impl AtomCollection {
             if let Atom::Leaf {
                 id,
                 single_line_no_indent,
-                multi_line_indent_all,
+                multi_line_indent,
                 keep_whitespace,
                 ..
             } = atom
@@ -168,7 +168,7 @@ impl AtomCollection {
             {
                 f(LeafFlagsMut {
                     single_line_no_indent,
-                    multi_line_indent_all,
+                    multi_line_indent,
                     keep_whitespace,
                 });
             }
@@ -233,6 +233,20 @@ impl AtomCollection {
             predicates.scope_id.as_deref().ok_or_else(|| {
                 FormatterError::Query(format!("@{name} requires a #scope_id! predicate"))
             })
+        };
+        let requires_multi_line_string_delimiters = || -> FormatterResult<(&String, &String)> {
+            Ok((
+                predicates.multi_line_string_start.as_ref().ok_or_else(|| {
+                    FormatterError::Query(format!(
+                        "@{name} requires a @multi_line_string.start capture in the same query"
+                    ))
+                })?,
+                predicates.multi_line_string_end.as_ref().ok_or_else(|| {
+                    FormatterError::Query(format!(
+                        "@{name} requires a @multi_line_string.end capture in the same query"
+                    ))
+                })?,
+            ))
         };
 
         // For the {prepend/append}_scope_{begin/end} captures we need this information,
@@ -480,10 +494,23 @@ impl AtomCollection {
                 });
                 self.append(Atom::Hardline, node, predicates);
             }
+            "multi_line_string" => {
+                let (start, end) = requires_multi_line_string_delimiters()?;
+                self.mutate_leaf_flags(node.id(), |flags| {
+                    *flags.multi_line_indent = MultiLineIndent::EnforceIndentation(
+                        multi_line_indent::EnforceIndentation {
+                            last_line_break_significant: !predicates
+                                .multi_line_string_last_insignificant,
+                            start: start.clone(),
+                            end: end.clone(),
+                        },
+                    );
+                });
+            }
             // Mark a leaf to have all its lines be indented
             "multi_line_indent_all" => {
                 self.mutate_leaf_flags(node.id(), |flags| {
-                    *flags.multi_line_indent_all = true;
+                    *flags.multi_line_indent = MultiLineIndent::MaintainOffset;
                 });
             }
             // Mark a leaf to disable trimming
@@ -609,7 +636,7 @@ impl AtomCollection {
                 id,
                 original_position: node.start_position().into(),
                 single_line_no_indent: false,
-                multi_line_indent_all: false,
+                multi_line_indent: MultiLineIndent::None,
                 keep_whitespace: false,
                 capitalisation: Capitalisation::Pass,
             });
@@ -1159,6 +1186,12 @@ pub struct QueryPredicates {
     pub multi_line_scope_only: Option<String>,
     /// A query name, for debugging/logging purposes
     pub query_name: Option<String>,
+    /// multi line string start delimiter
+    pub multi_line_string_start: Option<String>,
+    /// multi line string end delimiter
+    pub multi_line_string_end: Option<String>,
+    /// The flag that indicates that topiary must not add any line breaks to the end of multi line strings
+    pub multi_line_string_last_insignificant: bool,
 }
 
 /// Collapses spaces before antispace atoms in a vector of atoms.

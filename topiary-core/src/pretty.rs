@@ -2,11 +2,14 @@
 //! module is responsible for rendering the slice of Atoms back into a displayable
 //! format.
 
-use std::fmt::Write;
+use std::{cmp::Ordering, fmt::Write};
 
 use rootcause::prelude::ResultExt;
 
-use crate::{Atom, Capitalisation, FormatterError, FormatterResult};
+use crate::{
+    Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent, multi_line_indent,
+    tree_sitter::Position,
+};
 
 /// Renders a slice of [`Atom`]s into formatted source code.
 ///
@@ -53,7 +56,7 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                 content,
                 original_position,
                 single_line_no_indent,
-                multi_line_indent_all,
+                multi_line_indent,
                 keep_whitespace,
                 capitalisation,
                 ..
@@ -69,22 +72,32 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                     content.trim_end_matches('\n')
                 };
 
-                let mut content = if *multi_line_indent_all {
-                    let cursor = current_column(&buffer) as i32;
+                let mut content = match multi_line_indent {
+                    MultiLineIndent::None => content.into(),
+                    MultiLineIndent::MaintainOffset => {
+                        let cursor = current_column(&buffer) as i32;
 
-                    // original_position is 1-based
-                    let original_column = original_position.column as i32 - 1;
+                        // original_position is 1-based
+                        let original_column = original_position.column as i32 - 1;
 
-                    let indenting = cursor - original_column;
+                        let indenting = cursor - original_column;
 
-                    // The following assumes spaces are used for indenting
-                    match indenting {
-                        0 => content.into(),
-                        n if n > 0 => add_spaces_after_newlines(content, indenting),
-                        _ => try_removing_spaces_after_newlines(content, -indenting),
+                        // The following assumes spaces are used for indenting
+                        match indenting {
+                            ..0 => try_removing_spaces_after_newlines(content, -indenting),
+                            0 => content.into(),
+                            1.. => add_spaces_after_newlines(content, indenting),
+                        }
                     }
-                } else {
-                    content.into()
+                    MultiLineIndent::EnforceIndentation(enforce_indentation) => {
+                        render_enforced_indentation(
+                            enforce_indentation,
+                            content,
+                            indent_level,
+                            indent,
+                            original_position,
+                        )?
+                    }
                 };
                 match capitalisation {
                     Capitalisation::UpperCase => {
@@ -156,4 +169,1874 @@ fn try_removing_spaces_after_newlines(s: &str, n: i32) -> String {
     }
 
     result
+}
+
+/// formats multi line source code constructs like multi line strings.
+///
+/// `enforce_indentation` contains configuration.
+/// `content_original` is the multi line string including the delimiters.
+/// `indent_level` is the current indentation level of the line containing the start delimiter.
+/// `indent` is the white space prefix of a line at indentation level 1.
+/// the returned `String` differs only in white space from `content_original`.
+fn render_enforced_indentation(
+    enforce_indentation: &multi_line_indent::EnforceIndentation,
+    content_original: &str,
+    indent_level: usize,
+    indent: &str,
+    start_position: &Position,
+) -> FormatterResult<String> {
+    let multi_line_indent::EnforceIndentation {
+        last_line_break_significant,
+        start,
+        end,
+    } = enforce_indentation;
+
+    let content: Vec<&str> = content_original
+        .strip_prefix(start)
+        .ok_or_else(|| {
+            FormatterError::Query(format!(
+                "the multi line leaf starting with {:?} at {} should start with {start:?} as marked by the query.",
+                &content_original[..content_original.len().min(16)],
+                start_position,
+            ))
+        })?
+        .strip_suffix(end)
+        .ok_or_else(|| {
+            FormatterError::Query(format!(
+                "the multi line leaf ending with {:?} at {} should end with {end:?} as marked by the query.",
+                &content_original[content_original.len().saturating_sub(16)..],
+                start_position,
+            ))
+        })?
+        .split("\n")
+        .map(|s| s.strip_suffix("\r").unwrap_or(s))
+        .collect(); // because we need `DoubleEndedIterator::next_back`.
+
+    if content.len() == 1 {
+        return Ok(content_original.to_owned());
+    }
+
+    let mut content = content.iter().copied();
+    let mut buffer = String::new();
+    write!(buffer, "{start}").context_to()?;
+
+    // skip potential empty first line
+    if content
+        .clone()
+        .next()
+        .expect("`split` should not produce empty iterators.")
+        .chars()
+        .all(char::is_whitespace)
+    {
+        content
+            .next()
+            .expect("`split` should not produce empty iterators.");
+    }
+
+    // skip potential empty last line
+    let last_line_is_whitespace = content
+        .clone()
+        .next_back()
+        .expect("`split` should not produce empty iterators and `content_collected.len() != 1`.")
+        .chars()
+        .all(char::is_whitespace);
+    if last_line_is_whitespace {
+        content.next_back().expect(
+            "`split` should not produce empty iterators and `content_collected.len() != 1`.",
+        );
+    }
+
+    if content.clone().next().is_none() {
+        return Ok(format!("{start}{end}"));
+    }
+
+    let mut common_whitespace_prefix_len: usize = 0;
+    let mut common_whitespace_prefix_len_utf8 = 0;
+    let mut content_collected: Vec<_> = content.clone().map(str::chars).collect();
+    loop {
+        let mut nexts = content_collected.iter_mut().filter_map(Iterator::next);
+        if let Some(first) = nexts.next()
+            && first.is_whitespace()
+            && nexts.all(|c| c == first)
+        {
+            common_whitespace_prefix_len += 1;
+            common_whitespace_prefix_len_utf8 += first.len_utf8();
+        } else {
+            break;
+        }
+    }
+
+    if log::log_enabled!(log::Level::Info) {
+        match content
+            .clone()
+            .filter(|s| !s.chars().all(char::is_whitespace))
+            .map(str::chars)
+            .map(|s| s.take_while(|c| c.is_whitespace()))
+            .map(Iterator::count)
+            .min()
+            .map(|min_whitespace_prefix_len| {
+                common_whitespace_prefix_len.cmp(&min_whitespace_prefix_len)
+            }) {
+            None => (), // no lines other than whitespace lines
+            // do not change the log level without changing it in the if condition 6 lines above.
+            Some(Ordering::Less) => log::info!(
+                "the multi line leaf starting with {:?} at {} mixes different whitespace characters like spaces and tabs in its lines' whitespace prefixes. \
+                    is this supposed to be indentation? then you should not mix different whitespace characters.",
+                &content_original[..content_original.len().min(16)],
+                start_position,
+            ),
+            Some(Ordering::Equal) => (),
+            Some(Ordering::Greater) => panic!(
+                "the common whitespace prefix should be a substring of the shortest whitespace prefix."
+            ),
+        }
+    }
+
+    let content = content.map(|line| &line[line.len().min(common_whitespace_prefix_len_utf8)..]);
+
+    for line in content {
+        if line.is_empty() {
+            writeln!(buffer).context_to()?;
+        } else {
+            write!(buffer, "\n{}{line}", indent.repeat(indent_level + 1)).context_to()?;
+        }
+    }
+    #[allow(clippy::nonminimal_bool)]
+    if last_line_is_whitespace || (!last_line_is_whitespace && !last_line_break_significant) {
+        write!(buffer, "\n{}", indent.repeat(indent_level)).context_to()?;
+    }
+    write!(buffer, "{end}").context_to()?;
+    Ok(buffer)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn start_position() -> Position {
+        Position { row: 1, column: 1 }
+    }
+
+    #[test]
+    fn test_render_enforced_indentation0() {
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "\
+''\t
+    a
+   b
+     c
+''",
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                 a
+                b
+                  c
+            ''",
+        );
+    }
+
+    #[test]
+    fn test_render_enforced_indentation1() {
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "\
+''x
+    a
+   b
+     c
+''",
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                x
+                    a
+                   b
+                     c
+            ''"
+        );
+    }
+
+    #[test]
+    fn test_render_enforced_indentation_1_line0() {
+        for line in ["''''", "'' ''", "'' a''"] {
+            assert_eq!(
+                render_enforced_indentation(
+                    &multi_line_indent::EnforceIndentation {
+                        last_line_break_significant: false,
+                        start: "''".to_owned(),
+                        end: "''".to_owned(),
+                    },
+                    line,
+                    3,
+                    "  ",
+                    &start_position(),
+                )
+                .unwrap(),
+                line,
+            );
+        }
+    }
+
+    #[test]
+    fn test_render_enforced_indentation_1_line1() {
+        for line in ["''''", "'' ''", "'' a''"] {
+            assert_eq!(
+                render_enforced_indentation(
+                    &multi_line_indent::EnforceIndentation {
+                        last_line_break_significant: true,
+                        start: "''".to_owned(),
+                        end: "''".to_owned(),
+                    },
+                    line,
+                    3,
+                    "  ",
+                    &start_position(),
+                )
+                .unwrap(),
+                line,
+            );
+        }
+    }
+
+    #[test]
+    fn test_render_enforced_indentation_2_lines0() {
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''.
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''.
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''"
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''"
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''.
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''"
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''........a
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+                a
+            ''"
+        );
+    }
+
+    #[test]
+    fn test_render_enforced_indentation_2_lines1() {
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''.
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''.
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''"
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a''"
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''.
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a''"
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''........a
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+                a''"
+        );
+    }
+
+    #[test]
+    fn test_render_enforced_indentation_3_lines0() {
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+....
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....a
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....a
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''........a
+....a
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+....
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....a
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....a
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''........a
+....a
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''........a
+
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''........a
+....
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+........a
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+........a
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''............a
+........a
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                        a
+                    a
+                a
+            ''",
+        );
+    }
+
+    #[test]
+    fn test_render_enforced_indentation_3_lines1() {
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+....
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....a
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....a
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''........a
+....a
+''"
+                .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....a
+....
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....a
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....a
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''........a
+....a
+....''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+                a
+            ''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+                a''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+                a''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''........a
+
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+
+                a''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+                a''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+....
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+
+                a''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''........a
+....
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+
+                a''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+........a
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+                a''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''....
+........a
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                    a
+                a''",
+        );
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''............a
+........a
+....a''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                        a
+                    a
+                a''",
+        );
+    }
+
+    #[test]
+    fn test_render_enforced_indentation_significant_whitespace0() {
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....................a
+.....................
+................''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+                 
+            ''",
+        );
+    }
+
+    #[test]
+    fn test_render_enforced_indentation_significant_whitespace1() {
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                &"\
+''
+....................a
+.....................
+................''"
+                    .replace('.', " "),
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                a
+                 
+            ''",
+        );
+    }
+
+    #[test]
+    fn test_render_enforced_indentation_mixed_whitespace0() {
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: false,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+                     a
+                    \t
+                ''",
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                 a
+                \t
+            ''",
+        );
+    }
+
+    #[test]
+    fn test_render_enforced_indentation_mixed_whitespace1() {
+        assert_eq!(
+            render_enforced_indentation(
+                &multi_line_indent::EnforceIndentation {
+                    last_line_break_significant: true,
+                    start: "''".to_owned(),
+                    end: "''".to_owned(),
+                },
+                "''
+                     a
+                    \t
+                ''",
+                3,
+                "    ",
+                &start_position(),
+            )
+            .unwrap(),
+            "''
+                 a
+                \t
+            ''",
+        );
+    }
 }
