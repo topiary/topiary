@@ -184,7 +184,7 @@ mod wasm {
                     let arg1 = &options;
                     let arg2 = &message.into();
                     logger.call3(context, arg0, arg1, arg2).unwrap();
-                }) as Box<dyn FnMut(LogType, JsString)>;
+                }) as Logger;
                 Some(LoggerReturn::new(fun))
             } else {
                 None
