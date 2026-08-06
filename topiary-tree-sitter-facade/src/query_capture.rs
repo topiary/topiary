@@ -64,12 +64,12 @@ mod wasm {
 
     impl<'a> QueryCapture<'a> {
         #[inline]
-        pub fn node(&self) -> Node {
+        pub fn node(&self) -> Node<'_> {
             self.inner.node().into()
         }
 
         #[inline]
-        pub fn name(&self, _capture_names: &[&str]) -> Cow<str> {
+        pub fn name(&self, _capture_names: &[&str]) -> Cow<'_, str> {
             Cow::Owned(self.inner.name().as_string().unwrap())
         }
     }
