@@ -175,7 +175,7 @@ mod wasm {
         }
 
         #[inline]
-        pub fn logger(&self) -> Option<LoggerReturn> {
+        pub fn logger(&self) -> Option<LoggerReturn<'_, '_>> {
             if let Some(logger) = self.inner.get_logger() {
                 let options = js_sys::Object::new().into();
                 let fun = Box::new(move |type_: LogType, message: JsString| {
@@ -184,7 +184,7 @@ mod wasm {
                     let arg1 = &options;
                     let arg2 = &message.into();
                     logger.call3(context, arg0, arg1, arg2).unwrap();
-                }) as Box<dyn FnMut(LogType, JsString)>;
+                }) as Logger;
                 Some(LoggerReturn::new(fun))
             } else {
                 None

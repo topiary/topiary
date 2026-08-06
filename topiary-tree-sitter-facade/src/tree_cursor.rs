@@ -89,7 +89,7 @@ mod wasm {
         }
 
         #[inline]
-        pub fn field_name(&self) -> Option<Cow<str>> {
+        pub fn field_name(&self) -> Option<Cow<'_, str>> {
             self.inner
                 .current_field_name()
                 .map(|name| From::<String>::from(name.into()))

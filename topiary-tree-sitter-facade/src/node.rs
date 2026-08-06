@@ -448,7 +448,7 @@ mod wasm {
         }
 
         #[inline]
-        pub fn kind(&self) -> Cow<str> {
+        pub fn kind(&self) -> Cow<'_, str> {
             From::<String>::from(self.inner.type_().into())
         }
 
@@ -548,7 +548,7 @@ mod wasm {
         // FIXME: check that this is correct
         #[inline]
         #[allow(clippy::wrong_self_convention)]
-        pub fn to_sexp(&self) -> Cow<str> {
+        pub fn to_sexp(&self) -> Cow<'_, str> {
             From::<String>::from(self.inner.to_string().into())
         }
 

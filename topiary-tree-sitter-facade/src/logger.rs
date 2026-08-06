@@ -2,17 +2,17 @@
 mod native {
     pub type LogType = tree_sitter::LogType;
 
-    pub type Logger<'a> = Box<dyn FnMut(LogType, &str) + 'a>;
+    pub type Logger<'a> = Box<dyn FnMut(LogType, &str) + 'a + Send>;
 
     pub struct LoggerReturn<'a, 's> {
-        #[allow(clippy::borrowed_box, clippy::type_complexity)]
-        pub inner: &'s Box<dyn FnMut(LogType, &str) + 'a>,
+        #[allow(clippy::borrowed_box)]
+        pub inner: &'s Logger<'a>,
     }
 
     impl<'a, 's> LoggerReturn<'a, 's> {
-        #[allow(clippy::borrowed_box, clippy::type_complexity)]
+        #[allow(clippy::borrowed_box)]
         #[inline]
-        pub(crate) fn new(inner: &'s Box<dyn FnMut(LogType, &str) + 'a>) -> Self {
+        pub(crate) fn new(inner: &'s Logger<'a>) -> Self {
             Self { inner }
         }
     }
@@ -30,13 +30,13 @@ mod wasm {
     pub type Logger<'a> = Box<dyn FnMut(LogType, JsString) + 'a>;
 
     pub struct LoggerReturn<'a, 's> {
-        pub inner: Box<dyn FnMut(LogType, JsString) + 'a>,
+        pub inner: Logger<'a>,
         phantom: std::marker::PhantomData<&'s ()>,
     }
 
     impl<'a, 's> LoggerReturn<'a, 's> {
         #[inline]
-        pub(crate) fn new(inner: Box<dyn FnMut(LogType, JsString) + 'a>) -> Self {
+        pub(crate) fn new(inner: Logger<'a>) -> Self {
             let phantom = std::marker::PhantomData;
             Self { inner, phantom }
         }
