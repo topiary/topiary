@@ -34,8 +34,7 @@ toJSONFile : Any -> File
 
 Given a Topiary configuration as a Nix value, returns the same
 configuration, except all language sources have been replaced by a
-prefetched and precompiled one. This requires the presence of a `nixHash`
-for all sources.
+prefetched and precompiled `library_path`. Git sources require a `nixHash`.
 
 ### Type
 

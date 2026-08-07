@@ -43,9 +43,7 @@ clap_derive = "4.5"
 criterion = "0.8"
 directories = "6.0"
 env_logger = "0.11"
-gix = { version = "0.86.0", features = ["blocking-http-transport-reqwest-rust-tls"] }
 js-sys = "0.3"
-libloading = "0.9.0"
 log = "0.4"
 miette = "7.6.0"
 nickel-lang-core = { version = "0.18.0", default-features = false }
@@ -73,9 +71,9 @@ wasm-bindgen-futures = "0.4"
 wasm-bindgen-test = "0.3"
 web-sys = "0.3"
 
-# NOTE Keep these versions aligned
-tree-sitter = "0.26"         # NOTE Update tree-sitter-loader to match
-tree-sitter-loader = "0.26"  # NOTE Align with tree-sitter
+# NOTE Keep this aligned with tree-sitter-graft
+tree-sitter = "0.26"
+tree-sitter-graft = { git = "https://github.com/topiary/tree-sitter-graft", rev = "dbc006d48384a129db9b870465f2def434ccf302", default-features = false, features = ["git", "serde"] }
 
 # NOTE Update these appropriately
 topiary-config = { version = "0.7.3", path = "./topiary-config" }

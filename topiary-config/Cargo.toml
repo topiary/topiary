@@ -16,15 +16,11 @@ readme.workspace = true
 license.workspace = true
 
 [dependencies]
-anyhow.workspace = true
 directories.workspace = true
-gix.workspace = true
 log.workspace = true
 nickel-lang-core.workspace = true
 rayon = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
-tempfile.workspace = true
-tree-sitter-language.workspace = true
 
 topiary-queries.workspace = true
 topiary-tree-sitter-facade.workspace = true
@@ -32,8 +28,7 @@ topiary-web-tree-sitter-sys.workspace = true
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 clap = { workspace = true, features = ["derive"] }
-tree-sitter-loader.workspace = true
-libloading.workspace = true
+tree-sitter-graft.workspace = true
 
 [features]
 default = [ "parallel" ]
@@ -77,3 +72,6 @@ all = [
   "menhir",
   "wit",
 ]
+
+[dev-dependencies]
+tempfile.workspace = true

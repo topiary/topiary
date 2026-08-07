@@ -104,12 +104,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.104"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
-
-[[package]]
 name = "arc-swap"
 version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2102,6 +2096,12 @@ name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
+
+[[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "http"
@@ -4437,11 +4437,8 @@ dependencies = [
 name = "topiary-config"
 version = "0.7.3"
 dependencies = [
- "anyhow",
  "clap",
  "directories",
- "gix",
- "libloading",
  "log",
  "nickel-lang-core",
  "rayon",
@@ -4450,8 +4447,7 @@ dependencies = [
  "topiary-queries",
  "topiary-tree-sitter-facade",
  "topiary-web-tree-sitter-sys",
- "tree-sitter-language",
- "tree-sitter-loader",
+ "tree-sitter-graft",
 ]
 
 [[package]]
@@ -4617,15 +4613,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "tree-sitter-highlight"
-version = "0.26.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51d5c68e5dba9c2818166330961143812b22a286e51a107a0733766b50dfc87d"
+name = "tree-sitter-graft"
+version = "0.1.0"
+source = "git+https://github.com/topiary/tree-sitter-graft?rev=dbc006d48384a129db9b870465f2def434ccf302#dbc006d48384a129db9b870465f2def434ccf302"
 dependencies = [
- "regex",
- "streaming-iterator",
+ "directories",
+ "fs4",
+ "gix",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
  "thiserror",
  "tree-sitter",
+ "tree-sitter-loader",
 ]
 
 [[package]]
@@ -4654,7 +4656,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tree-sitter",
- "tree-sitter-highlight",
  "tree-sitter-tags",
 ]
 

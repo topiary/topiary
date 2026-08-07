@@ -4,33 +4,43 @@ use std::{
         hash_map::{DefaultHasher, Entry},
     },
     hash::{Hash, Hasher},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
 };
 
 use crate::Configuration;
-use topiary_config::language::LocalRepos;
+use topiary_config::language::GrammarLoader;
 use topiary_core::Language;
 
-use crate::error::CLIResult;
+use crate::error::{CLIResult, ResultPreformat};
 use crate::io::InputFile;
 
 /// Thread-safe language definition cache
 #[derive(Debug)]
 pub struct LanguageDefinitionCache {
     languages: Mutex<HashMap<u64, Arc<Language>>>,
-    repos: LocalRepos,
+    loader: OnceLock<GrammarLoader>,
 }
 
 impl LanguageDefinitionCache {
     pub fn new() -> Self {
         LanguageDefinitionCache {
             languages: Mutex::new(HashMap::new()),
-            repos: LocalRepos::new(),
+            loader: OnceLock::new(),
         }
     }
 
-    pub fn repos(&self) -> &LocalRepos {
-        &self.repos
+    pub fn loader(
+        &self,
+    ) -> Result<&GrammarLoader, topiary_config::error::TopiaryConfigFetchingError> {
+        if let Some(loader) = self.loader.get() {
+            return Ok(loader);
+        }
+        let loader = GrammarLoader::for_project("topiary")?;
+        let _ = self.loader.set(loader);
+        Ok(self
+            .loader
+            .get()
+            .expect("a loader was initialized by this or another thread"))
     }
 
     fn key_for_parts(
@@ -87,7 +97,11 @@ impl LanguageDefinitionCache {
                     input.formatting_query()
                 );
 
-                let lang_def = Arc::new(input.to_language_sync()?);
+                let loader = self
+                    .loader()
+                    .map_err(topiary_config::error::TopiaryConfigError::from)
+                    .preformat_context()?;
+                let lang_def = Arc::new(input.to_language_sync(loader)?);
                 slot.insert(lang_def).to_owned()
             }
         })

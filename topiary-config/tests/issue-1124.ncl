@@ -2,6 +2,6 @@
 {
   languages.ocaml = {
     extensions = ["ml"],
-    grammar.source.path = "/some/path",
+    grammar.source.library_path.path = "/some/path",
   },
 }

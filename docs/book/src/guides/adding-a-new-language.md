@@ -27,7 +27,7 @@ your query file to be able to iterate on formatting query writing.
       extensions | default = ["c", "h"],
       grammar.source | default = {
         git = {
-            git = "https://github.com/tree-sitter/tree-sitter-c.git",
+            url = "https://github.com/tree-sitter/tree-sitter-c.git",
             rev = "6c7f459ddc0bcf78b615d3a3f4e8fed87b8b3b1b",
         },
       },

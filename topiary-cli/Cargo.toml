@@ -23,8 +23,7 @@ name = "topiary"
 path = "src/main.rs"
 
 [dependencies]
-# For now we just load the tree-sitter language parsers statically.
-# Eventually we will want to dynamically load them, like Helix does.
+# Native Tree-sitter grammars are prepared and loaded dynamically by topiary-config via Graft.
 async-scoped = { workspace = true }
 clap = { workspace = true, features = ["derive", "env", "wrap_help"] }
 clap_complete = { workspace = true }
@@ -96,4 +95,3 @@ tree_sitter_query = ["topiary-config/tree_sitter_query", "topiary-queries/tree_s
 markdown = ["topiary-config/markdown", "topiary-queries/markdown"]
 menhir = ["topiary-config/menhir", "topiary-queries/menhir"]
 wit = ["topiary-config/wit", "topiary-queries/wit"]
-

@@ -6,7 +6,7 @@ use rootcause::{
 };
 use rootcause_preformat::PreformatReportExt;
 use std::{any::Any, error, fmt, io, process::ExitCode, result};
-use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
+use topiary_config::error::TopiaryConfigError;
 
 use nickel_lang_core::error::{
     Diagnostic,
@@ -177,10 +177,7 @@ impl From<&TopiaryConfigError> for TopiaryError {
         match value {
             TopiaryConfigError::FileNotFound(_)
             | TopiaryConfigError::QueryFileNotFound(_)
-            | TopiaryConfigError::Io(_)
-            | TopiaryConfigError::Fetching(
-                FetchError::Io(_) | FetchError::GrammarFileNotFound(_),
-            ) => Self::Io,
+            | TopiaryConfigError::Io(_) => Self::Io,
             _ => Self::Config,
         }
     }
@@ -267,10 +264,11 @@ mod tests {
     }
 
     #[test]
-    fn preformat_context_nested_io_exits_3() {
-        let err: Result<(), TopiaryConfigError> = Err(TopiaryConfigError::Fetching(
-            FetchError::Io(io::Error::new(io::ErrorKind::PermissionDenied, "denied")),
-        ));
+    fn preformat_context_io_exits_3() {
+        let err: Result<(), TopiaryConfigError> = Err(TopiaryConfigError::Io(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "denied",
+        )));
         let report = err.preformat_context().unwrap_err();
         assert_eq!(exit_code(&report), 3.into());
     }

@@ -38,7 +38,7 @@ let
       language = name;
       version = source.rev;
       src = fetchgit {
-        url = source.git;
+        url = source.url;
         rev = source.rev;
         hash =
           if source ? "nixHash" then
@@ -51,10 +51,21 @@ let
 
   prefetchLanguageSource =
     name: source:
-    if source ? "path" then
-      { inherit (source) path; }
+    if source ? "library_path" then
+      source
+    else if source ? "source_path" then
+      {
+        library_path.path = "${
+          tree-sitter.buildGrammar {
+            language = name;
+            version = "source";
+            src = source.source_path.path;
+            location = if source.source_path ? "subdir" then source.source_path.subdir else null;
+          }
+        }/parser";
+      }
     else if source ? "git" then
-      { path = "${prefetchLanguageSourceGit name source.git}/parser"; }
+      { library_path.path = "${prefetchLanguageSourceGit name source.git}/parser"; }
     else
       throw ("Unsupported Topiary language sources: " ++ concatStringsSep ", " (attrNames source));
 
@@ -63,8 +74,7 @@ let
   /**
     Given a Topiary configuration as a Nix value, returns the same
     configuration, except all language sources have been replaced by a
-    prefetched and precompiled one. This requires the presence of a `nixHash`
-    for all sources.
+    prefetched and precompiled `library_path`. Git sources require a `nixHash`.
 
     # Type
 

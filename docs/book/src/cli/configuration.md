@@ -165,27 +165,44 @@ you, specify the `grammar.source.git` attribute of a language:
 nickel = {
   extensions = ["ncl"],
   grammar.source.git = {
-    git = "https://github.com/nickel-lang/tree-sitter-nickel",
+    url = "https://github.com/nickel-lang/tree-sitter-nickel",
     rev = "43433d8477b24cd13acaac20a66deda49b7e2547",
   },
 },
 ```
 
-To specify a prebuilt grammar, specify the `grammar.source.path`
-attribute, which must point to a compiled grammar file on your file
-system:
+To compile generated parser sources already available locally, use
+`source_path`. The optional `subdir` is resolved below `path`:
 
 ```nickel
 nickel = {
   extensions = ["ncl"],
-  grammar.source.path = "/path/to/compiled/grammar/file.so",
+  grammar.source.source_path = {
+    path = "/path/to/tree-sitter-nickel",
+    subdir = "grammar",
+  },
 },
 ```
 
-> **Note**\
-> If you want to link to a grammar file that has already been compiled
-> by Topiary itself, those look like `~/.cache/topiary/<LANGUAGE>/<GIT_HASH>.so`
-> (or the equivalent for your platform).
+To use a prebuilt grammar, use `library_path`. The path may be
+extensionless, as with nixpkgs' `parser` outputs:
+
+```nickel
+nickel = {
+  extensions = ["ncl"],
+  grammar.source.library_path.path = "/path/to/compiled/grammar/parser",
+},
+```
+
+Graft stores Git checkouts and compiled source artifacts below
+`~/.cache/topiary/tree-sitter-graft` (or the platform equivalent). Branches
+and tags keep their cached commit mapping until `topiary prefetch --force`
+refreshes them; exact commit IDs are recommended for reproducibility.
+
+> **Security**\
+> Native grammar libraries are executable code. Only load libraries and Git
+> sources that you trust. `source_path` and Git sources also require a working
+> native C toolchain at runtime; Nix users should prefer `library_path`.
 
 ### Specifying queries
 
@@ -219,7 +236,7 @@ markdown = {
   queries = {
     formatting.source = {
       git = {
-        git = "https://github.com/topiary/topiary.git",
+        url = "https://github.com/topiary/topiary.git",
         rev = "d2c79b9ecd341d40aa0baf87f4a761ae242dfa67",
       },
       path = "topiary-queries/queries/markdown/formatting.scm",
@@ -249,7 +266,7 @@ caveat is that, for each Git source, the configuration must contain a
 nickel = {
   extensions = ["ncl"],
   grammar.source.git = {
-    git = "https://github.com/nickel-lang/tree-sitter-nickel",
+    url = "https://github.com/nickel-lang/tree-sitter-nickel",
     rev = "43433d8477b24cd13acaac20a66deda49b7e2547",
     nixHash = "sha256-9Ei0uy+eGK9oiH7y2KIhB1E88SRzGnZinqECT3kYTVE=",
   },

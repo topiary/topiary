@@ -48,6 +48,14 @@ let
     buildInputs = with pkgs; [
       openssl.dev
     ];
+
+    # Graft follows the XDG cache convention when loading native grammars.
+    # Nix builders otherwise default HOME to the unwritable /homeless-shelter.
+    preBuild = ''
+      export HOME="$TMPDIR/home"
+      export XDG_CACHE_HOME="$TMPDIR/cache"
+      mkdir -p "$HOME" "$XDG_CACHE_HOME"
+    '';
   };
 
   prepareTopiaryDefaultConfiguration = ''
@@ -62,6 +70,9 @@ let
       inherit cargoArtifacts;
       pname = "topiary-workspace-tests";
       cargoTestExtraArgs = "--workspace --all-features";
+      nativeBuildInputs = commonArgs.nativeBuildInputs ++ [ pkgs.git ];
+      TOPIARY_GRAFT_JSON_LIBRARY = "${pkgs.tree-sitter-grammars.tree-sitter-json}/parser";
+      TOPIARY_GRAFT_JSON_SOURCE = pkgs.tree-sitter.grammars.tree-sitter-json.src;
       preConfigurePhases = [ "prepareTopiaryDefaultConfiguration" ];
       inherit prepareTopiaryDefaultConfiguration;
     }

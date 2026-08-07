@@ -18,7 +18,7 @@ let rec
         'Ok
     ),
   GitSource = {
-    git
+    url
       | String
       | doc "URL of the Git repository hosting the tree-sitter grammar.",
     rev
@@ -42,15 +42,19 @@ let rec
   },
   GrammarSource
     | doc m%"
-      Either a Git source or a local filesystem path. Fields are optional
-      at the contract layer so that user configurations can override one
-      variant with the other via Nickel record merging (e.g. setting
-      `grammar.source.path` on top of a default `grammar.source.git`).
+      A Graft grammar source: a Git checkout, generated sources on disk, or an
+      already-built native library.
     "%
     =
       std.contract.any_of [
         { git | GitSource },
-        { path | String },
+        {
+          source_path | {
+            path | String,
+            subdir | String | optional,
+          }
+        },
+        { library_path | { path | String } },
       ],
   Grammar = {
     source | GrammarSource,
@@ -104,7 +108,7 @@ in
       extensions | default = ["sh", "bash"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/tree-sitter/tree-sitter-bash.git",
+          url = "https://github.com/tree-sitter/tree-sitter-bash.git",
           rev = "d1a1a3fe7189fdab5bd29a54d1df4a5873db5cb1",
           nixHash = "sha256-XiiEI7/6b2pCZatO8Z8fBgooKD8Z+SFQJNdR/sGGkgE=",
         }
@@ -115,7 +119,7 @@ in
       extensions | default = ["css"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/tree-sitter/tree-sitter-css.git",
+          url = "https://github.com/tree-sitter/tree-sitter-css.git",
           rev = "6e327db434fec0ee90f006697782e43ec855adf5",
           nixHash = "sha256-en379DlqzzvQNvKgE8CtiA00j7phUyipttqbnETGHKc=",
         },
@@ -141,7 +145,7 @@ in
       ],
       grammar.source | default = {
         git = {
-          git = "https://github.com/tree-sitter/tree-sitter-json.git",
+          url = "https://github.com/tree-sitter/tree-sitter-json.git",
           rev = "v0.24.8",
           nixHash = "sha256-DNZC2cTy1C8OaMOpEHM6NoRtOIbLaBf0CLXXWCKODlw=",
         },
@@ -152,7 +156,7 @@ in
       extensions | default = ["md"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/tree-sitter-grammars/tree-sitter-markdown.git",
+          url = "https://github.com/tree-sitter-grammars/tree-sitter-markdown.git",
           rev = "c3570720f7f7bbad22fe96603f106276618e0cf5",
           subdir = "tree-sitter-markdown",
           nixHash = "sha256-wQKcqU0V6gHj84qOkUwdXsBW3f6MNfJMFxuGTucAgh8=",
@@ -164,7 +168,7 @@ in
       extensions | default = ["mly"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/tmcgilchrist/tree-sitter-menhir.git",
+          url = "https://github.com/tmcgilchrist/tree-sitter-menhir.git",
           rev = "6b4a30ccc542530f7071ea45496ed5c9c74faa54",
           nixHash = "sha256-9pW+JpghCt2m+wJ2GclaSQWNo52jnzOCY/AmRHBfUUg=",
         },
@@ -175,7 +179,7 @@ in
       extensions | default = ["ncl"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/nickel-lang/tree-sitter-nickel",
+          url = "https://github.com/nickel-lang/tree-sitter-nickel",
           rev = "488ee4e6af15e10dd4be527777c9ba18a817d407",
           nixHash = "sha256-CMlf80y1te30HwjT9ykHeg6xvQc/lcCCHDMVGs7oVXQ=",
         },
@@ -186,7 +190,7 @@ in
       extensions | default = ["ml"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/tree-sitter/tree-sitter-ocaml.git",
+          url = "https://github.com/tree-sitter/tree-sitter-ocaml.git",
           rev = "a45fda5fe73cda92f2593d16340b3f6bd46674b8",
           subdir = "grammars/ocaml",
           nixHash = "sha256-u8R3JvjaOrW6kCX1hNTGMl86HnKAoopSMvHr8Sj0i04=",
@@ -198,7 +202,7 @@ in
       extensions | default = ["mli"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/tree-sitter/tree-sitter-ocaml.git",
+          url = "https://github.com/tree-sitter/tree-sitter-ocaml.git",
           rev = "a45fda5fe73cda92f2593d16340b3f6bd46674b8",
           subdir = "grammars/interface",
           nixHash = "sha256-u8R3JvjaOrW6kCX1hNTGMl86HnKAoopSMvHr8Sj0i04=",
@@ -210,7 +214,7 @@ in
       extensions | default = ["mll"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/314eter/tree-sitter-ocamllex.git",
+          url = "https://github.com/314eter/tree-sitter-ocamllex.git",
           rev = "5da5bb7508ac9fd3317561670ef18c126a0fe2aa",
           nixHash = "sha256-qfmIfcZ3zktYzuNNYP7Z6u6c7XoKsKD86MRMxe/qkpY=",
         },
@@ -221,7 +225,7 @@ in
       extensions | default = ["scad"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/openscad/tree-sitter-openscad.git",
+          url = "https://github.com/openscad/tree-sitter-openscad.git",
           rev = "acc196e969a169cadd8b7f8d9f81ff2d30e3e253",
           nixHash = "sha256-x6fU1yPhYfoXemjswk+yRHW+c5V6nJgesK5tunYE7MI=",
         },
@@ -233,7 +237,7 @@ in
       indent | default = "    ", # 4 spaces
       grammar.source | default = {
         git = {
-          git = "https://github.com/tree-sitter/tree-sitter-rust.git",
+          url = "https://github.com/tree-sitter/tree-sitter-rust.git",
           rev = "e0e8b6de6e4aa354749c794f5f36a906dcccda74",
           nixHash = "sha256-egTxBuliboYbl+5N6Jdt960EMLByVmLqSmQLps3rEok=",
         },
@@ -244,7 +248,7 @@ in
       extensions | default = ["sdm", "sdml"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/sdm-lang/tree-sitter-sdml",
+          url = "https://github.com/sdm-lang/tree-sitter-sdml",
           rev = "056fc1d0b8624aa4e58967c67bb129ebdfa6d563",
           nixHash = "sha256-UrlhkcfdBFN/o+NhSPDqfCS0/OpLByVA/5NPl+JPD58=",
         },
@@ -255,7 +259,7 @@ in
       extensions | default = ["toml"],
       grammar.source | default = {
         git = {
-          git = "https://github.com/tree-sitter/tree-sitter-toml.git",
+          url = "https://github.com/tree-sitter/tree-sitter-toml.git",
           rev = "342d9be207c2dba869b9967124c679b5e6fd0ebe",
           nixHash = "sha256-5nLNBxFeOGE+gzbwpcrTVnuL1jLUA0ZLBVw2QrOLsDQ=",
         },
@@ -267,7 +271,7 @@ in
       grammar = {
         source | default = {
           git = {
-            git = "https://github.com/nvim-treesitter/tree-sitter-query",
+            url = "https://github.com/nvim-treesitter/tree-sitter-query",
             rev = "a0ccc351e5e868ec1f8135e97aa3b53c663cf2df",
             nixHash = "sha256-H2QLsjl3/Kh0ojCf2Df38tb9KrM2InphEmtGd0J6+hM=",
           },
@@ -281,7 +285,7 @@ in
       indent | default = "    ", # 4 spaces
       grammar.source | default = {
         git = {
-          git = "https://github.com/bytecodealliance/tree-sitter-wit",
+          url = "https://github.com/bytecodealliance/tree-sitter-wit",
           rev = "v1.4.0",
           nixHash = "sha256-63xH63s6lgticgRtMz7LCL1ThuXegn7qFCZgeQqIZH4=",
         },

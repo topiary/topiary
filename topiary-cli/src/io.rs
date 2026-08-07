@@ -179,8 +179,11 @@ pub struct InputFile<'cfg> {
 
 impl InputFile<'_> {
     /// Convert our `InputFile` into a language definition values with blocking I/O.
-    pub fn to_language_sync(&self) -> CLIResult<Language> {
-        let grammar = self.language().grammar()?;
+    pub fn to_language_sync(
+        &self,
+        loader: &topiary_config::language::GrammarLoader,
+    ) -> CLIResult<Language> {
+        let grammar = self.language().grammar_with(loader)?;
         let query_contents = self.formatting_query.get_content_sync()?;
         let injection_query = match &self.injection_query {
             Some(source) => {

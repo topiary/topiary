@@ -41,14 +41,16 @@ pub enum TopiaryConfigError {
 /// Since fetching an compilation is something that can easily be parallelized, we create a special error that DOES implement Sync/Send.
 #[cfg(not(target_arch = "wasm32"))]
 pub enum TopiaryConfigFetchingError {
-    Git(anyhow::Error),
-    Build(tree_sitter_loader::LoaderError),
-    Io(io::Error),
-    LibLoading(libloading::Error),
-    GrammarFileNotFound(path::PathBuf),
+    Graft(tree_sitter_graft::Error),
 }
 
-impl std::error::Error for TopiaryConfigFetchingError {}
+impl std::error::Error for TopiaryConfigFetchingError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Graft(error) => Some(error),
+        }
+    }
+}
 
 impl fmt::Display for TopiaryConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -102,19 +104,7 @@ impl fmt::Display for TopiaryConfigError {
 impl fmt::Display for TopiaryConfigFetchingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TopiaryConfigFetchingError::Git(e) => write!(f, "Git error: {e:?}"),
-            TopiaryConfigFetchingError::Build(e) => {
-                write!(f, "Compilation error: {e},")
-            }
-            TopiaryConfigFetchingError::Io(error) => {
-                write!(f, "We encountered an io error: {error}")
-            }
-            TopiaryConfigFetchingError::LibLoading(e) => write!(f, "Libloading error: {e:?}"),
-            TopiaryConfigFetchingError::GrammarFileNotFound(path) => write!(
-                f,
-                "Attempted to load grammar at `{}`, but no file found",
-                path.display()
-            ),
+            TopiaryConfigFetchingError::Graft(error) => write!(f, "{error}"),
         }
     }
 }
@@ -144,9 +134,9 @@ impl From<io::Error> for TopiaryConfigError {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-impl From<io::Error> for TopiaryConfigFetchingError {
-    fn from(e: io::Error) -> Self {
-        Self::Io(e)
+impl From<tree_sitter_graft::Error> for TopiaryConfigFetchingError {
+    fn from(error: tree_sitter_graft::Error) -> Self {
+        Self::Graft(error)
     }
 }
 
@@ -156,18 +146,12 @@ impl From<topiary_tree_sitter_facade::LanguageError> for TopiaryConfigError {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-impl From<libloading::Error> for TopiaryConfigFetchingError {
-    fn from(e: libloading::Error) -> Self {
-        Self::LibLoading(e)
-    }
-}
-
 impl error::Error for TopiaryConfigError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             #[cfg(not(target_arch = "wasm32"))]
-            TopiaryConfigError::Io(e) => e.source(),
+            TopiaryConfigError::Fetching(error) => Some(error),
+            TopiaryConfigError::Io(error) => Some(error),
             _ => None,
         }
     }

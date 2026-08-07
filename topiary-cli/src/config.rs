@@ -119,7 +119,12 @@ impl Configuration {
     {
         let name_ref = name.as_ref();
         let config_language = self.get_language_cfg(name_ref).preformat_context()?;
-        let grammar = config_language.grammar()?;
+        let loader = self
+            .cache
+            .loader()
+            .map_err(topiary_config::error::TopiaryConfigError::from)
+            .preformat_context()?;
+        let grammar = config_language.grammar_with(loader)?;
         let query_source = self.get_query_source(name_ref, topiary_queries::FORMATTING_QUERY)?;
         let query_content = query_source.get_content_sync()?;
         let formatting_query = TopiaryQuery::new(&grammar, &query_content)
@@ -151,8 +156,11 @@ impl Configuration {
     ) -> CLIResult<crate::io::QuerySource> {
         let config_language = self.get_language_cfg(language_name).preformat_context()?;
         let cache = self.cache();
-        let repos = cache.repos();
-        let find = config_language.find_query_file_with(query_name, repos);
+        let loader = cache
+            .loader()
+            .map_err(topiary_config::error::TopiaryConfigError::from)
+            .preformat_context()?;
+        let find = config_language.find_query_file_with(query_name, loader);
         let query: crate::io::QuerySource = match find {
             Ok(p) => p.into(),
             // For some reason, Topiary could not find any
