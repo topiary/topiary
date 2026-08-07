@@ -40,6 +40,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 Operation::Format {
                     skip_idempotence: true,
                     tolerate_parsing_errors: false,
+                    skip_stage: None,
                 },
                 None,
             )

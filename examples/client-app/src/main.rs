@@ -39,6 +39,7 @@ async fn main() {
         Operation::Format {
             skip_idempotence: false,
             tolerate_parsing_errors: false,
+            skip_stage: None,
         },
         None,
     )

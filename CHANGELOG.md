@@ -80,6 +80,7 @@ This name should be decided amongst the team before the release.
 - [#1299](https://github.com/topiary/topiary/pull/1299) Add `QuerySource` config fetching to topiary-config.
 - [#1312](https://github.com/topiary/topiary/pull/1312) Added `bin/changelog.nu` to automatically add entry to `CHANGELOG.md`
 - [#1315](https://github.com/topiary/topiary/pull/1315) Add rootcause-backtrace to cli
+- [#1314](https://github.com/topiary/topiary/pull/1314) Allow skipping of formatting stages
 
 ### Removed
 - [#1217](https://github.com/topiary/topiary/pull/1217) The `check` alias for the `check-grammar` subcommand, to avoid confusion with `topiary fmt --check`.

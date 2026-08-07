@@ -60,6 +60,7 @@ fn format_ocamllex(input: &str, language: &Language, resolve: Option<&LanguageRe
         Operation::Format {
             skip_idempotence: true,
             tolerate_parsing_errors: false,
+            skip_stage: None,
         },
         resolve,
     )

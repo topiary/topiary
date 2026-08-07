@@ -158,6 +158,10 @@ pub struct InjectionSpan<'a> {
     /// single parse IDs are stable. Used to locate and rewrite the
     /// corresponding `Atom::Leaf` after the host has been atomised.
     pub node_id: usize,
+    /// Byte range of the captured injection node, used in formatting injection content without
+    /// touching root language content.
+    /// See [`crate::splice_formatted_injections`] for more details.
+    pub byte_range: std::ops::Range<usize>,
 }
 
 /// Run an [`InjectionQuery`] against a parsed `tree`, returning every
@@ -226,6 +230,7 @@ pub fn collect_injections<'a>(
 
         for capture in content_captures {
             let node = capture.node();
+            let byte_range = node.byte_range();
             // Skip empty (zero-width) injected nodes. An empty Menhir semantic
             // action `{ }` or an empty trailer after `%%` still produces a
             // zero-width `(ocaml)` node that matches the injection query, but
@@ -239,10 +244,11 @@ pub fn collect_injections<'a>(
             }
             spans.push(InjectionSpan {
                 content: input_content
-                    .get(node.byte_range())
+                    .get(byte_range.clone())
                     .expect("`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range."),
                 language: language_name.clone(),
                 node_id: node.id(),
+                byte_range,
             });
         }
     }

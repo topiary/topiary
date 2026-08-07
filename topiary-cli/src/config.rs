@@ -308,6 +308,7 @@ impl std::fmt::Display for Configuration {
             Operation::Format {
                 skip_idempotence: true,
                 tolerate_parsing_errors: false,
+                skip_stage: None,
             },
             None,
         ) {
