@@ -4,7 +4,7 @@ use rootcause::{
     report,
     report_collection::ReportCollection,
 };
-use rootcause_preformat::{PreformatReportExt, PreformattedContext};
+use rootcause_preformat::PreformatReportExt;
 use std::{any::Any, error, fmt, io, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
 
@@ -207,28 +207,29 @@ where
             Ok(t) => Ok(t),
             Err(e) => {
                 let cli_err = TopiaryError::from(&e);
-                let nickel_diagnostic = (&e as &dyn Any)
-                    .downcast_ref::<TopiaryConfigError>()
-                    .and_then(|cfg_err| match cfg_err {
-                        // TODO(mkatychev): use `report_with` to add the report to our `ErrorSpan`s
-                        TopiaryConfigError::Nickel { error, files } => Some(report_as_str(
-                            &mut (**files).clone(),
-                            (**error).clone(),
-                            ColorOpt::Never,
-                        )),
-                        // NOTE: NickelDeserialization does not currently support IntoDiagnostics
-                        // so the rendering is not as fancy
-                        TopiaryConfigError::NickelDeserialization { error, files } => {
-                            Some(report_as_str(
+                let nickel_diagnostic =
+                    (&e as &dyn Any)
+                        .downcast_ref::<TopiaryConfigError>()
+                        .map(|cfg_err| match cfg_err {
+                            // TODO(mkatychev): use `report_with` to add the report to our `ErrorSpan`s
+                            TopiaryConfigError::Nickel { error, files } => report_as_str(
                                 &mut (**files).clone(),
-                                Diagnostic::error()
-                                    .with_message(error)
-                                    .with_note("Failed to deserialize Topiary configuration."),
+                                (**error).clone(),
                                 ColorOpt::Never,
-                            ))
-                        }
-                        e => Some(format!("{}::{e:?}", std::any::type_name_of_val(e))),
-                    });
+                            ),
+                            // NOTE: NickelDeserialization does not currently support IntoDiagnostics
+                            // so the rendering is not as fancy
+                            TopiaryConfigError::NickelDeserialization { error, files } => {
+                                report_as_str(
+                                    &mut (**files).clone(),
+                                    Diagnostic::error()
+                                        .with_message(error)
+                                        .with_note("Failed to deserialize Topiary configuration."),
+                                    ColorOpt::Never,
+                                )
+                            }
+                            e => format!("{}::{e:?}", std::any::type_name_of_val(e)),
+                        });
                 let mut report = report!(e);
                 if let Some(diagnostic) = nickel_diagnostic {
                     report = report.attach(diagnostic);
