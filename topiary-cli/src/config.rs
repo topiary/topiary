@@ -12,6 +12,7 @@ use topiary_core::{
 };
 
 use crate::error::{CLIResult, ResultPreformat, TopiaryError};
+use crate::io::QuerySource;
 use crate::language::LanguageDefinitionCache;
 
 thread_local! {
@@ -148,12 +149,14 @@ impl Configuration {
         &self,
         language_name: &str,
         query_name: &str,
-    ) -> CLIResult<crate::io::QuerySource> {
+    ) -> CLIResult<QuerySource> {
         let config_language = self.get_language_cfg(language_name).preformat_context()?;
         let cache = self.cache();
         let repos = cache.repos();
-        let find = config_language.find_query_file_with(query_name, repos);
-        let query: crate::io::QuerySource = match find {
+        let find = config_language
+            .find_query_file_with(query_name, repos)
+            .preformat_context();
+        let query: QuerySource = match find {
             Ok(p) => p.into(),
             // For some reason, Topiary could not find any
             // matching file in a default location. As a final attempt, try the
@@ -164,8 +167,7 @@ impl Configuration {
                     "No {query_name} query files found in any of the expected locations. Falling back to compile-time included files."
                 );
                 query_from_builtin(&config_language.name, query_name)
-                    .local_context(e)
-                    .preformat_context()?
+                    .map_err(|err| e.attach(err))?
             }
         };
         Ok(query)
@@ -200,7 +202,7 @@ impl Configuration {
 }
 
 /// Get a builtin query for the given language and query name
-fn query_from_builtin<T, Q>(language: T, query: Q) -> CLIResult<crate::io::QuerySource>
+fn query_from_builtin<T, Q>(language: T, query: Q) -> CLIResult<QuerySource>
 where
     T: AsRef<str> + std::fmt::Display,
     Q: AsRef<str>,

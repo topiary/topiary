@@ -4,7 +4,7 @@ use rootcause::{
     report,
     report_collection::ReportCollection,
 };
-use rootcause_preformat::PreformatReportExt;
+use rootcause_preformat::{PreformatReportExt, PreformattedContext};
 use std::{any::Any, error, fmt, io, process::ExitCode, result};
 use topiary_config::error::{TopiaryConfigError, TopiaryConfigFetchingError as FetchError};
 
@@ -17,7 +17,7 @@ use similar::TextDiff;
 use topiary_core::FormatterError;
 
 /// A convenience wrapper around `std::result::Result<T, TopiaryError>`.
-pub type CLIResult<C, T = SendSync> = result::Result<C, Report<Dynamic, Mutable, T>>;
+pub type CLIResult<T, E = SendSync> = result::Result<T, Report<Dynamic, Mutable, E>>;
 
 /// The errors that can be raised by either the Topiary CLI, or passed through by the formatter
 /// library code. This acts as a supertype of `FormatterError`, with additional members to denote
@@ -192,19 +192,19 @@ impl<T, O> From<&Report<TopiaryConfigError, O, T>> for TopiaryError {
 }
 
 pub(crate) trait ResultPreformat<T, C> {
-    fn preformat_context(self) -> Result<T, Report<TopiaryError>>;
+    #[track_caller]
+    fn preformat_context(self) -> Result<T, Report<PreformattedContext>>;
 }
 
 impl<T, C: 'static> ResultPreformat<T, C> for Result<T, C>
 where
-    C: 'static + fmt::Debug,
-    for<'a> TopiaryError: From<&'a C>,
+    C: 'static + std::error::Error,
 {
-    fn preformat_context(self) -> Result<T, Report<TopiaryError>> {
+    #[track_caller]
+    fn preformat_context(self) -> Result<T, Report<PreformattedContext>> {
         match self {
             Ok(t) => Ok(t),
             Err(e) => {
-                let cli_err = TopiaryError::from(&e);
                 let nickel_diagnostic = (&e as &dyn Any)
                     .downcast_ref::<TopiaryConfigError>()
                     .and_then(|cfg_err| match cfg_err {
@@ -227,11 +227,11 @@ where
                         }
                         _ => None,
                     });
-                let mut report = report!(e).preformat();
+                let mut report = report!(e);
                 if let Some(diagnostic) = nickel_diagnostic {
                     report = report.attach(diagnostic);
                 }
-                Err(report.context(cli_err))
+                Err(report.preformat())
             }
         }
     }
