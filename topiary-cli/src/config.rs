@@ -6,8 +6,6 @@ use std::{ops::Deref, path::Path};
 
 use nickel_lang_core::eval::value::NickelValue;
 use rootcause::prelude::ResultExt;
-use rootcause::report;
-use rootcause::report_collection::ReportCollection;
 use topiary_config::source::Source;
 use topiary_core::{
     FormatterError, FormatterResult, InjectionQuery, Language, SpanAttachment, TopiaryQuery,
