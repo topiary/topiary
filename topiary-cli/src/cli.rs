@@ -308,7 +308,7 @@ pub fn get_args() -> CLIResult<Cli> {
 
             // if there are only errors and no files, we should propagate the given errors
             if files.is_empty() && !errs.is_empty() {
-                return Err(report!(errs).into_dynamic());
+                return Err(errs.context("One or more error(s)").into());
             }
 
             files.sort_unstable();

@@ -193,18 +193,20 @@ impl<T, O> From<&Report<TopiaryConfigError, O, T>> for TopiaryError {
 
 pub(crate) trait ResultPreformat<T, C> {
     #[track_caller]
-    fn preformat_context(self) -> Result<T, Report<PreformattedContext>>;
+    fn preformat_context(self) -> Result<T, Report<TopiaryError>>;
 }
 
 impl<T, C: 'static> ResultPreformat<T, C> for Result<T, C>
 where
     C: 'static + std::error::Error,
+    for<'a> TopiaryError: From<&'a C>,
 {
     #[track_caller]
-    fn preformat_context(self) -> Result<T, Report<PreformattedContext>> {
+    fn preformat_context(self) -> Result<T, Report<TopiaryError>> {
         match self {
             Ok(t) => Ok(t),
             Err(e) => {
+                let cli_err = TopiaryError::from(&e);
                 let nickel_diagnostic = (&e as &dyn Any)
                     .downcast_ref::<TopiaryConfigError>()
                     .and_then(|cfg_err| match cfg_err {
@@ -225,13 +227,13 @@ where
                                 ColorOpt::Never,
                             ))
                         }
-                        _ => None,
+                        e => Some(format!("{}::{e:?}", std::any::type_name_of_val(e))),
                     });
                 let mut report = report!(e);
                 if let Some(diagnostic) = nickel_diagnostic {
                     report = report.attach(diagnostic);
                 }
-                Err(report.preformat())
+                Err(report.preformat().context(cli_err))
             }
         }
     }
