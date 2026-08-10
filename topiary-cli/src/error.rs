@@ -17,7 +17,7 @@ use similar::TextDiff;
 use topiary_core::FormatterError;
 
 /// A convenience wrapper around `std::result::Result<T, TopiaryError>`.
-pub type CLIResult<C, T = SendSync> = result::Result<C, Report<Dynamic, Mutable, T>>;
+pub type CLIResult<T, E = SendSync> = result::Result<T, Report<Dynamic, Mutable, E>>;
 
 /// The errors that can be raised by either the Topiary CLI, or passed through by the formatter
 /// library code. This acts as a supertype of `FormatterError`, with additional members to denote
@@ -192,46 +192,49 @@ impl<T, O> From<&Report<TopiaryConfigError, O, T>> for TopiaryError {
 }
 
 pub(crate) trait ResultPreformat<T, C> {
+    #[track_caller]
     fn preformat_context(self) -> Result<T, Report<TopiaryError>>;
 }
 
 impl<T, C: 'static> ResultPreformat<T, C> for Result<T, C>
 where
-    C: 'static + fmt::Debug,
+    C: 'static + std::error::Error,
     for<'a> TopiaryError: From<&'a C>,
 {
+    #[track_caller]
     fn preformat_context(self) -> Result<T, Report<TopiaryError>> {
         match self {
             Ok(t) => Ok(t),
             Err(e) => {
                 let cli_err = TopiaryError::from(&e);
-                let nickel_diagnostic = (&e as &dyn Any)
-                    .downcast_ref::<TopiaryConfigError>()
-                    .and_then(|cfg_err| match cfg_err {
-                        // TODO(mkatychev): use `report_with` to add the report to our `ErrorSpan`s
-                        TopiaryConfigError::Nickel { error, files } => Some(report_as_str(
-                            &mut (**files).clone(),
-                            (**error).clone(),
-                            ColorOpt::Never,
-                        )),
-                        // NOTE: NickelDeserialization does not currently support IntoDiagnostics
-                        // so the rendering is not as fancy
-                        TopiaryConfigError::NickelDeserialization { error, files } => {
-                            Some(report_as_str(
+                let nickel_diagnostic =
+                    (&e as &dyn Any)
+                        .downcast_ref::<TopiaryConfigError>()
+                        .map(|cfg_err| match cfg_err {
+                            // TODO(mkatychev): use `report_with` to add the report to our `ErrorSpan`s
+                            TopiaryConfigError::Nickel { error, files } => report_as_str(
                                 &mut (**files).clone(),
-                                Diagnostic::error()
-                                    .with_message(error)
-                                    .with_note("Failed to deserialize Topiary configuration."),
+                                (**error).clone(),
                                 ColorOpt::Never,
-                            ))
-                        }
-                        _ => None,
-                    });
-                let mut report = report!(e).preformat();
+                            ),
+                            // NOTE: NickelDeserialization does not currently support IntoDiagnostics
+                            // so the rendering is not as fancy
+                            TopiaryConfigError::NickelDeserialization { error, files } => {
+                                report_as_str(
+                                    &mut (**files).clone(),
+                                    Diagnostic::error()
+                                        .with_message(error)
+                                        .with_note("Failed to deserialize Topiary configuration."),
+                                    ColorOpt::Never,
+                                )
+                            }
+                            e => format!("{}::{e:?}", std::any::type_name_of_val(e)),
+                        });
+                let mut report = report!(e);
                 if let Some(diagnostic) = nickel_diagnostic {
                     report = report.attach(diagnostic);
                 }
-                Err(report.context(cli_err))
+                Err(report.preformat().context(cli_err))
             }
         }
     }

@@ -14,7 +14,6 @@ use rootcause::{
     report,
     report_collection::ReportCollection,
 };
-use rootcause_preformat::PreformatReportExt;
 use tempfile::tempfile;
 use topiary_core::{
     ErrorSpan, FormatterError, InjectionQuery, Language, SpanAttachment, TopiaryQuery,
@@ -264,7 +263,7 @@ impl<'cfg, 'i> Inputs<'cfg> {
                 vec![(|| {
                     let language = config
                         .get_language_cfg(&language_name)
-                        .map_err(|e| report!(e).preformat())
+                        .preformat_context()
                         .context(TopiaryError::Config)?;
                     let query_source: QuerySource = match query {
                         // The user specified a query file
