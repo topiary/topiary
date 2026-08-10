@@ -167,6 +167,7 @@ impl Configuration {
                     "No {query_name} query files found in any of the expected locations. Falling back to compile-time included files."
                 );
                 query_from_builtin(&config_language.name, query_name).map_err(|builtin_err| {
+                    // join two `Report`s, similar to `Vec::append`
                     e.children_mut().push(builtin_err.into_cloneable());
                     e
                 })?
