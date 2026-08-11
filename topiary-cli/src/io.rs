@@ -423,12 +423,15 @@ where
                 let input = input?;
                 let location = input.source().location();
                 tokio::task::block_in_place(|| {
-                    let language_name = input.language().name.clone();
-                    let language = Arc::new(
-                        config
-                            .get_language(&language_name)
-                            .attach_filepath(location.to_path())?,
-                    );
+                    // NOTE Resolve the language definition from the input itself, rather
+                    // than by name from the configuration. The input carries the query
+                    // sources that were resolved for it, which may include a user-supplied
+                    // override (i.e. `--query`); going via the configuration would silently
+                    // discard that override.
+                    let language = config
+                        .cache()
+                        .fetch_input(&input)
+                        .attach_filepath(location.to_path())?;
                     process_fn(input, language, config)
                         .map_err(|e| e.attach_filepath(location.to_path()))
                 })
