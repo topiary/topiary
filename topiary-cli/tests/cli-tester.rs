@@ -119,6 +119,66 @@ fn test_fmt_stdin_query() {
         .stdout(JSON_EXPECTED);
 }
 
+// NOTE `test_fmt_stdin_query`, above, passes the built-in query as the override, so it
+// cannot distinguish an honoured override from an ignored one. These two tests use an
+// override that is observably *not* the built-in query, which is what a regression in the
+// override plumbing actually looks like. See issue #1306.
+
+#[test]
+#[cfg(feature = "json")]
+fn test_fmt_stdin_query_override_is_used() {
+    use predicates::{prelude::PredicateBooleanExt, str::contains};
+
+    // A deliberately idiosyncratic query: unlike the built-in JSON query, it puts a space
+    // *before* the colon and adds no soft lines or indentation. Its output is therefore
+    // unmistakably distinct from `JSON_EXPECTED`.
+    let tmp_dir = TempDir::new().unwrap();
+    let query = tmp_dir.path().join("formatting.scm");
+    fs::write(&query, "(string) @leaf\n\":\" @prepend_space\n").unwrap();
+
+    initialize();
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("fmt")
+        .arg("--language")
+        .arg("json")
+        .arg("--query")
+        .arg(&query)
+        .write_stdin(JSON_INPUT)
+        .assert()
+        .success()
+        .stdout(contains(r#"{"test" :123}"#).and(contains(JSON_EXPECTED.trim()).not()));
+}
+
+#[test]
+#[cfg(feature = "json")]
+fn test_fmt_stdin_invalid_query_override_fails() {
+    use predicates::str::contains;
+
+    // If the override is honoured, this must be compiled -- and fail. If it is silently
+    // dropped in favour of the built-in query, formatting would succeed instead.
+    let tmp_dir = TempDir::new().unwrap();
+    let query = tmp_dir.path().join("formatting.scm");
+    fs::write(&query, "this is not a tree-sitter query").unwrap();
+
+    initialize();
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("fmt")
+        .arg("--language")
+        .arg("json")
+        .arg("--query")
+        .arg(&query)
+        .write_stdin(JSON_INPUT)
+        .assert()
+        .failure()
+        .stderr(contains("this is not a tree-sitter query"));
+}
+
 #[test]
 #[cfg(feature = "json")]
 fn test_fmt_stdin_query_fallback() {
