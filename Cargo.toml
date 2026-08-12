@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.7.3"
+version = "0.8.0"
 edition = "2024"
 authors = ["Tweag"]
 homepage = "https://topiary.tweag.io"
@@ -78,11 +78,11 @@ tree-sitter = "=0.26.10"         # NOTE Update tree-sitter-loader to match
 tree-sitter-loader = "=0.26.10"  # NOTE Align with tree-sitter
 
 # NOTE Update these appropriately
-topiary-config = { version = "0.7.3", path = "./topiary-config" }
-topiary-core = { version = "0.7.3", path = "./topiary-core" }
-topiary-queries = { version = "0.7.3", path = "./topiary-queries" }
-topiary-tree-sitter-facade = { version = "0.7.3", path = "./topiary-tree-sitter-facade" }
-topiary-web-tree-sitter-sys = { version = "0.7.3", path = "./topiary-web-tree-sitter-sys" }
+topiary-config = { version = "0.8.0", path = "./topiary-config" }
+topiary-core = { version = "0.8.0", path = "./topiary-core" }
+topiary-queries = { version = "0.8.0", path = "./topiary-queries" }
+topiary-tree-sitter-facade = { version = "0.8.0", path = "./topiary-tree-sitter-facade" }
+topiary-web-tree-sitter-sys = { version = "0.8.0", path = "./topiary-web-tree-sitter-sys" }
 similar = "3.1"
 rootcause-backtrace = "0.13.0"
 
