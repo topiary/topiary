@@ -179,11 +179,11 @@ impl Language {
             let path = self
                 .resolve_query_path_with(&query.source, repos)
                 .map_err(TopiaryConfigError::Fetching)?;
+            log::debug!(
+                "detected path from  languages.{language_name}.{query_name}: {}",
+                path.display()
+            );
             if path.is_file() {
-                log::debug!(
-                    "detected  {language_name}.{query_name} query at {}",
-                    path.display()
-                );
                 return Ok(path);
             }
             return Err(TopiaryConfigError::QueryFileNotFound(path));
