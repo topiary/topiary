@@ -14,9 +14,12 @@ use std::{
 use language::{Language, LanguageConfiguration};
 use nickel_lang_core::{
     error::NullReporter,
-    eval::cache::CacheImpl,
-    eval::value::NickelValue,
-    program::{Program, ProgramBuilder},
+    eval::{
+        cache::CacheImpl,
+        value::{NickelValue, lazy::CBNCache},
+    },
+    position::TermPos,
+    program::ProgramBuilder,
 };
 use serde::Deserialize;
 
@@ -55,7 +58,7 @@ impl Configuration {
     /// with the path that was not found.
     /// If the configuration file exists, but cannot be parsed, this function will return a
     /// `TopiaryConfigError` with the error that occurred.
-    pub fn fetch(merge: bool, file: Option<&Path>) -> TopiaryConfigResult<(Self, NickelValue)> {
+    pub fn fetch(merge: bool, file: Option<&Path>) -> TopiaryConfigResult<(Self, Program)> {
         // If we have an explicit file, fail if it doesn't exist
         if let Some(path) = file
             && !path.exists()
@@ -68,12 +71,12 @@ impl Configuration {
             let sources: Vec<Source> = Source::fetch_all(file);
 
             // And ask Nickel to parse and merge them
-            Self::parse_and_merge(&sources)
+            Self::parse(&sources)
         } else {
             // Get the available configuration with best priority
             match Source::fetch_one(file) {
-                Source::Builtin => Self::parse(Source::Builtin),
-                source => Self::parse_and_merge(&[source, Source::Builtin]),
+                Source::Builtin => Self::parse(&[Source::Builtin]),
+                source => Self::parse(&[source, Source::Builtin]),
             }
         }
     }
@@ -234,101 +237,18 @@ impl Configuration {
         Err(TopiaryConfigError::NoExtension(pb.clone()))
     }
 
-    /// Evaluate `field_path` using [`Program::parse_field_path`]
-    pub fn extract_field(
-        merge: bool,
-        file: &Option<PathBuf>,
-        field_path: &str,
-    ) -> TopiaryConfigResult<NickelValue> {
-        if let Some(path) = file
-            && !path.exists()
-        {
-            return Err(TopiaryConfigError::FileNotFound(path.to_path_buf()));
-        }
+    fn parse(sources: &[Source]) -> TopiaryConfigResult<(Self, Program)> {
+        let mut program = Program::build_with_sources(sources)?;
+        let ncl = program.eval_full_for_export()?;
 
-        let sources: Vec<Source> = if merge {
-            Source::fetch_all(file.as_deref())
-        } else {
-            match Source::fetch_one(file.as_deref()) {
-                Source::Builtin => vec![Source::Builtin],
-                source => vec![source, Source::Builtin],
-            }
-        };
-
-        let mut builder = ProgramBuilder::new()
-            .with_trace(std::io::stderr())
-            .with_reporter(NullReporter {});
-        for source in sources {
-            builder = source.add_to(builder);
-        }
-        let mut program: Program<CacheImpl> = builder.build()?;
-
-        let field = program
-            .parse_field_path(field_path.to_owned())
-            .map_err(|error| TopiaryConfigError::Nickel {
-                error: Box::new(error.into()),
-                files: Box::new(program.files()),
-            })?;
-        program.field = field;
-
-        program
-            .eval_full_for_export()
-            .map_err(|error| TopiaryConfigError::Nickel {
-                error: Box::new(error),
-                files: Box::new(program.files()),
-            })
-    }
-
-    fn parse_and_merge(sources: &[Source]) -> TopiaryConfigResult<(Self, NickelValue)> {
-        let mut builder = ProgramBuilder::new()
-            .with_trace(std::io::stderr())
-            .with_reporter(NullReporter {});
-        for source in sources {
-            builder = source.clone().add_to(builder);
-        }
-        let mut program = builder.build::<CacheImpl>()?;
-
-        let term = program
-            .eval_full_for_export()
-            .map_err(|error| TopiaryConfigError::Nickel {
-                error: Box::new(error),
-                files: Box::new(program.files()),
-            })?;
-
-        let serde_config = SerdeConfiguration::deserialize(term.clone()).map_err(|error| {
+        let serde_config = SerdeConfiguration::deserialize(ncl).map_err(|error| {
             TopiaryConfigError::NickelDeserialization {
                 error,
                 files: Box::new(program.files()),
             }
         })?;
 
-        Ok((serde_config.into(), term))
-    }
-
-    fn parse(source: Source) -> TopiaryConfigResult<(Self, NickelValue)> {
-        let mut program = source
-            .add_to(
-                ProgramBuilder::new()
-                    .with_trace(std::io::stderr())
-                    .with_reporter(NullReporter {}),
-            )
-            .build::<CacheImpl>()?;
-
-        let term = program
-            .eval_full_for_export()
-            .map_err(|error| TopiaryConfigError::Nickel {
-                error: Box::new(error),
-                files: Box::new(program.files()),
-            })?;
-
-        let serde_config = SerdeConfiguration::deserialize(term.clone()).map_err(|error| {
-            TopiaryConfigError::NickelDeserialization {
-                error,
-                files: Box::new(program.files()),
-            }
-        })?;
-
-        Ok((serde_config.into(), term))
+        Ok((serde_config.into(), program))
     }
 }
 
@@ -336,18 +256,12 @@ impl Default for Configuration {
     /// Return the built-in configuration
     // This is particularly useful for testing
     fn default() -> Self {
-        let mut program = Source::Builtin
-            .add_to(
-                ProgramBuilder::new()
-                    .with_trace(std::io::empty())
-                    .with_reporter(NullReporter {}),
-            )
-            .build::<CacheImpl>()
+        let mut program = Program::build_with_sources(&[Source::Builtin])
             .expect("Evaluating the builtin configuration should be safe");
-        let term = program
+        let ncl = program
             .eval_full_for_export()
             .expect("Evaluating the builtin configuration should be safe");
-        let serde_config = SerdeConfiguration::deserialize(term)
+        let serde_config = SerdeConfiguration::deserialize(ncl)
             .expect("Evaluating the builtin configuration should be safe");
 
         serde_config.into()
@@ -391,4 +305,88 @@ impl From<SerdeConfiguration> for Configuration {
 pub(crate) fn project_dirs() -> directories::ProjectDirs {
     directories::ProjectDirs::from("", "", "topiary")
         .expect("Could not access the OS's Home directory")
+}
+
+pub struct Program {
+    inner: nickel_lang_core::program::Program<CBNCache>,
+}
+
+impl From<nickel_lang_core::program::Program<CBNCache>> for Program {
+    fn from(program: nickel_lang_core::program::Program<CBNCache>) -> Self {
+        Self { inner: program }
+    }
+}
+
+impl Program {
+    fn builder() -> ProgramBuilder<NullReporter, std::io::Stderr> {
+        ProgramBuilder::new()
+            .with_trace(std::io::stderr())
+            .with_reporter(NullReporter {})
+    }
+
+    pub fn build() -> TopiaryConfigResult<Self> {
+        Ok(Self::builder().build::<CacheImpl>()?.into())
+    }
+
+    pub fn eval_full_for_export(&mut self) -> TopiaryConfigResult<NickelValue> {
+        let ncl = self
+            .inner
+            .eval_full_for_export()
+            .map_err(|error| TopiaryConfigError::nickel(error, self.files()))?;
+        Ok(ncl)
+    }
+
+    /// Evaluate `field_path` using [`Program::parse_field_path`]
+    pub fn query_field(&mut self, field_path: &str) -> TopiaryConfigResult<NickelValue> {
+        let mut field = self
+            .parse_field_path(field_path.to_owned())
+            .map_err(|e| TopiaryConfigError::nickel(e.into(), self.files()))?;
+        std::mem::swap(&mut self.inner.field, &mut field);
+
+        let ncl = self.eval_full_for_export()?;
+
+        // replace with previous field path
+        std::mem::swap(&mut self.inner.field, &mut field);
+
+        Ok(ncl)
+    }
+
+    fn build_with_sources(sources: &[Source]) -> TopiaryConfigResult<Self> {
+        let mut builder = Self::builder();
+        for source in sources {
+            builder = source.clone().add_to(builder);
+        }
+        let program = builder.build::<CacheImpl>()?;
+        Ok(program.into())
+    }
+
+    pub fn get_source(&mut self, ncl: &NickelValue) -> TopiaryConfigResult<Option<PathBuf>> {
+        let pos = self.inner.pos_table().get(ncl.pos_idx());
+        let id = match pos {
+            TermPos::Original(s) | TermPos::Inherited(s) => s.src_id,
+            TermPos::None => return Ok(None),
+        };
+        let files = self.files();
+        let name = files.name(id);
+        Ok(Some(PathBuf::from(name)))
+        // self.custom_transform(0, |cache, table, ncl| {
+        //     let pos = table.get(ncl.pos_idx());
+        // });
+        // let pos_idx = ncl.pos_idx();
+        // let vm = self.new_vm();
+    }
+}
+
+impl std::ops::Deref for Program {
+    type Target = nickel_lang_core::program::Program<CBNCache>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl std::ops::DerefMut for Program {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
 }
