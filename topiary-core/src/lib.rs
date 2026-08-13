@@ -48,6 +48,27 @@ pub enum Capitalisation {
     #[default]
     Pass,
 }
+
+pub mod multi_line_indent {
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    pub struct EnforceIndentation {
+        pub(crate) start: String,
+        pub(crate) end: String,
+        pub(crate) last_line_break_significant: bool,
+        pub(crate) carriage_return_significant: bool,
+        pub(crate) tab_significant: bool,
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    pub enum MultiLineIndent {
+        None,
+        MaintainOffset,
+        EnforceIndentation(EnforceIndentation),
+    }
+}
+
+use multi_line_indent::MultiLineIndent;
+
 /// An atom represents a small piece of the output. We turn Tree-sitter nodes
 /// into atoms, and we add white-space atoms where appropriate. The final list
 /// of atoms is rendered to the output.
@@ -77,7 +98,7 @@ pub enum Atom {
         // marks the leaf to be printed on a single line, with no indentation
         single_line_no_indent: bool,
         // if the leaf is multi-line, each line will be indented, not just the first
-        multi_line_indent_all: bool,
+        multi_line_indent: MultiLineIndent,
         // don't trim trailing newline characters if set to true
         keep_whitespace: bool,
         capitalisation: Capitalisation,
