@@ -14,12 +14,30 @@ deletion](insertion-and-deletion.md#append_delimiter--prepend_delimiter)).
 
 ### Example
 
+The Nickel formatting queries surround keywords and operators with
+spaces:
+
 ```scheme
-[
-  (infix_operator)
-  "if"
-  ":"
-] @append_space
+(
+  [
+    "if"
+    "then"
+    "else"
+    "+"
+  ] @prepend_space @append_space
+)
+```
+
+Before:
+
+```nickel
+if true then 1+2 else 0
+```
+
+After:
+
+```nickel
+if true then 1 + 2 else 0
 ```
 
 ## `@append_antispace` / `@prepend_antispace`
@@ -33,11 +51,26 @@ node, including those added by other formatting rules.
 
 ### Example
 
+The Nickel formatting queries use antispaces to keep parentheses next
+to their contents:
+
 ```scheme
-[
-  ","
-  ";"
-  ":"
-  "."
-] @prepend_antispace
+(atom
+  .
+  "(" @append_antispace
+  ")" @prepend_antispace
+  .
+)
+```
+
+Before:
+
+```nickel
+( 1 + 2 )
+```
+
+After:
+
+```nickel
+(1 + 2)
 ```
