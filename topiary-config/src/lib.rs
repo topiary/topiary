@@ -7,19 +7,28 @@ pub mod source;
 
 use std::{
     collections::HashMap,
+    convert::Infallible,
     fmt,
     path::{Path, PathBuf},
 };
 
 use language::{Language, LanguageConfiguration};
+#[cfg(not(target_arch = "wasm32"))]
+use nickel_lang_core::term::record::Field;
 use nickel_lang_core::{
     error::NullReporter,
     eval::{
         cache::CacheImpl,
-        value::{NickelValue, lazy::CBNCache},
+        value::{
+            Container, NickelValue, RecordData,
+            ValueContent::{self, Record},
+            lazy::CBNCache,
+        },
     },
-    position::TermPos,
+    identifier::LocIdent,
+    position::{PosIdx, TermPos},
     program::ProgramBuilder,
+    traverse::{Traverse, TraverseOrder},
 };
 use serde::Deserialize;
 
@@ -67,11 +76,8 @@ impl Configuration {
         }
 
         if merge {
-            // Get all available configuration sources
-            let sources: Vec<Source> = Source::fetch_all(file);
-
-            // And ask Nickel to parse and merge them
-            Self::parse(&sources)
+            // Get all available configuration sources and ask Nickel to parse and merge them
+            Self::parse(&Source::fetch_all(file))
         } else {
             // Get the available configuration with best priority
             match Source::fetch_one(file) {
@@ -374,6 +380,204 @@ impl Program {
         // });
         // let pos_idx = ncl.pos_idx();
         // let vm = self.new_vm();
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn resolve_query_source(&self, mut value: NickelValue) -> TopiaryConfigResult<Field> {
+        for (id, lang) in record_mut(&mut value)
+            .find_record("languages")
+            .unwrap()
+            .fields
+            .iter_mut()
+        {
+            let lang = lang.value.as_mut().unwrap();
+            let queries = record_mut(lang).find_field("queries").unwrap();
+            *queries = queries
+                .clone()
+                .traverse(
+                    &mut |v| Ok::<_, TopiaryConfigError>(v),
+                    TraverseOrder::BottomUp,
+                )
+                .unwrap();
+            // let f = queries.traverse_ref(f, order)
+            //     v.traverse_record_field(&mut |id, v| -> TopiaryConfigResult<NickelValue> { Ok(v) })
+            // })?;
+        }
+
+        todo!();
+    }
+}
+
+fn has_contract(field: Field, contract: &str) -> bool {
+    let Some(metadata) = field.metadata.as_ref() else {
+        return false;
+    };
+    // this is not a distinct comparison since
+    metadata.annotation.contracts.iter().any(|c| {
+        let label = c.label.typ.to_string();
+        dbg!(&label);
+        label == contract
+    })
+}
+
+trait TraverseValueExt {
+    fn traverse_record_field<F, E>(self, f: &mut F) -> Result<NickelValue, E>
+    where
+        F: FnMut(LocIdent, NickelValue) -> Result<NickelValue, E>;
+}
+
+trait RecordDataExt {
+    fn find_field_fn<'a, P>(&'a mut self, predicate: P) -> Option<&'a mut Field>
+    where
+        P: FnMut(&LocIdent, &Field) -> bool;
+
+    fn find_field<'a>(&'a mut self, name: &str) -> Option<&'a mut Field> {
+        self.find_field_fn(|id, _| id.as_ref() == name)
+    }
+
+    fn find_record_fn<'a, P>(&'a mut self, mut predicate: P) -> Option<&'a mut RecordData>
+    where
+        P: FnMut(&LocIdent, &Field) -> bool,
+    {
+        self.find_field_fn(|id, v| predicate(id, v))
+            .and_then(|f| f.value.as_mut())
+            .and_then(|v| record_mut(v))
+    }
+
+    fn find_record<'a>(&'a mut self, name: &str) -> Option<&'a mut RecordData> {
+        self.find_record_fn(|id, _| id.as_ref() == name)
+    }
+
+    fn filter_record<'a, P>(&'a mut self, predicate: P) -> impl Iterator<Item = &'a mut Field>
+    where
+        P: FnMut(&LocIdent, &Field) -> bool;
+}
+
+impl RecordDataExt for RecordData {
+    fn find_field_fn<'a, P>(&'a mut self, mut predicate: P) -> Option<&'a mut Field>
+    where
+        P: FnMut(&LocIdent, &Field) -> bool,
+    {
+        self.fields
+            .iter_mut()
+            .find(move |(id, v)| predicate(id, v))
+            .map(|(_, f)| f)
+    }
+    fn filter_record<'a, P>(&'a mut self, mut predicate: P) -> impl Iterator<Item = &'a mut Field>
+    where
+        P: FnMut(&LocIdent, &Field) -> bool,
+    {
+        self.fields
+            .iter_mut()
+            .filter(move |(id, v)| predicate(id, v))
+            .map(|(_, f)| f)
+    }
+}
+
+impl RecordDataExt for Option<&mut RecordData> {
+    fn find_field_fn<'a, P>(&'a mut self, mut predicate: P) -> Option<&'a mut Field>
+    where
+        P: FnMut(&LocIdent, &Field) -> bool,
+    {
+        let record = self.as_mut()?;
+        record
+            .fields
+            .iter_mut()
+            .find(move |(id, v)| predicate(id, v))
+            .map(|(_, f)| f)
+    }
+
+    fn filter_record<'a, P>(&'a mut self, mut predicate: P) -> impl Iterator<Item = &'a mut Field>
+    where
+        P: FnMut(&LocIdent, &Field) -> bool,
+    {
+        // For Option, delegate to the Some case or return empty
+        self.as_mut()
+            .map(|r| r.filter_record(predicate))
+            .into_iter()
+            .flatten()
+    }
+}
+
+fn find_field<'a, P>(record: &'a mut RecordData, mut predicate: P) -> Option<&'a mut Field>
+where
+    P: FnMut(&LocIdent, &Field) -> bool,
+{
+    record
+        .fields
+        .iter_mut()
+        .find(move |(id, v)| predicate(id, v))
+        .map(|(_, f)| f)
+}
+
+fn filter_record<'a, P>(
+    record: &'a mut RecordData,
+    mut predicate: P,
+) -> impl Iterator<Item = &'a mut Field>
+where
+    P: FnMut(&LocIdent, &Field) -> bool,
+{
+    record
+        .fields
+        .iter_mut()
+        .filter(move |(id, v)| predicate(id, v))
+        .map(|(_, f)| f)
+}
+
+fn filter_map_record<'a, P>(
+    record: &'a mut RecordData,
+    mut predicate: P,
+) -> impl Iterator<Item = &'a mut NickelValue>
+where
+    P: FnMut(&LocIdent, &'a Field) -> Option<&'a mut NickelValue>,
+{
+    record
+        .fields
+        .iter_mut()
+        .filter_map(move |(id, v)| predicate(id, v))
+}
+
+fn record_mut(value: &mut NickelValue) -> Option<&mut RecordData> {
+    let content = value.content_mut()?;
+    match content {
+        nickel_lang_core::eval::value::ValueContentRefMut::Record(container) => {
+            container.into_opt()
+        }
+        _ => None,
+    }
+}
+
+impl TraverseValueExt for NickelValue {
+    fn traverse_record_field<F, E>(self, f: &mut F) -> Result<NickelValue, E>
+    where
+        F: FnMut(LocIdent, NickelValue) -> Result<NickelValue, E>,
+    {
+        // language_config.traverse(f, TraverseOrder::BottomUp)
+        let pos_idx = self.pos_idx();
+        match self.content() {
+            Record(lens) => {
+                let record = match lens.take() {
+                    Container::Empty => return Ok(NickelValue::empty_record_block(pos_idx)),
+                    Container::Alloc(record) => record,
+                };
+                let mut err = None;
+                let record = record.map_defined_values(|id, value| {
+                    if err.is_some() {
+                        value
+                    } else {
+                        f(id, value).unwrap_or_else(|e| {
+                            err = Some(e);
+                            NickelValue::default()
+                        })
+                    }
+                });
+                if let Some(e) = err {
+                    return Err(e);
+                }
+                Ok(NickelValue::record(record, pos_idx))
+            }
+            other => Ok(other.restore()),
+        }
     }
 }
 
