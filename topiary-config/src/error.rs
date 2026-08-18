@@ -172,3 +172,11 @@ impl error::Error for TopiaryConfigError {
         }
     }
 }
+impl TopiaryConfigError {
+    pub(crate) fn nickel(e: nickel_lang_core::error::Error, files: Files) -> Self {
+        Self::Nickel {
+            error: Box::new(e),
+            files: Box::new(files),
+        }
+    }
+}
