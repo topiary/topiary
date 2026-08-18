@@ -98,6 +98,7 @@ impl Configuration {
         let _guard = self.program();
         let mut program = _guard.borrow_mut();
         let ncl = program.query_field(field_path).preformat_context()?;
+        let ncl = strip_metadata(ncl);
         log::warn!("{:?}", program.get_source(&ncl).preformat_context()?);
 
         Ok(ncl)
