@@ -231,7 +231,7 @@ fn render_multi_line_string(
         // we do not want to introduce `\n` line breaks because we do not want to introduce inconsistent line endings.
         // so we have to short circuit the rest of the algorithm because it might add line breaks.
         // we might implement some reduced formatting that does not add line breaks in the future if that is considered worth it.
-        log::warn!(
+        crate::warn!(
             "not formatting the multi line string starting with {:?} at {} \
                 because carriage returns become part of the string's value according to the query \
                 and the line of the string's start delimiter ends with a carriage return.",
@@ -303,7 +303,7 @@ fn render_multi_line_string(
             }) {
             None => (), // no lines other than whitespace lines
             // do not change the log level without changing it in the if condition 6 lines above.
-            Some(Ordering::Less) => log::info!(
+            Some(Ordering::Less) => crate::info!(
                 "the multi line string starting with {:?} at {} mixes different whitespace characters like spaces and tabs in its lines' whitespace prefixes. \
                     is this supposed to be indentation? then you should not mix different whitespace characters.",
                 content_original.chars().take(16).collect::<String>(),

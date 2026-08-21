@@ -84,6 +84,7 @@ This name should be decided amongst the team before the release.
 - [#1315](https://github.com/topiary/topiary/pull/1315) Add rootcause-backtrace to cli
 - [#1314](https://github.com/topiary/topiary/pull/1314) Allow skipping of formatting stages
 - [#1266](https://github.com/topiary/topiary/pull/1266) Add `@multi_line_string` capture to format multi line strings in languages like Nix and Nickel that ignore indentation common to all lines of a multi line string. And use `@multi_line_string` to add multi line string formatting to the Nickel formatter.
+- [#1330](https://github.com/topiary/topiary/pull/1330) Add a new feature flag on the `topiary-core` crate to enable the `log` dependency; this feature flag is enabled by default.
 
 ### Removed
 - [#1217](https://github.com/topiary/topiary/pull/1217) The `check` alias for the `check-grammar` subcommand, to avoid confusion with `topiary fmt --check`.

@@ -230,7 +230,7 @@ impl AtomCollection {
         node: &Node,
         predicates: &QueryPredicates,
     ) -> FormatterResult<()> {
-        log::debug!("Resolving {name}");
+        crate::debug!("Resolving {name}");
 
         let requires_delimiter = || {
             predicates.delimiter.as_deref().ok_or_else(|| {
@@ -280,17 +280,17 @@ impl AtomCollection {
             }
         }
         if is_multi_line && predicates.single_line_only {
-            log::debug!("Skipping because context is multi-line and #single_line_only! is set");
+            crate::debug!("Skipping because context is multi-line and #single_line_only! is set");
             return Ok(());
         }
         if !is_multi_line && predicates.multi_line_only {
-            log::debug!("Skipping because context is single-line and #multi_line_only! is set");
+            crate::debug!("Skipping because context is single-line and #multi_line_only! is set");
             return Ok(());
         }
         if let Some(parent_id) = self.parent_leaf_nodes.get(&node.id())
             && *parent_id != node.id()
         {
-            log::debug!(
+            crate::debug!(
                 "Skipping because the match occurred below a leaf node: {}",
                 node.display_one_based()
             );
@@ -607,10 +607,10 @@ impl AtomCollection {
                 let swapped_atom = mem::take(atom);
 
                 if !prepends.is_empty() {
-                    log::debug!("Applying prepend of {prepends:?} to {:?}.", swapped_atom);
+                    crate::debug!("Applying prepend of {prepends:?} to {:?}.", swapped_atom);
                 }
                 if !appends.is_empty() {
-                    log::debug!("Applying append of {appends:?} to {:?}.", swapped_atom);
+                    crate::debug!("Applying append of {appends:?} to {:?}.", swapped_atom);
                 }
 
                 expanded.append(prepends);
@@ -618,7 +618,7 @@ impl AtomCollection {
 
                 expanded.append(appends);
             } else {
-                log::debug!("Not a leaf: {atom:?}");
+                crate::debug!("Not a leaf: {atom:?}");
                 expanded.push(mem::take(atom));
             }
         }
@@ -657,7 +657,7 @@ impl AtomCollection {
     ) -> FormatterResult<()> {
         let id = node.id();
 
-        log::debug!(
+        crate::debug!(
             "CST node: {}{} - Named: {}",
             "  ".repeat(level),
             node.display_one_based(),
@@ -665,7 +665,7 @@ impl AtomCollection {
         );
 
         if node.end_byte() == node.start_byte() {
-            log::debug!("Skipping zero-byte node: {}", node.display_one_based());
+            crate::debug!("Skipping zero-byte node: {}", node.display_one_based());
         } else if node.child_count() == 0
             || self.specified_leaf_nodes.contains(&node.id())
             // We treat error nodes as leaves when `tolerate_parsing_errors` is set to true.
@@ -707,7 +707,7 @@ impl AtomCollection {
         // TODO: Pre-populate these
         let target_node = self.first_leaf(node);
 
-        log::debug!(
+        crate::debug!(
             "Prepending {atom:?} to node {}",
             target_node.display_one_based()
         );
@@ -727,7 +727,7 @@ impl AtomCollection {
         let atom = self.wrap(atom, predicates);
         let target_node = self.last_leaf(node);
 
-        log::debug!(
+        crate::debug!(
             "Appending {atom:?} to node {}",
             target_node.display_one_based()
         );
@@ -761,7 +761,7 @@ impl AtomCollection {
                 let parent_id = parent.id();
 
                 if self.multi_line_nodes.contains(&parent_id) {
-                    log::debug!(
+                    crate::debug!(
                         "Expanding softline to hardline in node {} with parent {}: {}",
                         node.display_one_based(),
                         parent_id,
@@ -769,7 +769,7 @@ impl AtomCollection {
                     );
                     Atom::Hardline
                 } else if spaced {
-                    log::debug!(
+                    crate::debug!(
                         "Expanding softline to space in node {} with parent {}: {}",
                         node.display_one_based(),
                         parent_id,
@@ -869,7 +869,7 @@ impl AtomCollection {
                         }
                     }
                 } else {
-                    log::warn!("Closing unopened scope {scope_id:?}");
+                    crate::warn!("Closing unopened scope {scope_id:?}");
                     force_apply_modifications = true;
                 }
             // Open measuring scope
@@ -879,7 +879,7 @@ impl AtomCollection {
             }) = atom
             {
                 if opened_scopes.entry(scope_id).or_default().is_empty() {
-                    log::warn!(
+                    crate::warn!(
                         "Opening measuring scope with no associated regular scope {scope_id:?}"
                     );
                     force_apply_modifications = true;
@@ -909,17 +909,17 @@ impl AtomCollection {
                                 Some(multi_line),
                             ));
                         } else {
-                            log::warn!(
+                            crate::warn!(
                                 "Found several measuring scopes in a single regular scope {scope_id:?}"
                             );
                             force_apply_modifications = true;
                         }
                     } else {
-                        log::warn!("Found measuring scope outside of regular scope {scope_id:?}");
+                        crate::warn!("Found measuring scope outside of regular scope {scope_id:?}");
                         force_apply_modifications = true;
                     }
                 } else {
-                    log::warn!("Closing unopened measuring scope {scope_id:?}");
+                    crate::warn!("Closing unopened measuring scope {scope_id:?}");
                     force_apply_modifications = true;
                 }
             // Register the ScopedSoftline in the correct scope
@@ -929,7 +929,7 @@ impl AtomCollection {
                 {
                     vec.push(atom);
                 } else {
-                    log::warn!("Found scoped softline {atom:?} outside of its scope");
+                    crate::warn!("Found scoped softline {atom:?} outside of its scope");
                     force_apply_modifications = true;
                 }
             // Register the ScopedConditional in the correct scope
@@ -939,7 +939,7 @@ impl AtomCollection {
                 {
                     vec.push(atom);
                 } else {
-                    log::warn!("Found scoped conditional {atom:?} outside of its scope");
+                    crate::warn!("Found scoped conditional {atom:?} outside of its scope");
                     force_apply_modifications = true;
                 }
             }
@@ -949,7 +949,7 @@ impl AtomCollection {
             .filter_map(|(scope_id, vec)| if vec.is_empty() { None } else { Some(scope_id) })
             .collect();
         if !still_opened.is_empty() {
-            log::warn!("Some scopes have been left opened: {still_opened:?}");
+            crate::warn!("Some scopes have been left opened: {still_opened:?}");
             force_apply_modifications = true;
         }
         still_opened = opened_measuring_scopes
@@ -957,7 +957,7 @@ impl AtomCollection {
             .filter_map(|(scope_id, vec)| if vec.is_empty() { None } else { Some(scope_id) })
             .collect();
         if !still_opened.is_empty() {
-            log::warn!("Some measuring scopes have been left opened: {still_opened:?}");
+            crate::warn!("Some measuring scopes have been left opened: {still_opened:?}");
             force_apply_modifications = true;
         }
 
@@ -980,14 +980,18 @@ impl AtomCollection {
                     if let Some(replacement) = modifications.remove(id) {
                         *atom = replacement;
                     } else {
-                        log::warn!("Found scoped softline {atom:?}, but was unable to replace it.");
+                        #[cfg(feature = "log")]
+                        crate::warn!(
+                            "Found scoped softline {atom:?}, but was unable to replace it."
+                        );
                         *atom = Atom::Empty;
                     }
                 } else if let Atom::ScopedConditional { id, .. } = atom {
                     if let Some(replacement) = modifications.remove(id) {
                         *atom = replacement;
                     } else {
-                        log::warn!(
+                        #[cfg(feature = "log")]
+                        crate::warn!(
                             "Found scoped conditional {atom:?}, but was unable to replace it."
                         );
                         *atom = Atom::Empty;
@@ -1018,7 +1022,8 @@ impl AtomCollection {
             }
         }
         if delete_level != 0 {
-            log::warn!("The number of DeleteBegin is different from the number of DeleteEnd.");
+            #[cfg(feature = "log")]
+            crate::warn!("The number of DeleteBegin is different from the number of DeleteEnd.");
         }
     }
 
@@ -1061,7 +1066,7 @@ impl AtomCollection {
         // antispaces may have produced more empty atoms.
         self.post_process_inner();
 
-        log::debug!("List of atoms after post-processing: {:?}", self.atoms);
+        crate::debug!("List of atoms after post-processing: {:?}", self.atoms);
     }
 
     /// This function post-processes the atoms in the collection.
@@ -1325,7 +1330,7 @@ fn detect_multi_line_nodes(dfs_nodes: &[Node]) -> HashSet<usize> {
             let end_line = node.end_position().row();
 
             if end_line > start_line {
-                log::debug!(
+                crate::debug!(
                     "Multi-line node {}: {}",
                     node.id(),
                     node.display_one_based()
@@ -1366,7 +1371,7 @@ fn detect_line_breaks(dfs_nodes: &[Node], minimum_line_breaks: u32) -> NodesWith
             let next = right.start_position().row();
 
             if next >= last + minimum_line_breaks {
-                log::debug!(
+                crate::debug!(
                     "There are at least {} line breaks between {:?} and {:?}",
                     minimum_line_breaks,
                     left.id(),
