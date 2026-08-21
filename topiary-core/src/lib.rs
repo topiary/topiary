@@ -356,6 +356,7 @@ pub fn formatter_tree(
         } => {
             let spans = match skip_stage {
                 Some(SkipStage::HostLanguage) => {
+                    #[cfg(feature = "log")]
                     log::debug!("Skipping host formatting; only processing injections");
                     let spans = language.collect_injections(&tree, input_content);
                     let rendered = splice_formatted_injections(
@@ -370,6 +371,7 @@ pub fn formatter_tree(
                 }
                 Some(SkipStage::Injections) => Vec::new(),
                 None => {
+                    #[cfg(feature = "log")]
                     log::debug!("Discovering potentially injected languages");
                     language.collect_injections(&tree, input_content)
                 }
@@ -380,6 +382,7 @@ pub fn formatter_tree(
             let injection_leaf_nodes = spans.iter().map(|span| span.node_id);
 
             // All the work related to tree-sitter and the query is done here
+            #[cfg(feature = "log")]
             log::debug!("Apply Tree-sitter query");
 
             let mut atoms = tree_sitter::apply_query_tree_with_forced_leaves(
@@ -395,6 +398,7 @@ pub fn formatter_tree(
             atoms.post_process();
 
             // Pretty-print atoms
+            #[cfg(feature = "log")]
             log::debug!("Pretty-print output");
             let rendered = pretty::render(
                 &atoms[..],
@@ -440,6 +444,7 @@ fn rewrite_injected_leaves(
         // If the injected language is unsupported, skip formatting this injection
         // by continuing the loop. This leaves the original, unformatted text intact.
         let Some(inner_language) = resolve_injected_language(resolve, &span.language)? else {
+            #[cfg(feature = "log")]
             log::warn!(
                 "Skipping injection for unsupported language: {}",
                 span.language
@@ -492,6 +497,7 @@ fn splice_formatted_injections(
     spans.sort_by_key(|s| s.byte_range.start);
     for span in spans {
         if span.byte_range.start < cursor {
+            #[cfg(feature = "log")]
             log::warn!(
                 "Overlapping spans detected for language {} at byte {}; skipping",
                 span.language,
@@ -501,6 +507,7 @@ fn splice_formatted_injections(
         }
 
         let Some(inner_language) = resolve_injected_language(resolve, &span.language)? else {
+            #[cfg(feature = "log")]
             log::warn!(
                 "Injection for unsupported language: {}; skipping",
                 span.language
@@ -550,6 +557,7 @@ fn resolve_injected_language(
 
     match resolve(language) {
         Ok(Some(language_cfg)) => {
+            #[cfg(feature = "log")]
             log::info!("resolved injected language: {language}");
             Ok(Some(language_cfg))
         }
@@ -591,6 +599,7 @@ fn idempotence_check(
     skip: Option<SkipStage>,
     resolve: Option<&LanguageResolver<'_>>,
 ) -> FormatterResult<()> {
+    #[cfg(feature = "log")]
     log::info!("Checking for idempotence ...");
 
     let mut input = content.as_bytes();
@@ -617,8 +626,11 @@ fn idempotence_check(
             if content == reformatted {
                 Ok(())
             } else {
-                log::error!("Failed idempotence check");
-                log::error!("{}", StrComparison::new(content, &reformatted));
+                #[cfg(feature = "log")]
+                {
+                    log::error!("Failed idempotence check");
+                    log::error!("{}", StrComparison::new(content, &reformatted));
+                }
                 Err(report!(FormatterError::Idempotence))
             }
         }

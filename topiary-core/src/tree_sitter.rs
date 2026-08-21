@@ -193,6 +193,7 @@ pub fn collect_injections<'a>(
             .collect::<Vec<_>>();
 
         if content_captures.is_empty() {
+            #[cfg(feature = "log")]
             log::warn!(
                 "Injection query pattern {} has no @injection.content capture; skipping",
                 query_match.pattern_index()
@@ -221,6 +222,7 @@ pub fn collect_injections<'a>(
             });
 
         let Some(language_name) = language_name else {
+            #[cfg(feature = "log")]
             log::warn!(
                 "Injection query pattern {} has neither a #set! injection.language property nor an @injection.language capture; skipping",
                 query_match.pattern_index()
@@ -519,6 +521,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
     // The Flattening: collects all terminal nodes of the tree-sitter tree in a Vec
     let mut atoms = AtomCollection::collect_leaves(&root, source, specified_leaf_nodes)?;
 
+    #[cfg(feature = "log")]
     log::debug!("List of atoms before formatting: {atoms:?}");
 
     // Memoization of the pattern positions
@@ -526,7 +529,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
 
     // The web bindings for tree-sitter do not have support for pattern_count, so instead we will resize as needed
     // Only reallocate if we are actually going to use the vec
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "log"))]
     if log::log_enabled!(log::Level::Debug) {
         pattern_positions.resize(query.query.pattern_count(), None);
     }
@@ -574,6 +577,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
         check_predicates(&predicates)?;
 
         // NOTE: Only performed if logging is enabled to avoid unnecessary computation of Position
+        #[cfg(feature = "log")]
         if log::log_enabled!(log::Level::Debug) {
             #[cfg(target_arch = "wasm32")]
             // Resize the pattern_positions vector if we need to store more positions

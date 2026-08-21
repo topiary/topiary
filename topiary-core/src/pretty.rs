@@ -231,6 +231,7 @@ fn render_multi_line_string(
         // we do not want to introduce `\n` line breaks because we do not want to introduce inconsistent line endings.
         // so we have to short circuit the rest of the algorithm because it might add line breaks.
         // we might implement some reduced formatting that does not add line breaks in the future if that is considered worth it.
+        #[cfg(feature = "log")]
         log::warn!(
             "not formatting the multi line string starting with {:?} at {} \
                 because carriage returns become part of the string's value according to the query \
@@ -290,6 +291,7 @@ fn render_multi_line_string(
     }
 
     // very simple non exhaustive check for mixing of spaces and tabs
+    #[cfg(feature = "log")]
     if log::log_enabled!(log::Level::Info) {
         match content
             .clone()
