@@ -193,8 +193,7 @@ pub fn collect_injections<'a>(
             .collect::<Vec<_>>();
 
         if content_captures.is_empty() {
-            #[cfg(feature = "log")]
-            log::warn!(
+            crate::warn!(
                 "Injection query pattern {} has no @injection.content capture; skipping",
                 query_match.pattern_index()
             );
@@ -222,8 +221,7 @@ pub fn collect_injections<'a>(
             });
 
         let Some(language_name) = language_name else {
-            #[cfg(feature = "log")]
-            log::warn!(
+            crate::warn!(
                 "Injection query pattern {} has neither a #set! injection.language property nor an @injection.language capture; skipping",
                 query_match.pattern_index()
             );
@@ -521,8 +519,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
     // The Flattening: collects all terminal nodes of the tree-sitter tree in a Vec
     let mut atoms = AtomCollection::collect_leaves(&root, source, specified_leaf_nodes)?;
 
-    #[cfg(feature = "log")]
-    log::debug!("List of atoms before formatting: {atoms:?}");
+    crate::debug!("List of atoms before formatting: {atoms:?}");
 
     // Memoization of the pattern positions
     let mut pattern_positions: Vec<Option<Position>> = Vec::new();
@@ -599,7 +596,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
             };
 
             // do not change the log level without changing it in the 2 if conditions above.
-            log::debug!("Processing match{query_name_info}: {m} at location {pos}");
+            crate::debug!("Processing match{query_name_info}: {m} at location {pos}");
         }
 
         m.captures.retain(|c| {
