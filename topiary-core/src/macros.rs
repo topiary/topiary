@@ -36,3 +36,14 @@ macro_rules! info {
         )
     });
 }
+
+/// Macro encapsulating the `log::error!` macro if the `log` feature is active.
+#[macro_export]
+macro_rules! error {
+    ($($args:tt)+) => ({
+        #[cfg(feature = "log")]
+        log::error!(
+            $($args)*
+        )
+    });
+}
