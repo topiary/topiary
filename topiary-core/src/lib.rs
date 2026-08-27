@@ -33,6 +33,9 @@ mod pretty;
 mod tree_sitter;
 
 #[doc(hidden)]
+mod macros;
+
+#[doc(hidden)]
 pub mod test_utils;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -356,7 +359,7 @@ pub fn formatter_tree(
         } => {
             let spans = match skip_stage {
                 Some(SkipStage::HostLanguage) => {
-                    log::debug!("Skipping host formatting; only processing injections");
+                    crate::debug!("Skipping host formatting; only processing injections");
                     let spans = language.collect_injections(&tree, input_content);
                     let rendered = splice_formatted_injections(
                         input_content,
@@ -370,7 +373,7 @@ pub fn formatter_tree(
                 }
                 Some(SkipStage::Injections) => Vec::new(),
                 None => {
-                    log::debug!("Discovering potentially injected languages");
+                    crate::debug!("Discovering potentially injected languages");
                     language.collect_injections(&tree, input_content)
                 }
             };
@@ -380,7 +383,7 @@ pub fn formatter_tree(
             let injection_leaf_nodes = spans.iter().map(|span| span.node_id);
 
             // All the work related to tree-sitter and the query is done here
-            log::debug!("Apply Tree-sitter query");
+            crate::debug!("Apply Tree-sitter query");
 
             let mut atoms = tree_sitter::apply_query_tree_with_forced_leaves(
                 tree,
@@ -395,7 +398,7 @@ pub fn formatter_tree(
             atoms.post_process();
 
             // Pretty-print atoms
-            log::debug!("Pretty-print output");
+            crate::debug!("Pretty-print output");
             let rendered = pretty::render(
                 &atoms[..],
                 // Default to "  " if the language has no indentation specified
@@ -440,7 +443,7 @@ fn rewrite_injected_leaves(
         // If the injected language is unsupported, skip formatting this injection
         // by continuing the loop. This leaves the original, unformatted text intact.
         let Some(inner_language) = resolve_injected_language(resolve, &span.language)? else {
-            log::warn!(
+            crate::warn!(
                 "Skipping injection for unsupported language: {}",
                 span.language
             );
@@ -492,7 +495,7 @@ fn splice_formatted_injections(
     spans.sort_by_key(|s| s.byte_range.start);
     for span in spans {
         if span.byte_range.start < cursor {
-            log::warn!(
+            crate::warn!(
                 "Overlapping spans detected for language {} at byte {}; skipping",
                 span.language,
                 span.byte_range.start
@@ -501,7 +504,7 @@ fn splice_formatted_injections(
         }
 
         let Some(inner_language) = resolve_injected_language(resolve, &span.language)? else {
-            log::warn!(
+            crate::warn!(
                 "Injection for unsupported language: {}; skipping",
                 span.language
             );
@@ -550,7 +553,7 @@ fn resolve_injected_language(
 
     match resolve(language) {
         Ok(Some(language_cfg)) => {
-            log::info!("resolved injected language: {language}");
+            crate::info!("resolved injected language: {language}");
             Ok(Some(language_cfg))
         }
         Ok(None) => Ok(None),
@@ -591,7 +594,7 @@ fn idempotence_check(
     skip: Option<SkipStage>,
     resolve: Option<&LanguageResolver<'_>>,
 ) -> FormatterResult<()> {
-    log::info!("Checking for idempotence ...");
+    crate::info!("Checking for idempotence ...");
 
     let mut input = content.as_bytes();
     let mut output = io::BufWriter::new(Vec::new());
@@ -617,8 +620,10 @@ fn idempotence_check(
             if content == reformatted {
                 Ok(())
             } else {
-                log::error!("Failed idempotence check");
-                log::error!("{}", StrComparison::new(content, &reformatted));
+                {
+                    crate::error!("Failed idempotence check");
+                    crate::error!("{}", StrComparison::new(content, &reformatted));
+                }
                 Err(report!(FormatterError::Idempotence))
             }
         }
@@ -748,7 +753,7 @@ mod tests {
         .unwrap();
 
         let formatted = String::from_utf8(output).unwrap();
-        log::debug!("{formatted}");
+        crate::debug!("{formatted}");
 
         pretty_assert_eq(expected, &formatted);
     }

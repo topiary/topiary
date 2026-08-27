@@ -12,8 +12,12 @@ documentation.workspace = true
 readme.workspace = true
 license.workspace = true
 
+[features]
+default = [ "log" ]
+log = [ "dep:log" ]
+
 [dependencies]
-log = { workspace = true }
+log = { workspace = true, optional = true }
 miette = { workspace = true }
 pretty_assertions = { workspace = true }
 prettydiff = { workspace = true }
@@ -31,6 +35,7 @@ rootcause = { workspace = true }
 topiary-web-tree-sitter-sys.workspace = true
 
 [dev-dependencies]
+log = { workspace = true }
 criterion = { workspace = true, features = ["async_futures"] }
 env_logger = { workspace = true }
 test-log = { workspace = true }

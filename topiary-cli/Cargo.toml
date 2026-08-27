@@ -32,7 +32,7 @@ nickel-lang-core.workspace = true
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["fs", "rt-multi-thread", "sync", "macros"] }
 toml = { workspace = true }
-topiary-core.workspace = true
+topiary-core = { workspace = true, features = [ "log" ] }
 topiary-config.workspace = true
 topiary-queries.workspace = true
 topiary-tree-sitter-facade.workspace = true
