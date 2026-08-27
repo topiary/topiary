@@ -980,7 +980,6 @@ impl AtomCollection {
                     if let Some(replacement) = modifications.remove(id) {
                         *atom = replacement;
                     } else {
-                        #[cfg(feature = "log")]
                         crate::warn!(
                             "Found scoped softline {atom:?}, but was unable to replace it."
                         );
@@ -990,7 +989,6 @@ impl AtomCollection {
                     if let Some(replacement) = modifications.remove(id) {
                         *atom = replacement;
                     } else {
-                        #[cfg(feature = "log")]
                         crate::warn!(
                             "Found scoped conditional {atom:?}, but was unable to replace it."
                         );
@@ -1022,7 +1020,6 @@ impl AtomCollection {
             }
         }
         if delete_level != 0 {
-            #[cfg(feature = "log")]
             crate::warn!("The number of DeleteBegin is different from the number of DeleteEnd.");
         }
     }

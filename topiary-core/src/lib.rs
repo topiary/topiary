@@ -359,7 +359,6 @@ pub fn formatter_tree(
         } => {
             let spans = match skip_stage {
                 Some(SkipStage::HostLanguage) => {
-                    #[cfg(feature = "log")]
                     crate::debug!("Skipping host formatting; only processing injections");
                     let spans = language.collect_injections(&tree, input_content);
                     let rendered = splice_formatted_injections(
@@ -374,7 +373,6 @@ pub fn formatter_tree(
                 }
                 Some(SkipStage::Injections) => Vec::new(),
                 None => {
-                    #[cfg(feature = "log")]
                     crate::debug!("Discovering potentially injected languages");
                     language.collect_injections(&tree, input_content)
                 }
@@ -385,7 +383,6 @@ pub fn formatter_tree(
             let injection_leaf_nodes = spans.iter().map(|span| span.node_id);
 
             // All the work related to tree-sitter and the query is done here
-            #[cfg(feature = "log")]
             crate::debug!("Apply Tree-sitter query");
 
             let mut atoms = tree_sitter::apply_query_tree_with_forced_leaves(
@@ -401,7 +398,6 @@ pub fn formatter_tree(
             atoms.post_process();
 
             // Pretty-print atoms
-            #[cfg(feature = "log")]
             crate::debug!("Pretty-print output");
             let rendered = pretty::render(
                 &atoms[..],
@@ -447,7 +443,6 @@ fn rewrite_injected_leaves(
         // If the injected language is unsupported, skip formatting this injection
         // by continuing the loop. This leaves the original, unformatted text intact.
         let Some(inner_language) = resolve_injected_language(resolve, &span.language)? else {
-            #[cfg(feature = "log")]
             crate::warn!(
                 "Skipping injection for unsupported language: {}",
                 span.language
@@ -599,7 +594,6 @@ fn idempotence_check(
     skip: Option<SkipStage>,
     resolve: Option<&LanguageResolver<'_>>,
 ) -> FormatterResult<()> {
-    #[cfg(feature = "log")]
     crate::info!("Checking for idempotence ...");
 
     let mut input = content.as_bytes();
@@ -626,7 +620,6 @@ fn idempotence_check(
             if content == reformatted {
                 Ok(())
             } else {
-                #[cfg(feature = "log")]
                 {
                     crate::error!("Failed idempotence check");
                     crate::error!("{}", StrComparison::new(content, &reformatted));
