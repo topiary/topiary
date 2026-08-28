@@ -1,5 +1,4 @@
 # Topiary Book
-
 ## Getting started
 
 The Topiary Book is an [mdBook](https://rust-lang.github.io/mdBook)
