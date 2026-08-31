@@ -1,4 +1,5 @@
 {
+  lib,
   writeShellApplication,
   fromNickelFile,
   toJSONFile,
@@ -63,10 +64,14 @@ let
     ```
   */
   wrapWithConfigFile =
-    { package, configFile }:
+    { package, configFile, languageDir ? null }:
     writeShellApplication {
       name = "topiary";
-      text = ''exec ${package}/bin/topiary -C ${configFile} "$@"'';
+      text = ''
+        export TOPIARY_CONFIG_FILE="''${TOPIARY_CONFIG_FILE:-${configFile}}"
+        ${lib.optionalString (languageDir != null) ''export TOPIARY_LANGUAGE_DIR="''${TOPIARY_LANGUAGE_DIR:-${languageDir}}"''}
+        exec ${package}/bin/topiary "$@"
+      '';
     };
 
   /**
