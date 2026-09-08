@@ -46,6 +46,9 @@ let rec
       at the contract layer so that user configurations can override one
       variant with the other via Nickel record merging (e.g. setting
       `grammar.source.path` on top of a default `grammar.source.git`).
+
+      A relative `path` is resolved against the directory of the
+      configuration file that defined it, not the working directory.
     "%
     =
       std.contract.any_of [
@@ -63,7 +66,10 @@ let rec
     | doc m%"
       A query file location. Always requires `path`; optionally accepts `git` to
       fetch the file from a remote repository (in which case `path` is resolved
-      relative to the checkout root).
+      relative to the checkout root, and so left as written).
+
+      Without `git`, a relative `path` is resolved against the directory of the
+      configuration file that defined it, not the working directory.
     "%
     = {
       git
