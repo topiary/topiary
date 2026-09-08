@@ -100,7 +100,11 @@ impl<'a> PathResolver<'a> {
         let Some(relative) = path.as_string().map(|s| PathBuf::from(s.as_str())) else {
             return;
         };
-        if !relative.is_relative() {
+        // `is_relative` is the wrong test on Windows, where a rooted but drive-less path
+        // such as `\queries\formatting.scm` is "relative" -- to the current drive -- yet
+        // already anchored. Joining it onto the configuration's directory would silently
+        // re-root it onto that directory's drive. Only a path with no root needs a base.
+        if relative.has_root() {
             return;
         }
 
@@ -202,8 +206,10 @@ mod tests {
         );
     }
 
+    /// A path that is already rooted is left as written. On Windows this covers the
+    /// drive-less `/somewhere/else` form, which is rooted without being absolute.
     #[test]
-    fn absolute_query_path_is_left_alone() {
+    fn rooted_query_path_is_left_alone() {
         let tmp = tempfile::tempdir().unwrap();
         let config_file = tmp.path().join("languages.ncl");
         write(
