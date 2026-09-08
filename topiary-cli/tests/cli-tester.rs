@@ -622,3 +622,33 @@ fn test_format_with_relative_query_path() {
         .success()
         .stdout(EXPECTED);
 }
+
+/// Nickel's evaluation warnings reach the user rather than being silently discarded.
+#[test]
+fn test_cfg_reports_nickel_warnings() {
+    use predicates::str::contains;
+
+    let tmp_dir = TempDir::new().unwrap();
+    let config_file = tmp_dir.path().join("languages.ncl");
+
+    // A bare function used as a contract, which Nickel warns about but accepts
+    File::create(&config_file)
+        .unwrap()
+        .write_all(
+            br#"let Naked = fun label value => value in
+{ languages.json.indent | Naked = "    " }
+"#,
+        )
+        .unwrap();
+
+    cargo_bin_cmd!("topiary")
+        .arg("--verbose")
+        .arg("--configuration")
+        .arg(&config_file)
+        .arg("cfg")
+        .arg("--field")
+        .arg("languages.json.indent")
+        .assert()
+        .success()
+        .stderr(contains("plain functions as contracts are deprecated"));
+}
