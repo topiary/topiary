@@ -1,1 +1,1 @@
-{ languages.wit.extensions = ["foo"] }
+topiary-config/languages.ncl
