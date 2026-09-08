@@ -501,6 +501,37 @@ impl fmt::Display for IsToml {
     }
 }
 
+/// A relative path is anchored at the directory of the `languages.ncl` that defined it,
+/// not at the working directory, and `--field` reports it resolved.
+#[test]
+fn test_cfg_field_with_relative_queries() {
+    use predicates::str::contains;
+
+    let tmp_dir = TempDir::new().unwrap();
+    let config_file = tmp_dir.path().join("languages.ncl");
+
+    let mut f = File::create(&config_file).unwrap();
+    f.write_all(
+        br#"{
+  languages.markdown.queries.formatting.source.path = "./queries/markdown/formatting.scm",
+}
+"#,
+    )
+    .unwrap();
+
+    let expected = tmp_dir.path().join("queries/markdown/formatting.scm");
+
+    cargo_bin_cmd!("topiary")
+        .arg("--configuration")
+        .arg(&config_file)
+        .arg("cfg")
+        .arg("--field")
+        .arg("languages.markdown.queries.formatting.source.path")
+        .assert()
+        .success()
+        .stdout(contains(expected.to_str().unwrap()));
+}
+
 #[test]
 fn test_cfg_field_with_custom_queries() {
     use predicates::str::contains;
@@ -543,4 +574,51 @@ fn test_cfg_field_with_custom_queries() {
         .assert()
         .success()
         .stdout(contains(injections_path));
+}
+
+/// A query file reached through a relative path in the configuration is found regardless of
+/// where Topiary is invoked from.
+#[cfg(feature = "json")]
+#[test]
+fn test_format_with_relative_query_path() {
+    // Deliberately unlike the built-in JSON query, so that this test fails rather than
+    // silently passing if Topiary cannot find the file and falls back to the built-in one.
+    const QUERY: &[u8] = b"(string) @leaf\n\":\" @prepend_space @append_space\n";
+    const EXPECTED: &str = "{\"test\" : 123}\n";
+
+    let tmp_dir = TempDir::new().unwrap();
+
+    let queries = tmp_dir.path().join("queries/json");
+    fs::create_dir_all(&queries).unwrap();
+    File::create(queries.join("formatting.scm"))
+        .unwrap()
+        .write_all(QUERY)
+        .unwrap();
+
+    let config_file = tmp_dir.path().join("languages.ncl");
+    File::create(&config_file)
+        .unwrap()
+        .write_all(
+            br#"{
+  languages.json.queries.formatting.source.path = "./queries/json/formatting.scm",
+}
+"#,
+        )
+        .unwrap();
+
+    // An empty working directory, distinct from the one holding the configuration and the
+    // query file: a path resolved against the working directory could not find either.
+    let cwd = TempDir::new().unwrap();
+
+    cargo_bin_cmd!("topiary")
+        .current_dir(cwd.path())
+        .arg("--configuration")
+        .arg(&config_file)
+        .arg("format")
+        .arg("--language")
+        .arg("json")
+        .write_stdin(JSON_INPUT)
+        .assert()
+        .success()
+        .stdout(EXPECTED);
 }

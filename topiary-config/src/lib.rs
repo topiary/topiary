@@ -13,7 +13,7 @@ use nickel_lang_core::{
     error::NullReporter,
     eval::{
         cache::CacheImpl,
-        value::{NickelValue, lazy::CBNCache},
+        value::{Container, NickelValue, lazy::CBNCache},
     },
     program::ProgramBuilder,
 };
@@ -352,19 +352,35 @@ impl Program {
         Ok(config)
     }
 
-    /// Evaluate `field_path` using [`Program::parse_field_path`]
+    /// Evaluate a dotted field path, such as `languages.nickel.indent`.
+    ///
+    /// The path is parsed by [`nickel_lang_core::program::Program::parse_field_path`], but
+    /// followed here rather than handed back to Nickel as `Program::field`: path resolution
+    /// needs the whole configuration, so a lazily evaluated fragment would report paths
+    /// exactly as written while the rest of Topiary reported them resolved.
     pub fn query_field(&mut self, field_path: &str) -> TopiaryConfigResult<NickelValue> {
-        let mut field = self
+        let path = self
+            .inner
             .parse_field_path(field_path.to_owned())
             .map_err(|e| TopiaryConfigError::nickel(e.into(), self.files()))?;
-        std::mem::swap(&mut self.inner.field, &mut field);
 
-        let ncl = self.eval_full_for_export()?;
+        let mut value = self.eval_config()?;
 
-        // replace with previous field path
-        std::mem::swap(&mut self.inner.field, &mut field);
+        for id in path.0 {
+            let field = value
+                .as_record()
+                .and_then(Container::into_opt)
+                .and_then(|record| record.fields.get(&id))
+                .and_then(|field| field.value.clone())
+                .ok_or_else(|| TopiaryConfigError::UnknownField {
+                    path: field_path.to_owned(),
+                    field: id.to_string(),
+                })?;
 
-        Ok(ncl)
+            value = field;
+        }
+
+        Ok(value)
     }
 
     fn build_with_sources(sources: &[Source]) -> TopiaryConfigResult<Self> {
