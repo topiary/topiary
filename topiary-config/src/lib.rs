@@ -10,11 +10,15 @@ use std::{collections::HashMap, fmt, path::Path};
 
 use language::{Language, LanguageConfiguration};
 use nickel_lang_core::{
-    error::NullReporter,
+    error::{
+        Reporter, Warning,
+        report::{ColorOpt, report_as_str},
+    },
     eval::{
         cache::CacheImpl,
         value::{Container, NickelValue, lazy::CBNCache},
     },
+    files::Files,
     program::ProgramBuilder,
 };
 use serde::Deserialize;
@@ -319,10 +323,10 @@ impl From<nickel_lang_core::program::Program<CBNCache>> for Program {
 }
 
 impl Program {
-    fn builder() -> ProgramBuilder<NullReporter, std::io::Stderr> {
+    fn builder() -> ProgramBuilder<LogReporter, std::io::Stderr> {
         ProgramBuilder::new()
             .with_trace(std::io::stderr())
-            .with_reporter(NullReporter {})
+            .with_reporter(LogReporter)
     }
 
     pub fn eval_full_for_export(&mut self) -> TopiaryConfigResult<NickelValue> {
@@ -390,6 +394,24 @@ impl Program {
         }
         let program = builder.build::<CacheImpl>()?;
         Ok(program.into())
+    }
+}
+
+/// Surfaces the warnings Nickel raises while evaluating a configuration -- deprecated
+/// contract syntax, say -- through Topiary's logger.
+///
+/// Nickel needs *some* reporter; the alternative in its standard library is `NullReporter`,
+/// which silently discards them.
+struct LogReporter;
+
+impl Reporter<(Warning, Files)> for LogReporter {
+    fn report(&mut self, (warning, mut files): (Warning, Files)) {
+        // Colour is decided by the terminal Topiary is attached to, not by Nickel, and the
+        // rendered diagnostic goes through `log` rather than straight to stderr.
+        log::warn!(
+            "{}",
+            report_as_str(&mut files, warning, ColorOpt::Never).trim_end()
+        );
     }
 }
 
