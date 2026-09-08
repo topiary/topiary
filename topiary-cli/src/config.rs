@@ -5,7 +5,6 @@ use std::sync::Arc;
 use std::{ops::Deref, path::Path};
 
 use nickel_lang_core::eval::value::NickelValue;
-use rootcause::option_ext::OptionExt;
 use rootcause::prelude::ResultExt;
 use topiary_config::{Program, source::Source};
 use topiary_core::{
@@ -61,8 +60,9 @@ impl Configuration {
         })
     }
 
+    /// Get the [`Program`] that this configuration was evaluated from.
     ///
-    /// Returns an [`Rc<NickelValue>`] which allows cheap cloning via reference counting.
+    /// Returns an [`Rc`] which allows cheap cloning via reference counting.
     /// The reference is guaranteed to be valid because we increment the counter on every
     /// `Configuration::new()` call, ensuring the index is always within bounds of the thread-local storage.
     pub fn program(&self) -> Rc<RefCell<Program>> {
@@ -81,11 +81,18 @@ impl Configuration {
         })
     }
 
-    /// Get the Nickel value for this configuration
-    pub(crate) fn ncl(&self) -> CLIResult<NickelValue> {
+    /// The configuration as a plain Nickel data record, with field metadata stripped.
+    ///
+    /// Panics if the configuration cannot be evaluated, which cannot happen here:
+    /// `Configuration::new` has already evaluated it once, successfully.
+    fn ncl(&self) -> NickelValue {
         let guard = self.program();
         let mut program = guard.borrow_mut();
-        Ok(program.eval_full_for_export().preformat_context()?)
+        let ncl = program
+            .eval_config()
+            .expect("configuration was evaluated successfully in Configuration::new");
+
+        strip_metadata(ncl)
     }
 
     /// Get the config sources
@@ -95,13 +102,11 @@ impl Configuration {
 
     /// Extract a field from the configuration
     pub fn query_field(&self, field_path: &str) -> CLIResult<NickelValue> {
-        let _guard = self.program();
-        let mut program = _guard.borrow_mut();
+        let guard = self.program();
+        let mut program = guard.borrow_mut();
         let ncl = program.query_field(field_path).preformat_context()?;
-        let ncl = strip_metadata(ncl);
-        log::warn!("{:?}", program.get_source(&ncl).preformat_context()?);
 
-        Ok(ncl)
+        Ok(strip_metadata(ncl))
     }
 
     /// Prefetch a language's grammar and queries
@@ -167,7 +172,6 @@ impl Configuration {
             .find_query_file_with(query_name, repos)
             .preformat_context();
         let query: QuerySource = match find {
-            // Ok(p) if p.is_relative() => self.path.as_ref().ok_or_report()?.join(p).into(),
             Ok(p) => p.into(),
             // For some reason, Topiary could not find any
             // matching file in a default location. As a final attempt, try the
@@ -306,14 +310,8 @@ impl std::fmt::Display for Configuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use topiary_core::{Operation, formatter};
 
-        let guard = self.program();
-        let mut program = guard.borrow_mut();
-        let ncl = program
-            .eval_full_for_export()
-            .expect("unable to evaluate nickel config");
-
         // TODO handle verbose flag
-        let ncl = strip_metadata(ncl);
+        let ncl = self.ncl();
 
         let log_fmt_err =
             |e| log::error!("error calling {}::fmt : {e}", std::any::type_name::<Self>());
@@ -357,7 +355,6 @@ impl std::fmt::Display for Configuration {
 // Strip field metadata (doc strings, type/contract annotations, `| default`,
 // `| optional`, priority) and unwrap `Term::Annotated` nodes from a NickelValue
 // so that the pretty printer emits a plain data record.
-#[cfg(feature = "fancy-config")]
 fn strip_metadata(value: NickelValue) -> NickelValue {
     use nickel_lang_core::eval::value::{RecordData, ValueContent};
     use nickel_lang_core::term::Term;
