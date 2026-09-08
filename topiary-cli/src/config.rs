@@ -1,12 +1,13 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::{ops::Deref, path::Path};
 
 use nickel_lang_core::eval::value::NickelValue;
+use rootcause::option_ext::OptionExt;
 use rootcause::prelude::ResultExt;
-use topiary_config::source::Source;
+use topiary_config::{Program, source::Source};
 use topiary_core::{
     FormatterError, FormatterResult, InjectionQuery, Language, SpanAttachment, TopiaryQuery,
 };
@@ -16,7 +17,7 @@ use crate::io::QuerySource;
 use crate::language::LanguageDefinitionCache;
 
 thread_local! {
-    static NICKEL_VALUES: Cell<Vec<Rc<NickelValue>>> = const { Cell::new(Vec::new()) };
+    static NICKEL_PROGRAMS: Cell<Vec<Rc<RefCell<Program>>>> = const { Cell::new(Vec::new()) };
     static NEXT_ID: Cell<u32> = const { Cell::new(0) };
 }
 
@@ -46,9 +47,9 @@ impl Configuration {
             current
         });
 
-        NICKEL_VALUES.with(|values| {
+        NICKEL_PROGRAMS.with(|values| {
             let mut vec = values.take();
-            vec.push(Rc::new(ncl));
+            vec.push(Rc::new(RefCell::new(ncl)));
             values.set(vec);
         });
 
@@ -60,25 +61,31 @@ impl Configuration {
         })
     }
 
-    /// Get the Nickel value for this configuration
     ///
     /// Returns an [`Rc<NickelValue>`] which allows cheap cloning via reference counting.
     /// The reference is guaranteed to be valid because we increment the counter on every
     /// `Configuration::new()` call, ensuring the index is always within bounds of the thread-local storage.
-    pub fn ncl(&self) -> Rc<NickelValue> {
-        NICKEL_VALUES.with(|values| {
+    pub fn program(&self) -> Rc<RefCell<Program>> {
+        NICKEL_PROGRAMS.with(|programs| {
             // `Cell` does not give out mutable references (unsafe in thread-local context);
             // instead one has to take a value, modify/use it, and put it back.
-            let vec = values.take();
+            let vec = programs.take();
             // SAFETY: We have a guarantee that the index is valid because:
             // 1. Each `Configuration` stores an `ncl_id` from `NEXT_ID`
             // 2. Each `Configuration::new()` increments `NEXT_ID` after pushing to `NICKEL_VALUES`
             // 3. We never remove items from `NICKEL_VALUES,` only add
             // Therefore, the index is always valid.
-            let result = vec.get(self.ncl_id as usize).unwrap().clone();
-            values.set(vec);
-            result
+            let program = vec.get(self.ncl_id as usize).unwrap().clone();
+            programs.set(vec);
+            program
         })
+    }
+
+    /// Get the Nickel value for this configuration
+    pub(crate) fn ncl(&self) -> CLIResult<NickelValue> {
+        let guard = self.program();
+        let mut program = guard.borrow_mut();
+        Ok(program.eval_full_for_export().preformat_context()?)
     }
 
     /// Get the config sources
@@ -87,9 +94,12 @@ impl Configuration {
     }
 
     /// Extract a field from the configuration
-    pub fn extract_field(&self, merge: bool, field_path: &str) -> CLIResult<NickelValue> {
-        let ncl = topiary_config::Configuration::extract_field(merge, &self.path, field_path)
-            .preformat_context()?;
+    pub fn query_field(&self, field_path: &str) -> CLIResult<NickelValue> {
+        let _guard = self.program();
+        let mut program = _guard.borrow_mut();
+        let ncl = program.query_field(field_path).preformat_context()?;
+        let ncl = strip_metadata(ncl);
+        log::warn!("{:?}", program.get_source(&ncl).preformat_context()?);
 
         Ok(ncl)
     }
@@ -157,6 +167,7 @@ impl Configuration {
             .find_query_file_with(query_name, repos)
             .preformat_context();
         let query: QuerySource = match find {
+            // Ok(p) if p.is_relative() => self.path.as_ref().ok_or_report()?.join(p).into(),
             Ok(p) => p.into(),
             // For some reason, Topiary could not find any
             // matching file in a default location. As a final attempt, try the
@@ -295,19 +306,30 @@ impl std::fmt::Display for Configuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use topiary_core::{Operation, formatter};
 
+        let guard = self.program();
+        let mut program = guard.borrow_mut();
+        let ncl = program
+            .eval_full_for_export()
+            .expect("unable to evaluate nickel config");
+
         // TODO handle verbose flag
-        let stripped = strip_metadata((*self.ncl()).clone());
-        let nickel_config = format!("{stripped}");
+        let ncl = strip_metadata(ncl);
+
+        let log_fmt_err =
+            |e| log::error!("error calling {}::fmt : {e}", std::any::type_name::<Self>());
 
         // if errors are encountered in formatting, return
         let language = match self.get_language("nickel") {
             Ok(lang) => lang,
-            Err(_) => return write!(f, "{}", self.ncl()),
+            Err(e) => {
+                log_fmt_err(e);
+                return write!(f, "{ncl}");
+            }
         };
 
         let mut output = Vec::new();
         if let Err(err) = formatter(
-            &mut nickel_config.as_bytes(),
+            &mut ncl.to_string().as_bytes(),
             &mut output,
             &language,
             Operation::Format {
@@ -317,11 +339,8 @@ impl std::fmt::Display for Configuration {
             },
             None,
         ) {
-            log::error!(
-                "error calling {}::fmt : {err}",
-                std::any::type_name::<Self>()
-            );
-            return write!(f, "{}", self.ncl());
+            log_fmt_err(err.into());
+            return write!(f, "{ncl}");
         }
 
         write!(f, "{}", String::from_utf8_lossy(&output))

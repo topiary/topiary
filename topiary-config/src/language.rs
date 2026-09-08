@@ -118,6 +118,14 @@ pub struct GitSource {
     pub rev: String,
 }
 
+impl GitSource {
+    pub fn localise(language: &str, rev: &str) -> PathBuf {
+        let mut library_path = crate::project_dirs().cache_dir().to_path_buf().join(language).join(rev);
+        library_path.set_extension(std::env::consts::DLL_EXTENSION);
+        library_path
+    }
+}
+
 impl Language {
     pub fn new(name: String, config: LanguageConfiguration) -> Self {
         Self { name, config }
@@ -179,11 +187,11 @@ impl Language {
             let path = self
                 .resolve_query_path_with(&query.source, repos)
                 .map_err(TopiaryConfigError::Fetching)?;
+            log::debug!(
+                "detected path from  languages.{language_name}.{query_name}: {}",
+                path.display()
+            );
             if path.is_file() {
-                log::debug!(
-                    "detected  {language_name}.{query_name} query at {}",
-                    path.display()
-                );
                 return Ok(path);
             }
             return Err(TopiaryConfigError::QueryFileNotFound(path));
