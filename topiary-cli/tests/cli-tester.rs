@@ -519,7 +519,19 @@ fn test_cfg_field_with_relative_queries() {
     )
     .unwrap();
 
-    let expected = tmp_dir.path().join("queries/markdown/formatting.scm");
+    // Compared as a string rather than as a `Path`, so it has to match how `cfg --field`
+    // renders one. Joined a component at a time, because `join("queries/markdown/...")`
+    // would keep those forward slashes verbatim; and backslashes are then doubled, because
+    // the output is Nickel, which escapes them in a string literal. Both are no-ops off
+    // Windows.
+    let expected = tmp_dir
+        .path()
+        .join("queries")
+        .join("markdown")
+        .join("formatting.scm")
+        .display()
+        .to_string()
+        .replace('\\', r"\\");
 
     cargo_bin_cmd!("topiary")
         .arg("--configuration")
@@ -529,7 +541,7 @@ fn test_cfg_field_with_relative_queries() {
         .arg("languages.markdown.queries.formatting.source.path")
         .assert()
         .success()
-        .stdout(contains(expected.to_str().unwrap()));
+        .stdout(contains(expected));
 }
 
 #[test]
