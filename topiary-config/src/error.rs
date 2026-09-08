@@ -10,6 +10,12 @@ pub enum TopiaryConfigError {
     FileNotFound(path::PathBuf),
     UnknownLanguage(String),
     UnknownExtension(String),
+    /// A `--field` path that does not exist in the configuration; `field` is the segment
+    /// of `path` that could not be followed.
+    UnknownField {
+        path: String,
+        field: String,
+    },
     NoExtension(path::PathBuf),
     #[cfg(not(target_arch = "wasm32"))]
     QueryFileNotFound(path::PathBuf),
@@ -61,6 +67,10 @@ impl fmt::Display for TopiaryConfigError {
             TopiaryConfigError::UnknownLanguage(lang) => write!(
                 f,
                 "You were looking for language \"{lang}\", but we do not know that language."
+            ),
+            TopiaryConfigError::UnknownField { path, field } => write!(
+                f,
+                "You were looking for \"{path}\" in your configuration, but it has no \"{field}\" field."
             ),
             TopiaryConfigError::UnknownExtension(ext) => write!(
                 f,
