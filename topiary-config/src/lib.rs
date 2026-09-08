@@ -3,6 +3,7 @@
 //! Additional configuration has to be provided by the user of the library.
 pub mod error;
 pub mod language;
+mod paths;
 pub mod source;
 
 use std::{collections::HashMap, fmt, path::Path};
@@ -17,6 +18,8 @@ use nickel_lang_core::{
     program::ProgramBuilder,
 };
 use serde::Deserialize;
+
+use crate::paths::PathResolver;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::error::TopiaryConfigFetchingError;
@@ -231,7 +234,7 @@ impl Configuration {
 
     fn parse(sources: &[Source]) -> TopiaryConfigResult<(Self, Program)> {
         let mut program = Program::build_with_sources(sources)?;
-        let ncl = program.eval_full_for_export()?;
+        let ncl = program.eval_config()?;
 
         let serde_config = SerdeConfiguration::deserialize(ncl).map_err(|error| {
             TopiaryConfigError::NickelDeserialization {
@@ -251,7 +254,7 @@ impl Default for Configuration {
         let mut program = Program::build_with_sources(&[Source::Builtin])
             .expect("Evaluating the builtin configuration should be safe");
         let ncl = program
-            .eval_full_for_export()
+            .eval_config()
             .expect("Evaluating the builtin configuration should be safe");
         let serde_config = SerdeConfiguration::deserialize(ncl)
             .expect("Evaluating the builtin configuration should be safe");
@@ -301,11 +304,17 @@ pub(crate) fn project_dirs() -> directories::ProjectDirs {
 
 pub struct Program {
     inner: nickel_lang_core::program::Program<CBNCache>,
+    /// Memoised result of [`Self::eval_config`]. Evaluation is deterministic and the
+    /// program is never mutated after construction, so it is only ever done once.
+    config: Option<NickelValue>,
 }
 
 impl From<nickel_lang_core::program::Program<CBNCache>> for Program {
     fn from(program: nickel_lang_core::program::Program<CBNCache>) -> Self {
-        Self { inner: program }
+        Self {
+            inner: program,
+            config: None,
+        }
     }
 }
 
@@ -322,6 +331,25 @@ impl Program {
             .eval_full_for_export()
             .map_err(|error| TopiaryConfigError::nickel(error, self.files()))?;
         Ok(ncl)
+    }
+
+    /// Evaluate the merged configuration, with every relative path anchored at the `.ncl`
+    /// file that defined it rather than at the working directory. See [`crate::paths`].
+    ///
+    /// The result is memoised: [`NickelValue`] is reference counted, so cloning it out is
+    /// cheap.
+    pub fn eval_config(&mut self) -> TopiaryConfigResult<NickelValue> {
+        if let Some(config) = self.config.as_ref() {
+            return Ok(config.clone());
+        }
+
+        // `eval_full_for_export` needs `&mut self`, whereas the position table and file
+        // registry are behind `&self`; hence the two statements.
+        let mut config = self.eval_full_for_export()?;
+        PathResolver::new(self.inner.pos_table(), self.inner.files()).resolve(&mut config);
+
+        self.config = Some(config.clone());
+        Ok(config)
     }
 
     /// Evaluate `field_path` using [`Program::parse_field_path`]

@@ -89,7 +89,7 @@ impl Configuration {
         let guard = self.program();
         let mut program = guard.borrow_mut();
         let ncl = program
-            .eval_full_for_export()
+            .eval_config()
             .expect("configuration was evaluated successfully in Configuration::new");
 
         strip_metadata(ncl)
