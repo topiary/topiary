@@ -62,6 +62,8 @@ This name should be decided amongst the team before the release.
 - [#1303](https://github.com/topiary/topiary/pull/1303) Add `bin/verify-documented-usage.sh --no-nix-shell` flag
 - [#1306](https://github.com/topiary/topiary/pull/1306) Move topiary-cli configuration logic into its own module
 - [#1311](https://github.com/topiary/topiary/pull/1311) Use `#set!` directive for `injection.language` property
+- [#1328](https://github.com/topiary/topiary/pull/1328) [#1335](https://github.com/topiary/topiary/pull/1335) **Breaking:** A relative `grammar.source.path` or `queries.<name>.source.path` in a configuration is now resolved against the directory of the `languages.ncl` that defined it, rather than against the working directory. A `path` accompanied by a `git` source is unaffected: it remains relative to the checkout root.
+- [#1335](https://github.com/topiary/topiary/pull/1335) Nickel's evaluation warnings, previously discarded, are now reported through Topiary's logger.
 
 ### Fixed
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
