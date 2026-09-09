@@ -73,8 +73,10 @@ mod native {
             u32::try_from(self.inner.abi_version()).unwrap()
         }
 
+        // The name borrows from the language, rather than being `'static`: a
+        // dynamically loaded grammar's name lives in its shared object.
         #[inline]
-        pub fn name(&self) -> Option<&'static str> {
+        pub fn name(&self) -> Option<&str> {
             self.inner.name()
         }
     }

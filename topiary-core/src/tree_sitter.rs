@@ -187,8 +187,11 @@ pub fn collect_injections<'a>(
     let mut matches = query.query.matches(&root, source, &mut cursor);
     #[allow(clippy::while_let_on_iterator)] // Not a normal iterator
     while let Some(query_match) = matches.next() {
-        let content_captures = query_match
-            .captures()
+        // `QueryMatch::captures` is called through the facade trait explicitly:
+        // tree-sitter 0.27 grew an inherent `captures` method on its own
+        // `QueryMatch`, which would otherwise win method resolution and hand us
+        // back raw `tree_sitter::QueryCapture`s instead of facade ones.
+        let content_captures = QueryMatch::captures(query_match)
             .filter(|c| c.name(&capture_names) == "injection.content")
             .collect::<Vec<_>>();
 
@@ -213,8 +216,7 @@ pub fn collect_injections<'a>(
             })
             .map(|s| s.to_string())
             .or_else(|| {
-                query_match
-                    .captures()
+                QueryMatch::captures(query_match)
                     .find(|c| c.name(&capture_names) == "injection.language")
                     .and_then(|c| c.node().utf8_text(source).ok())
                     .map(|s| s.to_string())
@@ -493,7 +495,7 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
     let mut query_matches = query.query.matches(&root, source, &mut cursor);
     #[allow(clippy::while_let_on_iterator)] // This is not a normal iterator
     while let Some(query_match) = query_matches.next() {
-        let local_captures: Vec<QueryCapture> = query_match.captures().collect();
+        let local_captures: Vec<QueryCapture> = QueryMatch::captures(query_match).collect();
 
         matches.push(LocalQueryMatch {
             pattern_index: query_match.pattern_index(),
@@ -667,7 +669,7 @@ fn check_for_error_nodes(node: &Node) -> FormatterResult<()> {
     if node.is_error() {
         return Err(report!(FormatterError::Parsing)
             .attach_range(node.range())
-            .attach_language(node.language_name()));
+            .attach_language(node.language_name().as_deref()));
     }
 
     for child in node.children(&mut node.walk()) {
