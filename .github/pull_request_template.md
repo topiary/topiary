@@ -39,16 +39,15 @@ Assisted by `ai-model`
 <!----------------------------------------------------------------------
 See MAINTAINERS.md for more details.
 This is particularly important if this PR is preparing a release.
------------------------------------------------------------------------>
 
-Checklist before merging, wherever relevant:
-
-- [ ] `CHANGELOG.md` updated
-- [ ] Documentation (The Topiary Book, `README.md`, etc.) up-to-date
-<!----------------------------------------------------------------------
 If the PR solves a formatting issue for a supported language, or
 generally improves formatting, please make sure to include a regression
 test showcasing the fix/improvement to:
 `topiary-cli/tests/samples/{input,expected}/mylanguage.lang`
 ----------------------------------------------------------------------->
-- [ ] Updated regression tests
+
+Checklist before merging, wherever relevant:
+
+- [ ] `CHANGELOG.md` up-to-date
+- [ ] Documentation (The Topiary Book, `README.md`, etc.) up-to-date
+- [ ] Regression tests up-to-date
