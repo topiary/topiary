@@ -187,6 +187,28 @@ nickel = {
 > by Topiary itself, those look like `~/.cache/topiary/<LANGUAGE>/<GIT_HASH>.so`
 > (or the equivalent for your platform).
 
+### Relative paths
+
+A `path` need not be absolute. A relative one is resolved against the
+directory of the configuration file that defined it -- not against the
+directory Topiary happens to be invoked from -- in the same way that
+Nickel resolves its own `import`s:
+
+```nickel
+# ~/project/.topiary/languages.ncl
+nickel = {
+  extensions = ["ncl"],
+  # ~/project/.topiary/grammars/nickel.so
+  grammar.source.path = "./grammars/nickel.so",
+},
+```
+
+This holds per file: when configuration is merged from several sources,
+or a configuration file `import`s another, each path is anchored at the
+file it was written in. The exception is a `path` accompanied by a `git`
+source, which names a file inside the checkout; see [Specifying
+queries](#specifying-queries) below.
+
 ### Specifying queries
 
 By default, Topiary looks for a language's query files (`formatting.scm`
@@ -209,9 +231,14 @@ nickel = {
 },
 ```
 
+As with a grammar, a relative `path` here is resolved against the
+directory of the configuration file that defined it. See [Relative
+paths](#relative-paths) above.
+
 A query can also be fetched from a git repository by adding a `git`
-source alongside `path`; the `path` is then resolved relative to the
-checkout root:
+source alongside `path`; the `path` then names a file within the
+checkout, so it is resolved against the checkout root rather than
+against your filesystem:
 
 ```nickel
 markdown = {

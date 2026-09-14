@@ -501,6 +501,49 @@ impl fmt::Display for IsToml {
     }
 }
 
+/// A relative path is anchored at the directory of the `languages.ncl` that defined it,
+/// not at the working directory, and `--field` reports it resolved.
+#[test]
+fn test_cfg_field_with_relative_queries() {
+    use predicates::str::contains;
+
+    let tmp_dir = TempDir::new().unwrap();
+    let config_file = tmp_dir.path().join("languages.ncl");
+
+    let mut f = File::create(&config_file).unwrap();
+    f.write_all(
+        br#"{
+  languages.markdown.queries.formatting.source.path = "./queries/markdown/formatting.scm",
+}
+"#,
+    )
+    .unwrap();
+
+    // Compared as a string rather than as a `Path`, so it has to match how `cfg --field`
+    // renders one. Joined a component at a time, because `join("queries/markdown/...")`
+    // would keep those forward slashes verbatim; and backslashes are then doubled, because
+    // the output is Nickel, which escapes them in a string literal. Both are no-ops off
+    // Windows.
+    let expected = tmp_dir
+        .path()
+        .join("queries")
+        .join("markdown")
+        .join("formatting.scm")
+        .display()
+        .to_string()
+        .replace('\\', r"\\");
+
+    cargo_bin_cmd!("topiary")
+        .arg("--configuration")
+        .arg(&config_file)
+        .arg("cfg")
+        .arg("--field")
+        .arg("languages.markdown.queries.formatting.source.path")
+        .assert()
+        .success()
+        .stdout(contains(expected));
+}
+
 #[test]
 fn test_cfg_field_with_custom_queries() {
     use predicates::str::contains;
@@ -543,4 +586,81 @@ fn test_cfg_field_with_custom_queries() {
         .assert()
         .success()
         .stdout(contains(injections_path));
+}
+
+/// A query file reached through a relative path in the configuration is found regardless of
+/// where Topiary is invoked from.
+#[cfg(feature = "json")]
+#[test]
+fn test_format_with_relative_query_path() {
+    // Deliberately unlike the built-in JSON query, so that this test fails rather than
+    // silently passing if Topiary cannot find the file and falls back to the built-in one.
+    const QUERY: &[u8] = b"(string) @leaf\n\":\" @prepend_space @append_space\n";
+    const EXPECTED: &str = "{\"test\" : 123}\n";
+
+    let tmp_dir = TempDir::new().unwrap();
+
+    let queries = tmp_dir.path().join("queries/json");
+    fs::create_dir_all(&queries).unwrap();
+    File::create(queries.join("formatting.scm"))
+        .unwrap()
+        .write_all(QUERY)
+        .unwrap();
+
+    let config_file = tmp_dir.path().join("languages.ncl");
+    File::create(&config_file)
+        .unwrap()
+        .write_all(
+            br#"{
+  languages.json.queries.formatting.source.path = "./queries/json/formatting.scm",
+}
+"#,
+        )
+        .unwrap();
+
+    // An empty working directory, distinct from the one holding the configuration and the
+    // query file: a path resolved against the working directory could not find either.
+    let cwd = TempDir::new().unwrap();
+
+    cargo_bin_cmd!("topiary")
+        .current_dir(cwd.path())
+        .arg("--configuration")
+        .arg(&config_file)
+        .arg("format")
+        .arg("--language")
+        .arg("json")
+        .write_stdin(JSON_INPUT)
+        .assert()
+        .success()
+        .stdout(EXPECTED);
+}
+
+/// Nickel's evaluation warnings reach the user rather than being silently discarded.
+#[test]
+fn test_cfg_reports_nickel_warnings() {
+    use predicates::str::contains;
+
+    let tmp_dir = TempDir::new().unwrap();
+    let config_file = tmp_dir.path().join("languages.ncl");
+
+    // A bare function used as a contract, which Nickel warns about but accepts
+    File::create(&config_file)
+        .unwrap()
+        .write_all(
+            br#"let Naked = fun label value => value in
+{ languages.json.indent | Naked = "    " }
+"#,
+        )
+        .unwrap();
+
+    cargo_bin_cmd!("topiary")
+        .arg("--verbose")
+        .arg("--configuration")
+        .arg(&config_file)
+        .arg("cfg")
+        .arg("--field")
+        .arg("languages.json.indent")
+        .assert()
+        .success()
+        .stderr(contains("plain functions as contracts are deprecated"));
 }

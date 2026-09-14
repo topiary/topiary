@@ -120,7 +120,11 @@ pub struct GitSource {
 
 impl GitSource {
     pub fn localise(language: &str, rev: &str) -> PathBuf {
-        let mut library_path = crate::project_dirs().cache_dir().to_path_buf().join(language).join(rev);
+        let mut library_path = crate::project_dirs()
+            .cache_dir()
+            .to_path_buf()
+            .join(language)
+            .join(rev);
         library_path.set_extension(std::env::consts::DLL_EXTENSION);
         library_path
     }
