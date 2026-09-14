@@ -217,7 +217,7 @@ async fn run() -> CLIResult<()> {
             command: None,
             field: Some(field),
         } => {
-            let nickel_config = config.extract_field(args.global.merge_configuration, &field)?;
+            let nickel_config = config.query_field(&field)?;
 
             // Output the collated nickel configuration.
             let mut output = std::io::BufWriter::new(OutputFile::Stdout);
