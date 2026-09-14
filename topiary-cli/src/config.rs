@@ -62,7 +62,7 @@ impl Configuration {
 
     /// Get the [`Program`] that this configuration was evaluated from.
     ///
-    /// Returns an [`Rc`] which allows cheap cloning via reference counting.
+    /// Returns an [`Rc<RefCell<Program>>`] which allows cheap cloning via reference counting.
     /// The reference is guaranteed to be valid because we increment the counter on every
     /// `Configuration::new()` call, ensuring the index is always within bounds of the thread-local storage.
     pub fn program(&self) -> Rc<RefCell<Program>> {
