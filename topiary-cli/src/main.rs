@@ -221,6 +221,9 @@ async fn run() -> CLIResult<()> {
 
             // Output the collated nickel configuration.
             let mut output = std::io::BufWriter::new(OutputFile::Stdout);
+            #[cfg(feature = "fancy-config")]
+            config.format_ncl(&nickel_config, &mut output)?;
+            #[cfg(not(feature = "fancy-config"))]
             write!(output, "{nickel_config}")?;
         }
 

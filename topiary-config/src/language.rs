@@ -199,6 +199,8 @@ impl Language {
                 return Ok(path);
             }
             return Err(TopiaryConfigError::QueryFileNotFound(path));
+        } else {
+            log::info!("query field no present: 'languages.{language_name}.{query_name}'");
         }
 
         #[rustfmt::skip]

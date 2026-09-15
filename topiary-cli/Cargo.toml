@@ -44,6 +44,7 @@ rootcause-preformat.workspace = true
 rootcause-backtrace = { workspace = true }
 log.workspace = true
 env_logger.workspace = true
+shellexpand = "3.1.2"
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

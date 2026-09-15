@@ -3,7 +3,7 @@
 //! Additional configuration has to be provided by the user of the library.
 pub mod error;
 pub mod language;
-mod paths;
+pub mod paths;
 pub mod source;
 
 use std::{collections::HashMap, fmt, path::Path};
@@ -62,8 +62,10 @@ impl Configuration {
     /// `TopiaryConfigError` with the error that occurred.
     pub fn fetch(merge: bool, file: Option<&Path>) -> TopiaryConfigResult<(Self, Program)> {
         // If we have an explicit file, fail if it doesn't exist
+        let abs = file.map(|f| f.canonicalize().unwrap());
+        let file = abs.as_deref();
         if let Some(path) = file
-            && !path.exists()
+            && !path.try_exists().unwrap()
         {
             return Err(TopiaryConfigError::FileNotFound(path.to_path_buf()));
         }
@@ -238,7 +240,7 @@ impl Configuration {
 
     fn parse(sources: &[Source]) -> TopiaryConfigResult<(Self, Program)> {
         let mut program = Program::build_with_sources(sources)?;
-        let ncl = program.eval_config()?;
+        let ncl = program.resolve_paths()?;
 
         let serde_config = SerdeConfiguration::deserialize(ncl).map_err(|error| {
             TopiaryConfigError::NickelDeserialization {
@@ -258,7 +260,7 @@ impl Default for Configuration {
         let mut program = Program::build_with_sources(&[Source::Builtin])
             .expect("Evaluating the builtin configuration should be safe");
         let ncl = program
-            .eval_config()
+            .resolve_paths()
             .expect("Evaluating the builtin configuration should be safe");
         let serde_config = SerdeConfiguration::deserialize(ncl)
             .expect("Evaluating the builtin configuration should be safe");
@@ -342,7 +344,7 @@ impl Program {
     ///
     /// The result is memoised: [`NickelValue`] is reference counted, so cloning it out is
     /// cheap.
-    pub fn eval_config(&mut self) -> TopiaryConfigResult<NickelValue> {
+    pub fn resolve_paths(&mut self) -> TopiaryConfigResult<NickelValue> {
         if let Some(config) = self.config.as_ref() {
             return Ok(config.clone());
         }
@@ -368,7 +370,7 @@ impl Program {
             .parse_field_path(field_path.to_owned())
             .map_err(|e| TopiaryConfigError::nickel(e.into(), self.files()))?;
 
-        let mut value = self.eval_config()?;
+        let mut value = self.resolve_paths()?;
 
         for id in path.0 {
             let field = value

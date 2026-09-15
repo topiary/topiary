@@ -50,42 +50,41 @@ impl<'a> PathResolver<'a> {
 
     /// Walk `languages.<lang>` for the records that name a local file, and resolve them.
     pub(crate) fn resolve(&self, config: &mut NickelValue) {
-        let Some(languages) = as_record_mut(config).and_then(|c| field_mut(c, "languages")) else {
-            return;
-        };
-        let Some(languages) = as_record_mut(languages) else {
+        let Some(languages) = config.field_mut("languages").and_then(as_record_mut) else {
+            log::warn!("could not resolve relative paths: 'languages' field missing or invalid");
             return;
         };
 
-        for (_, language) in languages.fields.iter_mut() {
-            let Some(language) = language.value.as_mut().and_then(as_record_mut) else {
-                continue;
-            };
-
-            if let Some(grammar) = field_mut(language, GRAMMAR)
-                && let Some(grammar) = as_record_mut(grammar)
-                && let Some(source) = field_mut(grammar, SOURCE)
+        for language in languages
+            .fields
+            .iter_mut()
+            .filter_map(|(_, l)| l.value.as_mut().and_then(as_record_mut))
+        {
+            if let Some(source) = language
+                .field_mut(GRAMMAR)
+                .and_then(|g| g.field_mut(SOURCE))
             {
                 self.resolve_source(source);
             }
 
-            let Some(queries) = field_mut(language, QUERIES).and_then(as_record_mut) else {
+            let Some(queries) = language.field_mut(QUERIES).and_then(as_record_mut) else {
                 continue;
             };
 
-            for (_, query) in queries.fields.iter_mut() {
-                if let Some(query) = query.value.as_mut().and_then(as_record_mut)
-                    && let Some(source) = field_mut(query, SOURCE)
-                {
+            for query in queries
+                .fields
+                .iter_mut()
+                .filter_map(|(_, q)| q.value.as_mut().and_then(as_record_mut))
+            {
+                if let Some(source) = query.field_mut(SOURCE) {
                     self.resolve_source(source);
                 }
             }
         }
     }
 
-    /// A `source` is either `{ path }` or `{ git, path }`. Only the former names a path on
-    /// the local filesystem: when `git` is present, `path` names a file *inside* the
-    /// checkout Topiary fetches, and must be left alone.
+    // If `git is present:
+    // * `path` names a file *inside* the checkout Topiary fetches
     fn resolve_source(&self, source: &mut NickelValue) {
         let Some(source) = as_record_mut(source) else {
             return;
@@ -100,9 +99,9 @@ impl<'a> PathResolver<'a> {
         let Some(relative) = path.as_string().map(|s| PathBuf::from(s.as_str())) else {
             return;
         };
-        // `is_relative` is the wrong test on Windows, where a rooted but drive-less path
-        // such as `\queries\formatting.scm` is "relative" -- to the current drive -- yet
-        // already anchored. Joining it onto the configuration's directory would silently
+        // NOTE(Xophmeister): `Path::is_relative` is the wrong check on Windows where a rooted but
+        // drive-less path such as `\queries\formatting.scm` is "relative" -- to the current drive
+        // -- yet already anchored. Joining it onto the configuration's directory would silently
         // re-root it onto that directory's drive. Only a path with no root needs a base.
         if relative.has_root() {
             return;
@@ -124,13 +123,8 @@ impl<'a> PathResolver<'a> {
         *path = NickelValue::string(resolved.to_string_lossy().into_owned(), pos_idx);
     }
 
-    /// The directory holding the `.ncl` file a value was written in.
-    ///
-    /// `None` when the value carries no position, or when its source is not a file on
-    /// disk. The latter covers the built-in configuration: it is registered from an
-    /// in-memory buffer under the name `built-in`, which -- unlike a path registered with
-    /// `add_file` -- Nickel does not normalise into an absolute path, and which names no
-    /// real file. Its paths are therefore left exactly as written.
+    // The directory holding the `.ncl` file a value was written in.
+    // Returns when its source is not a file on disk or is part of a built-in configuration.
     fn defining_dir(&self, pos_idx: PosIdx) -> Option<PathBuf> {
         let span = self.table.get(pos_idx).into_opt()?;
         let file = Path::new(self.files.name(span.src_id));
@@ -139,6 +133,29 @@ impl<'a> PathResolver<'a> {
             .then(|| file.parent())
             .flatten()
             .map(Path::to_path_buf)
+    }
+}
+
+trait AsRecord {
+    fn as_record_mut(&mut self) -> Option<&mut RecordData>;
+    fn field_mut(&mut self, name: &str) -> Option<&mut NickelValue> {
+        self.as_record_mut()?
+            .fields
+            .get_mut(&Ident::new(name))?
+            .value
+            .as_mut()
+    }
+}
+
+impl AsRecord for NickelValue {
+    fn as_record_mut(&mut self) -> Option<&mut RecordData> {
+        as_record_mut(self)
+    }
+}
+
+impl AsRecord for RecordData {
+    fn as_record_mut(&mut self) -> Option<&mut RecordData> {
+        Some(self)
     }
 }
 
@@ -159,7 +176,7 @@ fn field_mut<'a>(record: &'a mut RecordData, name: &str) -> Option<&'a mut Nicke
     record.fields.get_mut(&Ident::new(name))?.value.as_mut()
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(all(test, not(target_family = "wasm")))]
 mod tests {
     use std::fs;
 
@@ -310,7 +327,7 @@ mod tests {
         let mut program = crate::Program::build_with_sources(&[crate::Source::Builtin]).unwrap();
 
         let unresolved = program.eval_full_for_export().unwrap();
-        let resolved = program.eval_config().unwrap();
+        let resolved = program.resolve_paths().unwrap();
 
         assert_eq!(unresolved.to_string(), resolved.to_string());
     }
