@@ -65,7 +65,7 @@ impl Configuration {
         let abs = file.map(|f| f.canonicalize().unwrap());
         let file = abs.as_deref();
         if let Some(path) = file
-            && !path.try_exists().unwrap()
+            && !path.exists()
         {
             return Err(TopiaryConfigError::FileNotFound(path.to_path_buf()));
         }

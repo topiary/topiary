@@ -112,9 +112,20 @@ impl<'a> PathResolver<'a> {
             return;
         };
 
-        // Collecting the components drops the `.` of a `"./foo"`, which would otherwise
-        // survive into error messages and `topiary cfg` output as `<dir>/./foo`.
-        let resolved: PathBuf = dir.join(relative).components().collect();
+        let joined = dir.join(relative);
+        let resolved = match joined.canonicalize() {
+            Ok(p) => p,
+            Err(e) => {
+                log::error!(
+                    "failed to canonicalize {}: {e}, using fallback",
+                    joined.display()
+                );
+                // Collecting the components drops the `.` of a `"./foo"`, which would otherwise
+                // survive into error messages and `topiary cfg` output as `<dir>/./foo`.
+                joined.components().collect()
+            }
+        };
+
         log::debug!(
             "resolved {} to {}",
             path.as_string().expect("checked just above"),
