@@ -3,7 +3,7 @@
 //! Additional configuration has to be provided by the user of the library.
 pub mod error;
 pub mod language;
-pub mod paths;
+mod paths;
 pub mod source;
 
 use std::{collections::HashMap, fmt, path::Path};
