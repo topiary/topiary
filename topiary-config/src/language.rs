@@ -119,14 +119,14 @@ pub struct GitSource {
 }
 
 impl GitSource {
-    pub fn localise(language: &str, rev: &str) -> PathBuf {
-        let mut library_path = crate::project_dirs()
-            .cache_dir()
-            .to_path_buf()
-            .join(language)
-            .join(rev);
-        library_path.set_extension(std::env::consts::DLL_EXTENSION);
-        library_path
+    /// Resolve local directory for a given [`Self`] that is expected to contain grammar and/or
+    /// query files.
+    /// This method does not ensure that the directory exists.
+    pub fn as_cache_dir(&self, starting_directory: Option<&Path>, language: &str) -> PathBuf {
+        let cache_dir = starting_directory
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| crate::project_dirs().cache_dir().to_path_buf());
+        cache_dir.to_path_buf().join(language).join(&self.rev)
     }
 }
 
@@ -164,8 +164,23 @@ impl Language {
             return Ok(source.path.clone());
         };
 
-        let checkout = repos.get_or_insert(git)?;
-        Ok(checkout.join(&source.path))
+        let query_path = git.as_cache_dir(None, &self.name).join(&source.path);
+        if query_path.is_file() {
+            log::debug!(
+                "{}: query file already exists; returning cached path",
+                query_path.display()
+            );
+        }
+
+        // create cache dir as well as subdir for query file
+        query_path
+            .parent()
+            .map(|p| std::fs::create_dir_all(p))
+            .transpose()?;
+
+        let checkout_dir = repos.get_or_insert(git)?;
+        std::fs::copy(checkout_dir.join(&source.path), &query_path)?;
+        Ok(query_path)
     }
 
     /// Locate a query file for this language by well-known name (e.g. `"formatting"`,
@@ -191,8 +206,8 @@ impl Language {
             let path = self
                 .resolve_query_path_with(&query.source, repos)
                 .map_err(TopiaryConfigError::Fetching)?;
-            log::debug!(
-                "detected path from  languages.{language_name}.{query_name}: {}",
+            log::info!(
+                "detected path for languages.{language_name}.{query_name}: {}",
                 path.display()
             );
             if path.is_file() {
@@ -200,7 +215,7 @@ impl Language {
             }
             return Err(TopiaryConfigError::QueryFileNotFound(path));
         } else {
-            log::info!("query field no present: 'languages.{language_name}.{query_name}'");
+            log::debug!("field not present: 'languages.{language_name}.{query_name}'");
         }
 
         #[rustfmt::skip]
@@ -249,16 +264,15 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
     pub fn library_path(&self) -> std::io::Result<PathBuf> {
         match &self.config.grammar.source {
             GrammarSource::Git { git, .. } => {
-                let mut library_path = crate::project_dirs().cache_dir().to_path_buf();
-                library_path.push(self.name.clone());
-                std::fs::create_dir_all(&library_path)?;
+                let cache_dir = git.as_cache_dir(None, &self.name);
+                std::fs::create_dir_all(&cache_dir)?;
+
+                let mut library_file = cache_dir.join("grammar");
+                library_file.set_extension(std::env::consts::DLL_EXTENSION);
 
                 // Set the output path as the revision of the grammar,
                 // with a platform-appropriate extension
-                library_path.push(git.rev.clone());
-                library_path.set_extension(std::env::consts::DLL_EXTENSION);
-
-                Ok(library_path)
+                Ok(library_file)
             }
 
             GrammarSource::Path(path) => Ok(path.to_path_buf()),

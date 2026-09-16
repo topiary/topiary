@@ -1063,7 +1063,7 @@ impl AtomCollection {
         // antispaces may have produced more empty atoms.
         self.post_process_inner();
 
-        crate::debug!("List of atoms after post-processing: {:?}", self.atoms);
+        crate::trace!("List of atoms after post-processing: {:?}", self.atoms);
     }
 
     /// This function post-processes the atoms in the collection.

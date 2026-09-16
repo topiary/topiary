@@ -39,13 +39,18 @@ const GIT: &str = "git";
 pub(crate) struct PathResolver<'a> {
     table: &'a PosTable,
     files: Files,
+    resolve_git: bool,
 }
 
 impl<'a> PathResolver<'a> {
     /// `files` is cloned out of the program once, rather than per lookup:
     /// `Program::files` hands back an owned copy of the whole registry.
-    pub(crate) fn new(table: &'a PosTable, files: Files) -> Self {
-        Self { table, files }
+    pub(crate) fn new(table: &'a PosTable, files: Files, resolve_git: bool) -> Self {
+        Self {
+            table,
+            files,
+            resolve_git,
+        }
     }
 
     /// Walk `languages.<lang>` for the records that name a local file, and resolve them.
@@ -89,14 +94,17 @@ impl<'a> PathResolver<'a> {
         let Some(source) = as_record_mut(source) else {
             return;
         };
-        if source.fields.contains_key(&Ident::new(GIT)) {
-            return;
+        match source.field_mut(GIT) {
+            Some(_) if !self.resolve_git => return,
+            // { git = "..", rev = ".." }
+            _ => {} // Some(git) if !self.resolve_git => return,
+                    // return;
         }
 
         let Some(path) = field_mut(source, PATH) else {
             return;
         };
-        let Some(relative) = path.as_string().map(|s| PathBuf::from(s.as_str())) else {
+        let Some(relative): Option<PathBuf> = path.as_string().map(|s| s.as_str().into()) else {
             return;
         };
         // NOTE(Xophmeister): `Path::is_relative` is the wrong check on Windows where a rooted but
@@ -108,7 +116,7 @@ impl<'a> PathResolver<'a> {
         }
 
         let pos_idx = path.pos_idx();
-        let Some(dir) = self.defining_dir(pos_idx) else {
+        let Some(dir) = self.parent_dir(pos_idx) else {
             return;
         };
 
@@ -136,7 +144,7 @@ impl<'a> PathResolver<'a> {
 
     // The directory holding the `.ncl` file a value was written in.
     // Returns when its source is not a file on disk or is part of a built-in configuration.
-    fn defining_dir(&self, pos_idx: PosIdx) -> Option<PathBuf> {
+    fn parent_dir(&self, pos_idx: PosIdx) -> Option<PathBuf> {
         let span = self.table.get(pos_idx).into_opt()?;
         let file = Path::new(self.files.name(span.src_id));
 

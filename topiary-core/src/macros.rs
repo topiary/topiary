@@ -3,6 +3,17 @@
 //! Encapsulate the `log` macros if the `log` feature is active to reduce the number of `#[cfg(feature = "log")]` in code.
 //!
 //! If the feature is **not** active, calling these macro is a no-op.
+//!
+/// Macro encapsulating the `log::trace!` macro if the `log` feature is active.
+#[macro_export]
+macro_rules! trace {
+    ($($args:tt)+) => ({
+        #[cfg(feature = "log")]
+        log::trace!(
+            $($args)*
+        )
+    });
+}
 
 /// Macro encapsulating the `log::debug!` macro if the `log` feature is active.
 #[macro_export]

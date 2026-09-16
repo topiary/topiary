@@ -61,9 +61,6 @@ impl Configuration {
     /// If the configuration file exists, but cannot be parsed, this function will return a
     /// `TopiaryConfigError` with the error that occurred.
     pub fn fetch(merge: bool, file: Option<&Path>) -> TopiaryConfigResult<(Self, Program)> {
-        // If we have an explicit file, fail if it doesn't exist
-        let abs = file.map(|f| f.canonicalize().unwrap());
-        let file = abs.as_deref();
         if let Some(path) = file
             && !path.exists()
         {
@@ -154,14 +151,7 @@ impl Configuration {
 
         // Ensure `topiary prefetch` covers both grammars and queries.
         if let Some(queries) = language.config.queries.as_ref() {
-            for (query_name, query) in queries {
-                if query.source.git.is_none() {
-                    continue;
-                }
-                log::info!(
-                    "Fetch \"{}\": prefetching {query_name} query",
-                    language.name,
-                );
+            for (_, query) in queries.iter().filter(|(_, q)| q.source.git.is_some()) {
                 language.resolve_query_path_with(&query.source, repos)?;
             }
         }
@@ -352,7 +342,7 @@ impl Program {
         // `eval_full_for_export` needs `&mut self`, whereas the position table and file
         // registry are behind `&self`; hence the two statements.
         let mut config = self.eval_full_for_export()?;
-        PathResolver::new(self.inner.pos_table(), self.inner.files()).resolve(&mut config);
+        PathResolver::new(self.inner.pos_table(), self.inner.files(), false).resolve(&mut config);
 
         self.config = Some(config.clone());
         Ok(config)
