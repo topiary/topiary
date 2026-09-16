@@ -108,7 +108,7 @@ impl Configuration {
     ) -> Result<(), TopiaryConfigFetchingError> {
         match &language.config.grammar.source {
             language::GrammarSource::Git { git, subdir } => {
-                let library_path = language.library_path()?;
+                let library_path = language.grammar_file()?;
 
                 log::info!(
                     "Fetch \"{}\": Configured via Git ({} ({})); to {}",

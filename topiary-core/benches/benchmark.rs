@@ -12,7 +12,7 @@ fn setup() -> (String, Language) {
     let grammar = config
         .get_language_cfg("nickel")
         .unwrap()
-        .grammar()
+        .fetch_grammar()
         .unwrap();
 
     let language: Language = Language {

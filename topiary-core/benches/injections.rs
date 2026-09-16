@@ -19,7 +19,7 @@ fn language_from_config(
     injection_query_content: Option<&str>,
 ) -> Language {
     let config_language = config.get_language_cfg(name).unwrap();
-    let grammar = config_language.grammar().unwrap();
+    let grammar = config_language.fetch_grammar().unwrap();
 
     Language {
         name: name.to_owned(),

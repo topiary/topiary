@@ -87,7 +87,7 @@ impl LanguageDefinitionCache {
                     input.formatting_query()
                 );
 
-                let lang_def = Arc::new(input.to_language_sync()?);
+                let lang_def = Arc::new(input.to_language_sync(self.repos())?);
                 slot.insert(lang_def).to_owned()
             }
         })

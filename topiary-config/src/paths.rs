@@ -25,6 +25,8 @@ use nickel_lang_core::{
     position::{PosIdx, PosTable},
 };
 
+use crate::language::GitSource;
+
 /// The two paths in a language's configuration that name a file on the local
 /// filesystem. Both live in a record called `source`; see [`PathResolver::resolve_source`]
 /// for the caveat about the sibling `git` field.
@@ -33,6 +35,7 @@ const QUERIES: &str = "queries";
 const SOURCE: &str = "source";
 const PATH: &str = "path";
 const GIT: &str = "git";
+const REV: &str = "rev";
 
 /// Rewrites relative `path` values in an evaluated configuration so that they are
 /// anchored at the `.ncl` file that defined them, rather than at the working directory.
@@ -60,19 +63,17 @@ impl<'a> PathResolver<'a> {
             return;
         };
 
-        for language in languages
-            .fields
-            .iter_mut()
-            .filter_map(|(_, l)| l.value.as_mut().and_then(as_record_mut))
-        {
-            if let Some(source) = language
-                .field_mut(GRAMMAR)
-                .and_then(|g| g.field_mut(SOURCE))
-            {
-                self.resolve_source(source);
+        for (lang, record) in languages.fields.iter_mut().filter_map(|(lang, rec)| {
+            rec.value
+                .as_mut()
+                .and_then(as_record_mut)
+                .map(|rec| (lang.as_ref(), rec))
+        }) {
+            if let Some(source) = record.field_mut(GRAMMAR).and_then(|g| g.field_mut(SOURCE)) {
+                self.resolve_source(source, lang);
             }
 
-            let Some(queries) = language.field_mut(QUERIES).and_then(as_record_mut) else {
+            let Some(queries) = record.field_mut(QUERIES).and_then(as_record_mut) else {
                 continue;
             };
 
@@ -82,7 +83,7 @@ impl<'a> PathResolver<'a> {
                 .filter_map(|(_, q)| q.value.as_mut().and_then(as_record_mut))
             {
                 if let Some(source) = query.field_mut(SOURCE) {
-                    self.resolve_source(source);
+                    self.resolve_source(source, lang);
                 }
             }
         }
@@ -90,18 +91,27 @@ impl<'a> PathResolver<'a> {
 
     // If `git is present:
     // * `path` names a file *inside* the checkout Topiary fetches
-    fn resolve_source(&self, source: &mut NickelValue) {
-        let Some(source) = as_record_mut(source) else {
+    fn resolve_source(&self, source: &mut NickelValue, language: &str) {
+        let Some(source) = source.as_record_mut() else {
             return;
         };
         match source.field_mut(GIT) {
             Some(_) if !self.resolve_git => return,
+            Some(git_source) => {
+                // source.git.git
+                let url = git_source.field_as_string(GIT);
+                // source.git.rev
+                let rev = git_source.field_as_string(REV);
+                let git_source = url
+                    .zip(rev)
+                    .map(|(git, rev)| GitSource { git, rev }.as_cache_dir(None, language));
+            }
             // { git = "..", rev = ".." }
             _ => {} // Some(git) if !self.resolve_git => return,
                     // return;
         }
 
-        let Some(path) = field_mut(source, PATH) else {
+        let Some(path) = source.field_mut(PATH) else {
             return;
         };
         let Some(relative): Option<PathBuf> = path.as_string().map(|s| s.as_str().into()) else {
@@ -157,12 +167,20 @@ impl<'a> PathResolver<'a> {
 
 trait AsRecord {
     fn as_record_mut(&mut self) -> Option<&mut RecordData>;
+    /// The value of `record.<name>`, or `None` when the field is absent or has no value
+    /// (an `optional` field that was never defined).
     fn field_mut(&mut self, name: &str) -> Option<&mut NickelValue> {
         self.as_record_mut()?
             .fields
             .get_mut(&Ident::new(name))?
             .value
             .as_mut()
+    }
+
+    fn field_as_string(&mut self, name: &str) -> Option<String> {
+        self.field_mut(name)
+            .and_then(|f| f.as_string())
+            .map(|s| s.to_string())
     }
 }
 
@@ -187,12 +205,6 @@ fn as_record_mut(value: &mut NickelValue) -> Option<&mut RecordData> {
         ValueContentRefMut::Record(record) => record.into_opt(),
         _ => None,
     }
-}
-
-/// The value of `record.<name>`, or `None` when the field is absent or has no value
-/// (an `optional` field that was never defined).
-fn field_mut<'a>(record: &'a mut RecordData, name: &str) -> Option<&'a mut NickelValue> {
-    record.fields.get_mut(&Ident::new(name))?.value.as_mut()
 }
 
 #[cfg(all(test, not(target_family = "wasm")))]

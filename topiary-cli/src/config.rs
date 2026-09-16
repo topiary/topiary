@@ -145,7 +145,7 @@ impl Configuration {
     {
         let name_ref = name.as_ref();
         let config_language = self.get_language_cfg(name_ref).preformat_context()?;
-        let grammar = config_language.grammar()?;
+        let grammar = config_language.fetch_grammar_with(self.cache.repos())?;
         let query_source = self.get_query_source(name_ref, topiary_queries::FORMATTING_QUERY)?;
         let query_content = query_source.get_content_sync()?;
         let formatting_query = TopiaryQuery::new(&grammar, &query_content)

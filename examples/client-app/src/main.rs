@@ -20,7 +20,7 @@ async fn main() {
     let query = topiary_queries::json();
 
     // Get grammar for JSON language
-    let grammar = json.grammar().unwrap();
+    let grammar = json.fetch_grammar().unwrap();
 
     // Create Language struct
     let language: Language = Language {

@@ -122,11 +122,23 @@ impl GitSource {
     /// Resolve local directory for a given [`Self`] that is expected to contain grammar and/or
     /// query files.
     /// This method does not ensure that the directory exists.
-    pub fn as_cache_dir(&self, starting_directory: Option<&Path>, language: &str) -> PathBuf {
+    pub(crate) fn as_cache_dir(
+        &self,
+        starting_directory: Option<&Path>,
+        language: &str,
+    ) -> PathBuf {
         let cache_dir = starting_directory
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| crate::project_dirs().cache_dir().to_path_buf());
         cache_dir.to_path_buf().join(language).join(&self.rev)
+    }
+
+    // Set the output path as the revision of the grammar, with a platform-appropriate extension.
+    // ex: `path/to/cache_dir/grammar.so`
+    pub(crate) fn grammar_file(cache_dir: &Path) -> PathBuf {
+        cache_dir
+            .join("grammar")
+            .with_extension(std::env::consts::DLL_EXTENSION)
     }
 }
 
@@ -261,18 +273,13 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
 
     #[cfg(not(target_arch = "wasm32"))]
     // Returns the library path, and ensures the parent directories exist.
-    pub fn library_path(&self) -> std::io::Result<PathBuf> {
+    pub fn grammar_file(&self) -> std::io::Result<PathBuf> {
         match &self.config.grammar.source {
             GrammarSource::Git { git, .. } => {
                 let cache_dir = git.as_cache_dir(None, &self.name);
                 std::fs::create_dir_all(&cache_dir)?;
 
-                let mut library_file = cache_dir.join("grammar");
-                library_file.set_extension(std::env::consts::DLL_EXTENSION);
-
-                // Set the output path as the revision of the grammar,
-                // with a platform-appropriate extension
-                Ok(library_file)
+                Ok(GitSource::grammar_file(&cache_dir))
             }
 
             GrammarSource::Path(path) => Ok(path.to_path_buf()),
@@ -282,45 +289,45 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
     #[cfg(not(target_arch = "wasm32"))]
     // NOTE: Much of the following code is heavily inspired by the `helix-loader` crate with license MPL-2.0.
     // To be safe, assume any and all of the following code is MLP-2.0 and copyrighted to the Helix project.
-    pub fn grammar(
+    pub fn fetch_grammar(
         &self,
     ) -> Result<topiary_tree_sitter_facade::Language, TopiaryConfigFetchingError> {
-        self.grammar_with(&LocalRepos::new())
+        self.fetch_grammar_with(&LocalRepos::new())
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn grammar_with(
+    pub fn fetch_grammar_with(
         &self,
         repos: &LocalRepos,
     ) -> Result<topiary_tree_sitter_facade::Language, TopiaryConfigFetchingError> {
-        let library_path = self.library_path()?;
+        let grammar_file = self.grammar_file()?;
 
         // Ensure the compile exists
-        if !library_path.is_file() {
+        if !grammar_file.is_file() {
             match &self.config.grammar.source {
                 GrammarSource::Git { git, subdir } => {
                     let checkout = repos.get_or_insert(git)?;
                     GitSource::compile_grammar(
                         &self.name,
-                        library_path.clone(),
+                        grammar_file.clone(),
                         &checkout,
                         subdir.as_deref(),
                     )?;
                 }
                 GrammarSource::Path(_) => {
                     return Err(TopiaryConfigFetchingError::GrammarFileNotFound(
-                        library_path,
+                        grammar_file,
                     ));
                 }
             }
         }
 
-        assert!(library_path.is_file());
-        log::debug!("Loading grammar from {}", library_path.display());
+        assert!(grammar_file.is_file());
+        log::debug!("Loading grammar from {}", grammar_file.display());
 
         use libloading::{Library, Symbol};
 
-        let library = unsafe { Library::new(&library_path) }?;
+        let library = unsafe { Library::new(&grammar_file) }?;
         let language_fn_name = if let Some(symbol_name) = self.config.grammar.symbol.clone() {
             symbol_name
         } else {
@@ -478,11 +485,12 @@ impl GitSource {
     /// Compile the tree-sitter grammar rooted at `checkout` + optional `subdir`.
     pub fn compile_grammar(
         name: &str,
-        library_path: PathBuf,
+        grammar_file: PathBuf,
         checkout: &Path,
         subdir: Option<&Path>,
     ) -> Result<(), TopiaryConfigFetchingError> {
-        let grammar_path = match subdir {
+        // tree-sitter project directory
+        let ts_project_dir = match subdir {
             Some(subdir) => checkout.join(subdir),
             None => checkout.to_path_buf(),
         };
@@ -493,7 +501,7 @@ impl GitSource {
         loader.debug_build(false);
         loader.force_rebuild(true);
         loader
-            .compile_parser_at_path(&grammar_path, library_path, &[])
+            .compile_parser_at_path(&ts_project_dir, grammar_file, &[])
             .map_err(TopiaryConfigFetchingError::Build)?;
 
         log::info!("{name}: Grammar successfully compiled");
