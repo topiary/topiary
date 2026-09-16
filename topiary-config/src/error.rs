@@ -1,6 +1,6 @@
 use std::{error, fmt, io, path, result};
 
-use nickel_lang_core::files::Files;
+use nickel_lang_core::{error::IntoDiagnostics, files::Files};
 
 pub type TopiaryConfigResult<T> = result::Result<T, TopiaryConfigError>;
 
@@ -95,10 +95,15 @@ impl fmt::Display for TopiaryConfigError {
             TopiaryConfigError::TreeSitterFacade(_) => {
                 write!(f, "We could not load the grammar for the given language")
             }
-            TopiaryConfigError::Nickel { error, .. } => write!(
-                f,
-                "Nickel error: {error:#?}\n\nDid you forget to add a \"priority\" annotation in your config file?"
-            ),
+            TopiaryConfigError::Nickel { .. } => {
+                // NOTE(mkatycev) sematincs of the error should be taken cary of by a nickel `Reporter`
+                // such as `LogReporter` because the `nickel_lang_core::Error` does _not_ implement
+                // `Display`
+                write!(
+                    f,
+                    "Nickel error: Did you forget to add a \"priority\" annotation in your config file?"
+                )
+            }
             TopiaryConfigError::NickelDeserialization { error, .. } => {
                 write!(f, "Failed to deserialize Topiary configuration: {error}")
             }

@@ -1,4 +1,5 @@
 use std::cell::{Cell, RefCell};
+use std::io;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -8,7 +9,8 @@ use nickel_lang_core::eval::value::NickelValue;
 use rootcause::prelude::ResultExt;
 use topiary_config::{Program, source::Source};
 use topiary_core::{
-    FormatterError, FormatterResult, InjectionQuery, Language, SpanAttachment, TopiaryQuery,
+    FormatterError, FormatterResult, InjectionQuery, Language, Operation, SpanAttachment,
+    TopiaryQuery, formatter,
 };
 
 use crate::error::{CLIResult, ResultPreformat, TopiaryError};
@@ -34,10 +36,18 @@ pub struct Configuration {
     cache: Arc<LanguageDefinitionCache>,
 }
 
+// expand tilde paths: "~/.config/topiary/foo.ncl"
+fn expand_tilde(path: &Path) -> PathBuf {
+    PathBuf::from(shellexpand::tilde(&path.to_string_lossy()).as_ref())
+}
+
 impl Configuration {
     /// Create a new Configuration by fetching from the given path
     pub fn new(merge: bool, path: Option<&Path>) -> CLIResult<Self> {
-        let (inner, ncl) = topiary_config::Configuration::fetch(merge, path).preformat_context()?;
+        // expand tilde paths: "~/.config/topiary/foo.ncl"
+        let path = path.map(expand_tilde);
+        let (inner, ncl) =
+            topiary_config::Configuration::fetch(merge, path.as_deref()).preformat_context()?;
 
         // Store the NickelValue in thread-local storage
         let ncl_id = NEXT_ID.with(|id| {
@@ -55,7 +65,7 @@ impl Configuration {
         Ok(Self {
             inner,
             ncl_id,
-            path: path.map(|p| p.to_owned()),
+            path,
             cache: Arc::new(LanguageDefinitionCache::new()),
         })
     }
@@ -89,7 +99,7 @@ impl Configuration {
         let guard = self.program();
         let mut program = guard.borrow_mut();
         let ncl = program
-            .eval_config()
+            .resolve_paths()
             .expect("configuration was evaluated successfully in Configuration::new");
 
         strip_metadata(ncl)
@@ -217,6 +227,29 @@ impl Configuration {
             })),
         }
     }
+
+    #[cfg(feature = "fancy-config")]
+    pub(crate) fn format_ncl(
+        &self,
+        ncl: &NickelValue,
+        output: &mut impl io::Write,
+    ) -> CLIResult<()> {
+        // if errors are encountered in formatting, return
+        let language = self.get_language("nickel")?;
+
+        formatter(
+            &mut ncl.to_string().as_bytes(),
+            output,
+            &language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+                skip_stage: None,
+            },
+            None,
+        )?;
+        Ok(())
+    }
 }
 
 /// Get a builtin query for the given language and query name
@@ -308,36 +341,16 @@ impl AsRef<topiary_config::Configuration> for Configuration {
 #[cfg(feature = "fancy-config")]
 impl std::fmt::Display for Configuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use topiary_core::{Operation, formatter};
-
         // TODO handle verbose flag
         let ncl = self.ncl();
 
-        let log_fmt_err =
-            |e| log::error!("error calling {}::fmt : {e}", std::any::type_name::<Self>());
-
-        // if errors are encountered in formatting, return
-        let language = match self.get_language("nickel") {
-            Ok(lang) => lang,
-            Err(e) => {
-                log_fmt_err(e);
-                return write!(f, "{ncl}");
-            }
-        };
-
         let mut output = Vec::new();
-        if let Err(err) = formatter(
-            &mut ncl.to_string().as_bytes(),
-            &mut output,
-            &language,
-            Operation::Format {
-                skip_idempotence: true,
-                tolerate_parsing_errors: false,
-                skip_stage: None,
-            },
-            None,
-        ) {
-            log_fmt_err(err.into());
+        // if errors are encountered in formatting, return unformatted
+        if let Err(err) = self.format_ncl(&ncl, &mut output) {
+            log::error!(
+                "error calling {}::fmt : {err}",
+                std::any::type_name::<Self>()
+            );
             return write!(f, "{ncl}");
         }
 
@@ -355,6 +368,8 @@ impl std::fmt::Display for Configuration {
 // Strip field metadata (doc strings, type/contract annotations, `| default`,
 // `| optional`, priority) and unwrap `Term::Annotated` nodes from a NickelValue
 // so that the pretty printer emits a plain data record.
+//
+// The `NickelValue` returned by this function should ONLY be used for formatting calls
 fn strip_metadata(value: NickelValue) -> NickelValue {
     use nickel_lang_core::eval::value::{RecordData, ValueContent};
     use nickel_lang_core::term::Term;
@@ -366,10 +381,15 @@ fn strip_metadata(value: NickelValue) -> NickelValue {
                 let pos_idx = v.pos_idx();
                 match v.content() {
                     ValueContent::Record(lens) => {
-                        let Some(record) = lens.take().into_opt() else {
+                        let Some(mut record) = lens.take().into_opt() else {
                             return Ok(NickelValue::record_posless(RecordData::empty())
                                 .with_pos_idx(pos_idx));
                         };
+
+                        // NOTE(mkatychev): this removes trailing `..` when a formatter
+                        // calls `nickel_lang_core::pretty::Allocator::record` for pretty printing,
+                        record.attrs.open = false;
+
                         let fields = record
                             .fields
                             .into_iter()

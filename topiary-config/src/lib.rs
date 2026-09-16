@@ -61,7 +61,6 @@ impl Configuration {
     /// If the configuration file exists, but cannot be parsed, this function will return a
     /// `TopiaryConfigError` with the error that occurred.
     pub fn fetch(merge: bool, file: Option<&Path>) -> TopiaryConfigResult<(Self, Program)> {
-        // If we have an explicit file, fail if it doesn't exist
         if let Some(path) = file
             && !path.exists()
         {
@@ -152,14 +151,7 @@ impl Configuration {
 
         // Ensure `topiary prefetch` covers both grammars and queries.
         if let Some(queries) = language.config.queries.as_ref() {
-            for (query_name, query) in queries {
-                if query.source.git.is_none() {
-                    continue;
-                }
-                log::info!(
-                    "Fetch \"{}\": prefetching {query_name} query",
-                    language.name,
-                );
+            for (_, query) in queries.iter().filter(|(_, q)| q.source.git.is_some()) {
                 language.resolve_query_path_with(&query.source, repos)?;
             }
         }
@@ -238,7 +230,7 @@ impl Configuration {
 
     fn parse(sources: &[Source]) -> TopiaryConfigResult<(Self, Program)> {
         let mut program = Program::build_with_sources(sources)?;
-        let ncl = program.eval_config()?;
+        let ncl = program.resolve_paths()?;
 
         let serde_config = SerdeConfiguration::deserialize(ncl).map_err(|error| {
             TopiaryConfigError::NickelDeserialization {
@@ -258,7 +250,7 @@ impl Default for Configuration {
         let mut program = Program::build_with_sources(&[Source::Builtin])
             .expect("Evaluating the builtin configuration should be safe");
         let ncl = program
-            .eval_config()
+            .resolve_paths()
             .expect("Evaluating the builtin configuration should be safe");
         let serde_config = SerdeConfiguration::deserialize(ncl)
             .expect("Evaluating the builtin configuration should be safe");
@@ -342,7 +334,7 @@ impl Program {
     ///
     /// The result is memoised: [`NickelValue`] is reference counted, so cloning it out is
     /// cheap.
-    pub fn eval_config(&mut self) -> TopiaryConfigResult<NickelValue> {
+    pub fn resolve_paths(&mut self) -> TopiaryConfigResult<NickelValue> {
         if let Some(config) = self.config.as_ref() {
             return Ok(config.clone());
         }
@@ -350,7 +342,7 @@ impl Program {
         // `eval_full_for_export` needs `&mut self`, whereas the position table and file
         // registry are behind `&self`; hence the two statements.
         let mut config = self.eval_full_for_export()?;
-        PathResolver::new(self.inner.pos_table(), self.inner.files()).resolve(&mut config);
+        PathResolver::new(self.inner.pos_table(), self.inner.files(), false).resolve(&mut config);
 
         self.config = Some(config.clone());
         Ok(config)
@@ -368,7 +360,7 @@ impl Program {
             .parse_field_path(field_path.to_owned())
             .map_err(|e| TopiaryConfigError::nickel(e.into(), self.files()))?;
 
-        let mut value = self.eval_config()?;
+        let mut value = self.resolve_paths()?;
 
         for id in path.0 {
             let field = value

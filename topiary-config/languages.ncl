@@ -100,7 +100,6 @@ let rec
         (`topiary config show-sources`)  and the
         built-in fallbacks.
       "%,
-    .. # lang config fields should be non exhaustive for future schemas and end user customizability
   }
 in
 
