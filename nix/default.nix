@@ -41,8 +41,15 @@ let
         advisory-db
         craneLib
         callPackageNoOverrides
+        topiaryLib
         ;
-      inherit (topiaryUtils) prefetchLanguagesFile prefetchLanguagesNickelFile;
+      inherit (topiaryUtils)
+        prefetchLanguagesFile
+        prefetchLanguagesNickelFile
+        prefetchLanguages
+        generateNcl
+        fromNickelFile
+        ;
     })
     topiaryPkgs
     binPkgs

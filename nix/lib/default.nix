@@ -26,6 +26,10 @@ let
     gitHookBinFor
     gitHookBin
     ;
+
+  evalConfig = callPackageNoOverrides ./eval-config.nix {
+    inherit (topiaryUtils) generateNcl prefetchLanguages fromNickelFile;
+  };
 in
 
 {
@@ -40,5 +44,6 @@ in
     gitHook
     gitHookBinFor
     gitHookBin
+    evalConfig
     ;
 }
