@@ -23,15 +23,19 @@ your query file to be able to iterate on formatting query writing.
 ## Register the grammar in `topiary-config/languages.ncl`:
 
 ```nickel
+{
+  languages = {
     clang = {
       extensions | default = ["c", "h"],
       grammar.source | default = {
         git = {
-            git = "https://github.com/tree-sitter/tree-sitter-c.git",
-            rev = "6c7f459ddc0bcf78b615d3a3f4e8fed87b8b3b1b",
+          git = "https://github.com/tree-sitter/tree-sitter-c.git",
+          rev = "6c7f459ddc0bcf78b615d3a3f4e8fed87b8b3b1b",
         },
       },
     },
+  }
+}
 ```
 
 ## Create the query file
@@ -40,6 +44,42 @@ your query file to be able to iterate on formatting query writing.
 mkdir topiary-queries/queries/clang
 touch topiary-queries/queries/clang/formatting.scm
 ```
+
+### Pointing at a query file explicitly
+
+The example above relies on Topiary's disk-search and compile-time
+fallbacks to locate `clang/formatting.scm`. You can instead point a
+language at a specific query file with a `queries.<name>.source`:
+
+```nickel
+{ clang.queries.formatting.source.path = "./queries/clang/formatting.scm" }
+```
+
+A `source.path` is resolved relative to the  configuration file that defines it
+meaning that multiple configuration sources can define their own relative paths
+to be used with the `--merge-configuration` flag.
+Use `topiary config --field languages.clang.queries.formatting.source.path`
+to see the resolved, absolute path.
+
+Relative query paths can also be used with Git repositories.
+In the example below, `source.path` points  to a file *inside the checkout*,
+(Topiary will fetch and cache git-sourced grammar files on demand):
+
+```nickel
+{
+  languages = {
+    clang.queries.formatting.source = {
+      git = {
+        git = "https://github.com/tree-sitter/tree-sitter-c.git",
+        rev = "6c7f459ddc0bcf78b615d3a3f4e8fed87b8b3b1b",
+      },
+      path = "queries/clang/formatting.scm",
+    },
+  }
+}
+```
+
+The same `source` shape applies to `queries.injections` as well as any other queries such as `highlights.scm`.
 
 ### Testing
 
@@ -219,6 +259,10 @@ captured node. The captured content is formatted independently by the
 inner language and then rendered as a host leaf. See
 [Language injections](../reference/language-injections.md) for the
 full behaviour and limitations.
+
+As with `formatting`, an `injections` query can point at
+config-relative or git-relative path, see [Pointing at a query file
+explicitly](#pointing-at-a-query-file-explicitly) for mode details.
 
 ## Iterate
 
