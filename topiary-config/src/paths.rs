@@ -32,8 +32,6 @@ const GRAMMAR: &str = "grammar";
 const QUERIES: &str = "queries";
 const SOURCE: &str = "source";
 pub(crate) const PATH: &str = "path";
-pub(crate) const GIT: &str = "git";
-pub(crate) const REV: &str = "rev";
 
 /// Rewrites relative `path` values in an evaluated configuration so that they are
 /// anchored at the `.ncl` file that defined them, rather than at the working directory.
@@ -143,7 +141,6 @@ impl<'a> PathResolver<'a> {
 
 pub(crate) trait AsRecord {
     fn as_record_mut(&mut self) -> Option<&mut RecordData>;
-    fn as_record(&self) -> Option<&RecordData>;
     /// The value of `record.<name>`, or `None` when the field is absent or has no value
     /// (an `optional` field that was never defined).
     fn field_mut(&mut self, name: &str) -> Option<&mut NickelValue> {
@@ -153,38 +150,16 @@ pub(crate) trait AsRecord {
             .value
             .as_mut()
     }
-
-    fn field(&self, name: &str) -> Option<&NickelValue> {
-        self.as_record()?
-            .fields
-            .get(&Ident::new(name))?
-            .value
-            .as_ref()
-    }
-
-    fn field_as_string(&self, name: &str) -> Option<String> {
-        self.field(name)
-            .and_then(|f| f.as_string())
-            .map(|s| s.to_string())
-    }
 }
 
 impl AsRecord for NickelValue {
     fn as_record_mut(&mut self) -> Option<&mut RecordData> {
         as_record_mut(self)
     }
-
-    fn as_record(&self) -> Option<&RecordData> {
-        todo!()
-    }
 }
 
 impl AsRecord for RecordData {
     fn as_record_mut(&mut self) -> Option<&mut RecordData> {
-        Some(self)
-    }
-
-    fn as_record(&self) -> Option<&RecordData> {
         Some(self)
     }
 }

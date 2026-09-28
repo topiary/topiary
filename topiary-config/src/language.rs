@@ -11,7 +11,6 @@ use gix::{
     remote::{self, Direction, fetch, fetch::refmap},
     worktree::state::checkout,
 };
-use nickel_lang_core::eval::value::NickelValue;
 #[cfg(not(target_arch = "wasm32"))]
 use std::num::NonZero;
 #[cfg(not(target_arch = "wasm32"))]
@@ -27,7 +26,7 @@ use tempfile::TempDir;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::error::{TopiaryConfigError, TopiaryConfigFetchingError};
-use crate::{error::TopiaryConfigResult, paths::AsRecord};
+use crate::error::TopiaryConfigResult;
 
 /// Language definitions, as far as the CLI and configuration are concerned, contain everything
 /// needed to configure formatting for that language.
@@ -136,22 +135,6 @@ impl GitSource {
         cache_dir
             .join("grammar")
             .with_extension(std::env::consts::DLL_EXTENSION)
-    }
-}
-
-impl TryFrom<&NickelValue> for GitSource {
-    type Error = &'static str;
-
-    fn try_from(git_source: &NickelValue) -> Result<Self, Self::Error> {
-        use crate::paths::{GIT, REV};
-        // source.git.git
-        let url = git_source.field_as_string(GIT);
-        // source.git.rev
-        let rev = git_source.field_as_string(REV);
-
-        url.zip(rev)
-            .map(|(git, rev)| GitSource { git, rev })
-            .ok_or("unable to resolve git source")
     }
 }
 
