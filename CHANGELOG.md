@@ -45,6 +45,8 @@ This name should be decided amongst the team before the release.
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.7.3...HEAD)
 
 ### Changed
+- [#1032](https://github.com/topiary/topiary/pull/1032) Replaced the `topiary-core` test and benchmark dependencies on the `tree-sitter-json` and `tree-sitter-nickel` grammar crates with dynamic loading via `topiary-config`.
+- [#1277](https://github.com/topiary/topiary/pull/1277) Small internal refactoring of the core formatting logic.
 - [#1172](https://github.com/topiary/topiary/pull/1172) Split out `mdbook-manmunge` into its own repository.
 - [#1174](https://github.com/topiary/topiary/pull/1174) Split out the Topiary Playground into its own repository.
 - [#1191](https://github.com/topiary/topiary/pull/1191) Split out the Topiary website into its own repository.
@@ -52,11 +54,23 @@ This name should be decided amongst the team before the release.
 - [#1232](https://github.com/topiary/topiary/pull/1232) Rework `topiary_core::ErrorSpan` to handle `QueryError`s as well as `Node` errors by introducing `rootcause::Report`
 - [#1249](https://github.com/topiary/topiary/pull/1249) Remove async calls and setup from `format_nickel` benchmark
 - [#1254](https://github.com/topiary/topiary/pull/1254) Topiary now gracefully skips formatting for unknown or unsupported injected languages instead of returning a fatal error, allowing files with unconfigured code blocks (like Markdown) to format successfully.
+- [#1267](https://github.com/topiary/topiary/pull/1267) Add initial injection support (JSON) for Rust
+- [#1270](https://github.com/topiary/topiary/pull/1270) Add initial `languages.ncl` Nickel contracts
+- [#1139](https://github.com/topiary/topiary/pull/1139) Added `rootcause::Report` handling in topiary-cli.
+- [#1283](https://github.com/topiary/topiary/pull/1283) Render Nickel parsing error diagnostics
+- [#1298](https://github.com/topiary/topiary/pull/1298) Update WIT formatter for tree-sitter-wit to v1.4
+- [#1303](https://github.com/topiary/topiary/pull/1303) Add `bin/verify-documented-usage.sh --no-nix-shell` flag
+- [#1306](https://github.com/topiary/topiary/pull/1306) Move topiary-cli configuration logic into its own module
+- [#1311](https://github.com/topiary/topiary/pull/1311) Use `#set!` directive for `injection.language` property
 
 ### Fixed
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
 - [#1253](https://github.com/topiary/topiary/pull/1253) Handle linebreak preservation in OpenSCAD let chains
 - [#1255](https://github.com/topiary/topiary/pull/1255) Unpinned outdated wasm-bindgen dependency
+- [#1287](https://github.com/topiary/topiary/pull/1287) [#1296](https://github.com/topiary/topiary/pull/1296) Various OCaml issues and improvements
+- [#1291](https://github.com/topiary/topiary/pull/1291) Improve warning for injection queries without content captures
+- [#1322](https://github.com/topiary/topiary/pull/1322) Improve error message when Topiary cannot find a query file
+- [#1325](https://github.com/topiary/topiary/pull/1325) Fix regression with `--query` value parsing in `topiary format`
 
 ### Added
 - [#1200](https://github.com/topiary/topiary/pull/1200) Build and deploy Topiary Docker images to ghcr.io.
@@ -64,6 +78,13 @@ This name should be decided amongst the team before the release.
 - [#1227](https://github.com/topiary/topiary/pull/1227) Add `@append_empty_input_softline` and `@prepend_empty_input_softline` captures, thanks to @BirdeeHub
 - [#1244](https://github.com/topiary/topiary/pull/1244) Add language injection support for injection languages known at query writing.
 - [#1254](https://github.com/topiary/topiary/pull/1254) Add Markdown formatting support with dynamic language injections for fenced code blocks (via the `@injection.language` capture).
+- [#1279](https://github.com/topiary/topiary/pull/1279) Added experimental formatting support for the Menhir language.
+- [#1299](https://github.com/topiary/topiary/pull/1299) Add `QuerySource` config fetching to topiary-config.
+- [#1312](https://github.com/topiary/topiary/pull/1312) Added `bin/changelog.nu` to automatically add entry to `CHANGELOG.md`
+- [#1315](https://github.com/topiary/topiary/pull/1315) Add rootcause-backtrace to cli
+- [#1314](https://github.com/topiary/topiary/pull/1314) Allow skipping of formatting stages
+- [#1266](https://github.com/topiary/topiary/pull/1266) Add `@multi_line_string` capture to format multi line strings in languages like Nix and Nickel that ignore indentation common to all lines of a multi line string. And use `@multi_line_string` to add multi line string formatting to the Nickel formatter.
+- [#1330](https://github.com/topiary/topiary/pull/1330) Add a new feature flag on the `topiary-core` crate to enable the `log` dependency; this feature flag is enabled by default. Thanks to @GrandChaman.
 
 ### Removed
 - [#1217](https://github.com/topiary/topiary/pull/1217) The `check` alias for the `check-grammar` subcommand, to avoid confusion with `topiary fmt --check`.
@@ -90,6 +111,7 @@ This name should be decided amongst the team before the release.
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.7.2...v0.7.3)
 
 ### Changed
+- [#1149](https://github.com/topiary/topiary/pull/1149) Updated to Tree-sitter v0.26
 - [#1149](https://github.com/topiary/topiary/pull/1149) Updated to Tree-sitter v0.26
 
 ## v0.7.2 - Heavenly Hemlock - 2025-11-27

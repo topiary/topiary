@@ -1,4 +1,4 @@
 (
   (ocaml) @injection.content
-  (#injection_language! "ocaml")
+  (#set! injection.language "ocaml")
 )

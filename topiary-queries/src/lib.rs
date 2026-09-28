@@ -1,8 +1,8 @@
-/// The filename used for formatting queries within each language's query directory.
-pub const FORMATTING_QUERY: &str = "formatting.scm";
+/// The default file stem used for formatting queries within each language's query directory.
+pub const FORMATTING_QUERY: &str = "formatting";
 
-/// The filename used for language injection queries within each language's query directory.
-pub const INJECTIONS_QUERY: &str = "injections.scm";
+/// The default file stem used for language injection queries within each language's query directory.
+pub const INJECTIONS_QUERY: &str = "injections";
 
 /// Returns the Topiary-compatible query file for Bash.
 #[cfg(feature = "bash")]
@@ -32,6 +32,18 @@ pub fn markdown() -> &'static str {
 #[cfg(feature = "markdown")]
 pub fn markdown_injections() -> &'static str {
     include_str!("../queries/markdown/injections.scm")
+}
+
+/// Returns the Topiary-compatible query file for menhir.
+#[cfg(feature = "menhir")]
+pub fn menhir() -> &'static str {
+    include_str!("../queries/menhir/formatting.scm")
+}
+
+/// Returns the Topiary-compatible injection query file for menhir.
+#[cfg(feature = "menhir")]
+pub fn menhir_injections() -> &'static str {
+    include_str!("../queries/menhir/injections.scm")
 }
 
 /// Returns the Topiary-compatible query file for Nickel.
@@ -74,6 +86,12 @@ pub fn openscad() -> &'static str {
 #[cfg(feature = "rust")]
 pub fn rust() -> &'static str {
     include_str!("../queries/rust/formatting.scm")
+}
+
+/// Returns the Topiary-compatible injection query file for Rust.
+#[cfg(feature = "rust")]
+pub fn rust_injections() -> &'static str {
+    include_str!("../queries/rust/injections.scm")
 }
 
 /// Returns the Topiary-compatible query file for SDML.

@@ -9,8 +9,8 @@ use rootcause::prelude::ResultExt;
 use topiary_tree_sitter_facade::Node;
 
 use crate::{
-    Atom, Capitalisation, FormatterError, FormatterResult, ScopeCondition, ScopeInformation,
-    tree_sitter::NodeExt,
+    Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent, ScopeCondition,
+    ScopeInformation, multi_line_indent, tree_sitter::NodeExt,
 };
 
 /// A struct that holds sets of node IDs that have line breaks before or after them.
@@ -23,6 +23,16 @@ struct NodesWithLinebreaks {
     before: HashSet<usize>,
     /// A set of node IDs that have line breaks after them.
     after: HashSet<usize>,
+}
+
+/// Mutable references to the three boolean "flag" fields of an [`Atom::Leaf`],
+/// exposed together so leaf-flag directives can flip a single flag without
+/// repeating the leaf-id search loop.
+struct LeafFlagsMut<'a> {
+    content: &'a mut String,
+    single_line_no_indent: &'a mut bool,
+    multi_line_indent: &'a mut MultiLineIndent,
+    keep_whitespace: &'a mut bool,
 }
 
 /// Contains Topiary's internal representation parsed document.
@@ -111,7 +121,7 @@ impl AtomCollection {
             counter: 0,
         };
 
-        atoms.collect_leaves_inner(root, source, &Vec::new(), 0)?;
+        atoms.collect_leaves_inner(root, source, 0)?;
 
         Ok(atoms)
     }
@@ -142,6 +152,36 @@ impl AtomCollection {
         false
     }
 
+    /// Apply `f` to the three boolean flags of every [`Atom::Leaf`] in
+    /// `self.atoms` whose tree-sitter `id` equals `node_id`. Used by the
+    /// leaf-flag directives (`@single_line_no_indent`,
+    /// `@multi_line_indent_all`, `@keep_whitespace`).
+    fn mutate_leaf_flags(
+        &mut self,
+        node_id: usize,
+        mut f: impl FnMut(LeafFlagsMut<'_>) -> FormatterResult<()>,
+    ) -> FormatterResult<()> {
+        for atom in &mut self.atoms {
+            if let Atom::Leaf {
+                content,
+                id,
+                single_line_no_indent,
+                multi_line_indent,
+                keep_whitespace,
+                ..
+            } = atom
+                && *id == node_id
+            {
+                f(LeafFlagsMut {
+                    content,
+                    single_line_no_indent,
+                    multi_line_indent,
+                    keep_whitespace,
+                })?;
+            }
+        }
+        Ok(())
+    }
     // wrap inside a conditional atom if #single/multi_line_scope_only! is set
     fn wrap(&mut self, atom: Atom, predicates: &QueryPredicates) -> Atom {
         if let Some(scope_id) = &predicates.single_line_scope_only {
@@ -190,7 +230,7 @@ impl AtomCollection {
         node: &Node,
         predicates: &QueryPredicates,
     ) -> FormatterResult<()> {
-        log::debug!("Resolving {name}");
+        crate::debug!("Resolving {name}");
 
         let requires_delimiter = || {
             predicates.delimiter.as_deref().ok_or_else(|| {
@@ -201,6 +241,20 @@ impl AtomCollection {
             predicates.scope_id.as_deref().ok_or_else(|| {
                 FormatterError::Query(format!("@{name} requires a #scope_id! predicate"))
             })
+        };
+        let requires_multi_line_string_delimiters = || -> FormatterResult<(&String, &String)> {
+            Ok((
+                predicates.multi_line_string_start.as_ref().ok_or_else(|| {
+                    FormatterError::Query(format!(
+                        "@{name} requires a @multi_line_string.start capture in the same query"
+                    ))
+                })?,
+                predicates.multi_line_string_end.as_ref().ok_or_else(|| {
+                    FormatterError::Query(format!(
+                        "@{name} requires a @multi_line_string.end capture in the same query"
+                    ))
+                })?,
+            ))
         };
 
         // For the {prepend/append}_scope_{begin/end} captures we need this information,
@@ -226,17 +280,17 @@ impl AtomCollection {
             }
         }
         if is_multi_line && predicates.single_line_only {
-            log::debug!("Skipping because context is multi-line and #single_line_only! is set");
+            crate::debug!("Skipping because context is multi-line and #single_line_only! is set");
             return Ok(());
         }
         if !is_multi_line && predicates.multi_line_only {
-            log::debug!("Skipping because context is single-line and #multi_line_only! is set");
+            crate::debug!("Skipping because context is single-line and #multi_line_only! is set");
             return Ok(());
         }
         if let Some(parent_id) = self.parent_leaf_nodes.get(&node.id())
             && *parent_id != node.id()
         {
-            log::debug!(
+            crate::debug!(
                 "Skipping because the match occurred below a leaf node: {}",
                 node.display_one_based()
             );
@@ -443,47 +497,70 @@ impl AtomCollection {
             }
             // Mark a leaf to be printed on an single line, with no indentation
             "single_line_no_indent" => {
-                for a in &mut self.atoms {
-                    if let Atom::Leaf {
-                        id,
-                        single_line_no_indent,
-                        ..
-                    } = a
-                        && *id == node.id()
-                    {
-                        *single_line_no_indent = true;
-                    }
-                }
-
+                self.mutate_leaf_flags(node.id(), |flags| {
+                    *flags.single_line_no_indent = true;
+                    Ok(())
+                })?;
                 self.append(Atom::Hardline, node, predicates);
+            }
+            "multi_line_string" => {
+                let (start, end) = requires_multi_line_string_delimiters()?;
+                self.mutate_leaf_flags(node.id(), |flags| {
+                    *flags.content = flags
+                        .content
+                        .strip_prefix(start)
+                        .ok_or_else(|| {
+                            FormatterError::Query(format!(
+                                "the multi line string starting with {:?} in {} should start with {start:?} as marked by the query{}.",
+                                flags.content.chars().take(16).collect::<String>(),
+                                node.display_one_based(),
+                                if let Some(query_name) = predicates.query_name.as_ref() {format!(" {query_name}")} else {"".to_owned()},
+                            ))
+                        })?
+                        .strip_suffix(end)
+                        .ok_or_else(|| {
+                            FormatterError::Query(format!(
+                                "the multi line string ending with {:?} in {} should end with {end:?} as marked by the query{}.",
+                                flags.content
+                                    .chars()
+                                    .rev()
+                                    .take(16)
+                                    .collect::<String>()
+                                    .chars()
+                                    .rev()
+                                    .collect::<String>(),
+                                node.display_one_based(),
+                                if let Some(n) = &predicates.query_name {format!(" {n}")} else {"".to_owned()},
+                            ))
+                        })?
+                        .to_owned();
+                    *flags.multi_line_indent = MultiLineIndent::EnforceIndentation(
+                        multi_line_indent::EnforceIndentation {
+                            start: start.clone(),
+                            end: end.clone(),
+                            last_line_break_significant: !predicates
+                                .multi_line_string_last_insignificant,
+                            carriage_return_significant: predicates
+                                .multi_line_string_cr_significant,
+                            tab_significant: predicates.multi_line_string_tab_significant,
+                        },
+                    );
+                Ok(())
+                })?;
             }
             // Mark a leaf to have all its lines be indented
             "multi_line_indent_all" => {
-                for a in &mut self.atoms {
-                    if let Atom::Leaf {
-                        id,
-                        multi_line_indent_all,
-                        ..
-                    } = a
-                        && *id == node.id()
-                    {
-                        *multi_line_indent_all = true;
-                    }
-                }
+                self.mutate_leaf_flags(node.id(), |flags| {
+                    *flags.multi_line_indent = MultiLineIndent::MaintainOffset;
+                    Ok(())
+                })?;
             }
             // Mark a leaf to disable trimming
             "keep_whitespace" => {
-                for a in &mut self.atoms {
-                    if let Atom::Leaf {
-                        id,
-                        keep_whitespace,
-                        ..
-                    } = a
-                        && *id == node.id()
-                    {
-                        *keep_whitespace = true;
-                    }
-                }
+                self.mutate_leaf_flags(node.id(), |flags| {
+                    *flags.keep_whitespace = true;
+                    Ok(())
+                })?;
             }
             // Return a query parsing error on unknown capture names
             unknown => {
@@ -530,10 +607,10 @@ impl AtomCollection {
                 let swapped_atom = mem::take(atom);
 
                 if !prepends.is_empty() {
-                    log::debug!("Applying prepend of {prepends:?} to {:?}.", &swapped_atom);
+                    crate::debug!("Applying prepend of {prepends:?} to {:?}.", swapped_atom);
                 }
                 if !appends.is_empty() {
-                    log::debug!("Applying append of {appends:?} to {:?}.", &swapped_atom);
+                    crate::debug!("Applying append of {appends:?} to {:?}.", swapped_atom);
                 }
 
                 expanded.append(prepends);
@@ -541,7 +618,7 @@ impl AtomCollection {
 
                 expanded.append(appends);
             } else {
-                log::debug!("Not a leaf: {atom:?}");
+                crate::debug!("Not a leaf: {atom:?}");
                 expanded.push(mem::take(atom));
             }
         }
@@ -567,7 +644,6 @@ impl AtomCollection {
     ///
     /// * `node` - The current node to process.
     /// * `source` - The full source code as a byte slice.
-    /// * `parent_ids` - A vector of node ids that are the ancestors of the current node.
     /// * `level` - The depth of the current node in the CST tree.
     ///
     /// # Errors
@@ -577,13 +653,11 @@ impl AtomCollection {
         &mut self,
         node: &Node,
         source: &[u8],
-        parent_ids: &[usize],
         level: usize,
     ) -> FormatterResult<()> {
         let id = node.id();
-        let parent_ids = [parent_ids, &[id]].concat();
 
-        log::debug!(
+        crate::debug!(
             "CST node: {}{} - Named: {}",
             "  ".repeat(level),
             node.display_one_based(),
@@ -591,7 +665,7 @@ impl AtomCollection {
         );
 
         if node.end_byte() == node.start_byte() {
-            log::debug!("Skipping zero-byte node: {}", node.display_one_based());
+            crate::debug!("Skipping zero-byte node: {}", node.display_one_based());
         } else if node.child_count() == 0
             || self.specified_leaf_nodes.contains(&node.id())
             // We treat error nodes as leaves when `tolerate_parsing_errors` is set to true.
@@ -605,7 +679,7 @@ impl AtomCollection {
                 id,
                 original_position: node.start_position().into(),
                 single_line_no_indent: false,
-                multi_line_indent_all: false,
+                multi_line_indent: MultiLineIndent::None,
                 keep_whitespace: false,
                 capitalisation: Capitalisation::Pass,
             });
@@ -613,7 +687,7 @@ impl AtomCollection {
             self.mark_leaf_parent(node, node.id());
         } else {
             for child in node.children(&mut node.walk()) {
-                self.collect_leaves_inner(&child, source, &parent_ids, level + 1)?;
+                self.collect_leaves_inner(&child, source, level + 1)?;
             }
         }
 
@@ -633,7 +707,7 @@ impl AtomCollection {
         // TODO: Pre-populate these
         let target_node = self.first_leaf(node);
 
-        log::debug!(
+        crate::debug!(
             "Prepending {atom:?} to node {}",
             target_node.display_one_based()
         );
@@ -653,7 +727,7 @@ impl AtomCollection {
         let atom = self.wrap(atom, predicates);
         let target_node = self.last_leaf(node);
 
-        log::debug!(
+        crate::debug!(
             "Appending {atom:?} to node {}",
             target_node.display_one_based()
         );
@@ -687,7 +761,7 @@ impl AtomCollection {
                 let parent_id = parent.id();
 
                 if self.multi_line_nodes.contains(&parent_id) {
-                    log::debug!(
+                    crate::debug!(
                         "Expanding softline to hardline in node {} with parent {}: {}",
                         node.display_one_based(),
                         parent_id,
@@ -695,7 +769,7 @@ impl AtomCollection {
                     );
                     Atom::Hardline
                 } else if spaced {
-                    log::debug!(
+                    crate::debug!(
                         "Expanding softline to space in node {} with parent {}: {}",
                         node.display_one_based(),
                         parent_id,
@@ -795,7 +869,7 @@ impl AtomCollection {
                         }
                     }
                 } else {
-                    log::warn!("Closing unopened scope {scope_id:?}");
+                    crate::warn!("Closing unopened scope {scope_id:?}");
                     force_apply_modifications = true;
                 }
             // Open measuring scope
@@ -805,7 +879,7 @@ impl AtomCollection {
             }) = atom
             {
                 if opened_scopes.entry(scope_id).or_default().is_empty() {
-                    log::warn!(
+                    crate::warn!(
                         "Opening measuring scope with no associated regular scope {scope_id:?}"
                     );
                     force_apply_modifications = true;
@@ -835,17 +909,17 @@ impl AtomCollection {
                                 Some(multi_line),
                             ));
                         } else {
-                            log::warn!(
+                            crate::warn!(
                                 "Found several measuring scopes in a single regular scope {scope_id:?}"
                             );
                             force_apply_modifications = true;
                         }
                     } else {
-                        log::warn!("Found measuring scope outside of regular scope {scope_id:?}");
+                        crate::warn!("Found measuring scope outside of regular scope {scope_id:?}");
                         force_apply_modifications = true;
                     }
                 } else {
-                    log::warn!("Closing unopened measuring scope {scope_id:?}");
+                    crate::warn!("Closing unopened measuring scope {scope_id:?}");
                     force_apply_modifications = true;
                 }
             // Register the ScopedSoftline in the correct scope
@@ -855,7 +929,7 @@ impl AtomCollection {
                 {
                     vec.push(atom);
                 } else {
-                    log::warn!("Found scoped softline {atom:?} outside of its scope");
+                    crate::warn!("Found scoped softline {atom:?} outside of its scope");
                     force_apply_modifications = true;
                 }
             // Register the ScopedConditional in the correct scope
@@ -865,7 +939,7 @@ impl AtomCollection {
                 {
                     vec.push(atom);
                 } else {
-                    log::warn!("Found scoped conditional {atom:?} outside of its scope");
+                    crate::warn!("Found scoped conditional {atom:?} outside of its scope");
                     force_apply_modifications = true;
                 }
             }
@@ -875,7 +949,7 @@ impl AtomCollection {
             .filter_map(|(scope_id, vec)| if vec.is_empty() { None } else { Some(scope_id) })
             .collect();
         if !still_opened.is_empty() {
-            log::warn!("Some scopes have been left opened: {still_opened:?}");
+            crate::warn!("Some scopes have been left opened: {still_opened:?}");
             force_apply_modifications = true;
         }
         still_opened = opened_measuring_scopes
@@ -883,7 +957,7 @@ impl AtomCollection {
             .filter_map(|(scope_id, vec)| if vec.is_empty() { None } else { Some(scope_id) })
             .collect();
         if !still_opened.is_empty() {
-            log::warn!("Some measuring scopes have been left opened: {still_opened:?}");
+            crate::warn!("Some measuring scopes have been left opened: {still_opened:?}");
             force_apply_modifications = true;
         }
 
@@ -906,14 +980,16 @@ impl AtomCollection {
                     if let Some(replacement) = modifications.remove(id) {
                         *atom = replacement;
                     } else {
-                        log::warn!("Found scoped softline {atom:?}, but was unable to replace it.");
+                        crate::warn!(
+                            "Found scoped softline {atom:?}, but was unable to replace it."
+                        );
                         *atom = Atom::Empty;
                     }
                 } else if let Atom::ScopedConditional { id, .. } = atom {
                     if let Some(replacement) = modifications.remove(id) {
                         *atom = replacement;
                     } else {
-                        log::warn!(
+                        crate::warn!(
                             "Found scoped conditional {atom:?}, but was unable to replace it."
                         );
                         *atom = Atom::Empty;
@@ -944,7 +1020,7 @@ impl AtomCollection {
             }
         }
         if delete_level != 0 {
-            log::warn!("The number of DeleteBegin is different from the number of DeleteEnd.");
+            crate::warn!("The number of DeleteBegin is different from the number of DeleteEnd.");
         }
     }
 
@@ -987,7 +1063,7 @@ impl AtomCollection {
         // antispaces may have produced more empty atoms.
         self.post_process_inner();
 
-        log::debug!("List of atoms after post-processing: {:?}", self.atoms);
+        crate::debug!("List of atoms after post-processing: {:?}", self.atoms);
     }
 
     /// This function post-processes the atoms in the collection.
@@ -1095,11 +1171,7 @@ impl AtomCollection {
     ///
     /// A `Cow` enum that wraps a borrowed node.
     fn first_leaf<'tree, 'node: 'tree>(&self, node: &'node Node<'tree>) -> Cow<'node, Node<'tree>> {
-        let mut node = Cow::Borrowed(node);
-        while node.child_count() != 0 && !self.specified_leaf_nodes.contains(&node.id()) {
-            node = Cow::Owned(node.child(0).unwrap());
-        }
-        node
+        self.edge_leaf(node, 0)
     }
 
     /// Returns the last leaf node of a given node's subtree.
@@ -1117,9 +1189,23 @@ impl AtomCollection {
     ///
     /// A `Cow` enum that wraps a borrowed node.
     fn last_leaf<'tree, 'node: 'tree>(&self, node: &'node Node<'tree>) -> Cow<'node, Node<'tree>> {
+        self.edge_leaf(node, -1)
+    }
+
+    /// Iteratively descends from `node` towards a leaf, picking the next child
+    /// via the given `index` at each step. Stops when the current node has no
+    /// children or is registered in `specified_leaf_nodes`.
+    /// The `index` argument supports negative wraparound semantics.
+    fn edge_leaf<'tree, 'node: 'tree>(
+        &self,
+        node: &'node Node<'tree>,
+        index: isize,
+    ) -> Cow<'node, Node<'tree>> {
         let mut node = Cow::Borrowed(node);
         while node.child_count() != 0 && !self.specified_leaf_nodes.contains(&node.id()) {
-            node = Cow::Owned(node.child(node.child_count() - 1).unwrap());
+            let count = node.child_count() as isize;
+            let actual_index = if index < 0 { count + index } else { index };
+            node = Cow::Owned(node.child(actual_index as u32).unwrap());
         }
         node
     }
@@ -1145,6 +1231,16 @@ pub struct QueryPredicates {
     pub multi_line_scope_only: Option<String>,
     /// A query name, for debugging/logging purposes
     pub query_name: Option<String>,
+    /// multi line string start delimiter
+    pub multi_line_string_start: Option<String>,
+    /// multi line string end delimiter
+    pub multi_line_string_end: Option<String>,
+    /// The flag that indicates that topiary must not add any line breaks to the end of multi line strings
+    pub multi_line_string_last_insignificant: bool,
+    /// The flag that indicates that carriage returns always become part of the string's value.
+    pub multi_line_string_cr_significant: bool,
+    /// The flag that indicates that tabs always become part of the string's value.
+    pub multi_line_string_tab_significant: bool,
 }
 
 /// Collapses spaces before antispace atoms in a vector of atoms.
@@ -1231,7 +1327,7 @@ fn detect_multi_line_nodes(dfs_nodes: &[Node]) -> HashSet<usize> {
             let end_line = node.end_position().row();
 
             if end_line > start_line {
-                log::debug!(
+                crate::debug!(
                     "Multi-line node {}: {}",
                     node.id(),
                     node.display_one_based()
@@ -1272,7 +1368,7 @@ fn detect_line_breaks(dfs_nodes: &[Node], minimum_line_breaks: u32) -> NodesWith
             let next = right.start_position().row();
 
             if next >= last + minimum_line_breaks {
-                log::debug!(
+                crate::debug!(
                     "There are at least {} line breaks between {:?} and {:?}",
                     minimum_line_breaks,
                     left.id(),

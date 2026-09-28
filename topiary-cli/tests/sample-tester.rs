@@ -11,6 +11,7 @@ fn get_file_extension(language: &str) -> &str {
         "css" => "css",
         "json" => "json",
         "markdown" => "md",
+        "menhir" => "mly",
         "nickel" => "ncl",
         "ocaml" => "ml",
         "ocaml_interface" => "mli",
@@ -43,7 +44,6 @@ macro_rules! lang_test {
 mod test_fmt {
     use super::*;
 
-    #[allow(unused)]
     fn fmt_input(lang: &str) {
         let file = format!("{lang}.{}", get_file_extension(lang));
         let input = PathBuf::from(format!("tests/samples/input/{file}"));
@@ -85,6 +85,7 @@ mod test_fmt {
         "css",
         "json",
         "markdown",
+        "menhir",
         "nickel",
         "ocaml",
         "ocaml_interface",
@@ -143,7 +144,6 @@ mod test_fmt {
 mod test_check {
     use super::*;
 
-    #[allow(unused)]
     fn check_input(lang: &str) {
         let file = format!("{lang}.{}", get_file_extension(lang));
         let input = PathBuf::from(format!("tests/samples/input/{file}"));
@@ -178,6 +178,7 @@ mod test_check {
         "css",
         "json",
         "markdown",
+        "menhir",
         "nickel",
         "ocaml",
         "ocaml_interface",
@@ -196,7 +197,6 @@ mod test_check {
 mod test_coverage {
     use super::*;
 
-    #[allow(unused)]
     fn coverage_input(lang: &str) {
         let file = format!("{lang}.{}", get_file_extension(lang));
         let input = PathBuf::from(format!("tests/samples/input/{file}"));
@@ -223,6 +223,7 @@ mod test_coverage {
         "css",
         "json",
         "markdown",
+        "menhir",
         "nickel",
         "ocaml",
         // "ocaml_interface.mli" is voluntarily omitted:

@@ -1,3 +1,5 @@
+use rootcause::{report, report_collection::ReportCollection};
+
 use crate::error::CLIResult;
 use std::{
     fs,
@@ -40,7 +42,6 @@ struct FileMeta {
 }
 
 impl FileMeta {
-    #[allow(clippy::result_large_err)]
     fn new<P: AsRef<Path>>(path: &P) -> CLIResult<Self> {
         // Stat a potential symlink
         let lmeta = fs::symlink_metadata(path)?;
@@ -102,16 +103,20 @@ impl FileMeta {
 /// Given a vector of paths, recursively expand those that identify as directories, in place.
 /// Follow symlinks, if specified, and skip over files with multiple links. Ultimately, we'll
 /// finish with a vector of canonical paths to real files with a single link.
-#[allow(clippy::result_large_err)]
-pub fn traverse(files: &mut Vec<PathBuf>, follow_symlinks: bool) -> CLIResult<()> {
+pub fn traverse(
+    files: &mut Vec<PathBuf>,
+    follow_symlinks: bool,
+    errs: &mut ReportCollection,
+) -> CLIResult<()> {
     let mut expanded = vec![];
 
     for file in &mut *files {
         // Using FileMeta means we, at most, stat each file twice
         let meta = match FileMeta::new(file) {
             Ok(meta) => meta,
-            Err(_) => {
+            Err(e) => {
                 log::error!("Skipping {}: Cannot access", file.display());
+                errs.push(e.attach(format!("{}", file.display())).into());
                 continue;
             }
         };
@@ -132,7 +137,7 @@ pub fn traverse(files: &mut Vec<PathBuf>, follow_symlinks: bool) -> CLIResult<()
         if is_dir {
             // Descend into directory, symlink-aware as required
             let mut subfiles = file.read_dir()?.flatten().map(|f| f.path()).collect();
-            traverse(&mut subfiles, follow_symlinks)?;
+            traverse(&mut subfiles, follow_symlinks, errs)?;
             expanded.append(&mut subfiles);
         } else if meta.is_file() {
             if meta.is_symlink() && !follow_symlinks {
@@ -153,13 +158,17 @@ pub fn traverse(files: &mut Vec<PathBuf>, follow_symlinks: bool) -> CLIResult<()
             }
 
             // Only push the file if the canonicalisation succeeds (i.e., skip broken symlinks)
-            if let Ok(candidate) = file.canonicalize() {
-                expanded.push(candidate);
-            } else {
-                log::error!(
-                    "Skipping {}: File does not exist (e.g., broken symlink)",
-                    file.display()
-                );
+            match file.canonicalize() {
+                Ok(candidate) => {
+                    expanded.push(candidate);
+                }
+                Err(e) => {
+                    log::error!(
+                        "Skipping {}: File does not exist (e.g., broken symlink)",
+                        file.display()
+                    );
+                    errs.push(report!(e).attach(format!("{}", file.display())).into());
+                }
             }
         }
     }

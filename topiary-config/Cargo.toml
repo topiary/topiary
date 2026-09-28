@@ -55,6 +55,7 @@ sdml = []
 toml = []
 tree_sitter_query = []
 markdown = []
+menhir = []
 wit = []
 
 # This a convenience for the sake of downstream applications which don't
@@ -73,5 +74,6 @@ all = [
   "toml",
   "tree_sitter_query",
   "markdown",
+  "menhir",
   "wit",
 ]

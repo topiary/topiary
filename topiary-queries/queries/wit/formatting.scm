@@ -25,10 +25,12 @@
 ; Allow blank line before
 [
   (enum_items)
+  (external_id)
   (flags_items)
   (interface_item)
   (line_comment)
   (block_comment)
+  (nested_package_definition)
   (package_decl)
   (record_item)
   (resource_item)
@@ -67,10 +69,12 @@
   [
     (deprecated_gate)
     (export_item)
+    (external_id)
     (func_item)
     (import_item)
     (include_item)
     (interface_item)
+    (nested_package_definition)
     (package_decl)
     (resource_item)
     (resource_method)
@@ -96,11 +100,26 @@
   (since_gate)
   (deprecated_gate)
   (unstable_gate)
+  (external_id)
 ] @append_spaced_softline
+
+; Always leave a space before an opening `{`, even when the body is empty
+; (the `{ _ }` pattern below only fires for non-empty bodies).
+(body "{" @prepend_space)
+(nested_package_definition "{" @prepend_space)
 
 (body
   .
-  "{" @append_hardline @append_indent_start @prepend_space
+  "{" @append_hardline @append_indent_start
+  _
+  "}" @prepend_hardline @prepend_indent_end
+  .
+)
+
+(nested_package_definition
+  .
+  (decl_head)
+  "{" @append_hardline @append_indent_start
   _
   "}" @prepend_hardline @prepend_indent_end
   .
@@ -171,7 +190,7 @@
 
 ; Colon should have whitespace trimmed for URI separator
 ; pkg & use nodes
-(package_decl
+(decl_head
   ["@" ":" "/"] @prepend_antispace @append_antispace
 )
 (use_path
@@ -181,6 +200,13 @@
   ":" @prepend_antispace @append_space
 )
 (named_type
+  ":" @prepend_antispace @append_space
+)
+; Space after the `:` separating an import/export name from its extern_type
+(import_item
+  ":" @prepend_antispace @append_space
+)
+(export_item
   ":" @prepend_antispace @append_space
 )
 ; Function signatures need proper spacing

@@ -12,12 +12,22 @@ Commands:
   help          Print this message or the help of the given subcommand(s)
 
 Options:
-  -C, --configuration <CONFIGURATION>  Configuration file [env: TOPIARY_CONFIG_FILE]
-  -M, --merge-configuration            Enable merging for configuration files
-  -v, --verbose...                     Logging verbosity (increased per occurrence)
-  -h, --help                           Print help
+  -f, --field <FIELD_PATH>
+          Return a specific field path of the configuration. e.g., `topiary config --field
+          languages.json.grammar.source`
+  -C, --configuration <CONFIGURATION>
+          Configuration file [env: TOPIARY_CONFIG_FILE]
+  -M, --merge-configuration
+          Enable merging for configuration files
+  -v, --verbose...
+          Logging verbosity (increased per occurrence)
+  -h, --help
+          Print help
 ```
 <!-- usage:end -->
+
+For more information about configuration sources, their precedence, and
+merging behaviour, see [Configuration](../configuration.md).
 
 > **Note**\
 > `cfg` is a recognised alias of the `config` subcommand.

@@ -1,5 +1,7 @@
 use std::{error, fmt, io, path, result};
 
+use nickel_lang_core::files::Files;
+
 pub type TopiaryConfigResult<T> = result::Result<T, TopiaryConfigError>;
 
 #[derive(Debug)]
@@ -14,8 +16,21 @@ pub enum TopiaryConfigError {
     Io(io::Error),
     Missing,
     TreeSitterFacade(topiary_tree_sitter_facade::LanguageError),
-    Nickel(Box<nickel_lang_core::error::Error>),
-    NickelDeserialization(nickel_lang_core::deserialize::RustDeserializationError),
+    /// A Nickel evaluation error along with the [`Files`] referenced by the [`nickel_lang_core::error::Error`].
+    ///
+    /// # Note
+    ///
+    /// [`Files`] are used by the [`nickel_lang_core::files::FileId`]s inside our inner `Error` for
+    /// diagnostic rendering.
+    Nickel {
+        error: Box<nickel_lang_core::error::Error>,
+        files: Box<Files>,
+    },
+    /// See [`Self::Nickel`] about [`Files`].
+    NickelDeserialization {
+        error: nickel_lang_core::deserialize::RustDeserializationError,
+        files: Box<Files>,
+    },
     #[cfg(not(target_arch = "wasm32"))]
     Fetching(TopiaryConfigFetchingError),
 }
@@ -70,11 +85,13 @@ impl fmt::Display for TopiaryConfigError {
             TopiaryConfigError::TreeSitterFacade(_) => {
                 write!(f, "We could not load the grammar for the given language")
             }
-            TopiaryConfigError::Nickel(e) => write!(
+            TopiaryConfigError::Nickel { error, .. } => write!(
                 f,
-                "Nickel error: {e:#?}\n\nDid you forget to add a \"priority\" annotation in your config file?"
+                "Nickel error: {error:#?}\n\nDid you forget to add a \"priority\" annotation in your config file?"
             ),
-            TopiaryConfigError::NickelDeserialization(e) => write!(f, "Nickel error: {e:#?}"),
+            TopiaryConfigError::NickelDeserialization { error, .. } => {
+                write!(f, "Failed to deserialize Topiary configuration: {error}")
+            }
             #[cfg(not(target_arch = "wasm32"))]
             TopiaryConfigError::Fetching(e) => write!(f, "Error Fetching Language: {e}"),
         }
@@ -99,18 +116,6 @@ impl fmt::Display for TopiaryConfigFetchingError {
                 path.display()
             ),
         }
-    }
-}
-
-impl From<nickel_lang_core::deserialize::RustDeserializationError> for TopiaryConfigError {
-    fn from(e: nickel_lang_core::deserialize::RustDeserializationError) -> Self {
-        Self::NickelDeserialization(e)
-    }
-}
-
-impl From<nickel_lang_core::error::Error> for TopiaryConfigError {
-    fn from(e: nickel_lang_core::error::Error) -> Self {
-        Self::Nickel(e.into())
     }
 }
 

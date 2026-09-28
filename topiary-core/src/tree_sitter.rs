@@ -2,7 +2,7 @@
 // streaming_iterator::StreamingIterator
 #![cfg_attr(target_arch = "wasm32", allow(unused_imports))]
 
-use std::{collections::HashSet, fmt::Display};
+use std::{collections::HashSet, fmt::Display, ops::Deref as _};
 
 use miette::{LabeledSpan, Severity, SourceSpan};
 use rootcause::{prelude::ResultExt, report};
@@ -18,7 +18,7 @@ use streaming_iterator::StreamingIterator;
 use crate::{
     FormatterResult,
     atom_collection::{AtomCollection, QueryPredicates},
-    error::{FormatterError, SpanAttachment},
+    error::{FormatterError, SpanAttachment, query_error_report},
 };
 
 /// Supported visualisation formats
@@ -65,12 +65,8 @@ impl TopiaryQuery {
         query_content: &str,
     ) -> FormatterResult<TopiaryQuery, QueryError> {
         let query = Query::new(grammar, query_content)
-            .into_report()
-            .map_err(|e| {
-                let range = e.current_context().range;
-                e.attach_range(range)
-            })
-            .attach_source(Some(query_content))?;
+            .map_err(query_error_report)
+            .attach_source(query_content.into())?;
 
         Ok(TopiaryQuery {
             query,
@@ -110,12 +106,12 @@ impl TopiaryQuery {
 ///
 /// An injection query captures the embedded source text with
 /// `@injection.content`, and declares the inner language via a
-/// `(#injection_language! "name")` predicate on the same pattern. For example,
+/// `(#set! injection.language "name")` property on the same pattern. For example,
 /// to mark every `(ocaml)` node within an `ocamllex` source as OCaml:
 ///
 /// ```scheme
 /// ((ocaml) @injection.content
-///  (#injection_language! "ocaml"))
+///  (#set! injection.language "ocaml"))
 /// ```
 #[derive(Debug)]
 pub struct InjectionQuery {
@@ -135,12 +131,8 @@ impl InjectionQuery {
         query_content: &str,
     ) -> FormatterResult<InjectionQuery> {
         let query = Query::new(grammar, query_content)
-            .into_report()
-            .map_err(|e| {
-                let range = e.current_context().range;
-                e.attach_range(range)
-            })
-            .attach_source(Some(query_content))
+            .map_err(query_error_report)
+            .attach_source(query_content.into())
             .context(FormatterError::Query(
                 "Error parsing injection query file".into(),
             ))?;
@@ -157,8 +149,8 @@ impl InjectionQuery {
 #[derive(Clone, Debug)]
 pub struct InjectionSpan<'a> {
     pub content: &'a str,
-    /// The injected language name, taken from the `#injection_language!`
-    /// predicate of the matching pattern.
+    /// The injected language name, taken from the `#set! injection.language`
+    /// property of the matching pattern.
     pub language: String,
     /// Tree-sitter id of the captured node. Valid only against the same
     /// [`Tree`] from which these spans were collected: tree-sitter does not
@@ -166,16 +158,20 @@ pub struct InjectionSpan<'a> {
     /// single parse IDs are stable. Used to locate and rewrite the
     /// corresponding `Atom::Leaf` after the host has been atomised.
     pub node_id: usize,
+    /// Byte range of the captured injection node, used in formatting injection content without
+    /// touching root language content.
+    /// See [`crate::splice_formatted_injections`] for more details.
+    pub byte_range: std::ops::Range<usize>,
 }
 
 /// Run an [`InjectionQuery`] against a parsed `tree`, returning every
 /// `@injection.content` capture paired with the language declared by its
-/// pattern's `#injection_language!` predicate.
+/// pattern's `#set! injection.language` property.
 ///
-/// Patterns missing an `#injection_language!` predicate are skipped (with a
-/// warning logged).
+/// Patterns missing an `@injection.content` capture or an injection language
+/// are skipped (with a warning logged).
 ///
-/// Missing predicates or unmatched captures are logged, not raised.
+/// Missing properties or unmatched captures are logged, not raised.
 pub fn collect_injections<'a>(
     tree: &Tree,
     input_content: &'a str,
@@ -191,45 +187,68 @@ pub fn collect_injections<'a>(
     let mut matches = query.query.matches(&root, source, &mut cursor);
     #[allow(clippy::while_let_on_iterator)] // Not a normal iterator
     while let Some(query_match) = matches.next() {
-        // Resolve the language of the injection either via a hardcoded `#injection_language!` predicate
+        let content_captures = query_match
+            .captures()
+            .filter(|c| c.name(&capture_names) == "injection.content")
+            .collect::<Vec<_>>();
+
+        if content_captures.is_empty() {
+            crate::warn!(
+                "Injection query pattern {} has no @injection.content capture; skipping",
+                query_match.pattern_index()
+            );
+            continue;
+        }
+
+        // Resolve the language of the injection either via a `#set! injection.language` property
         // or by dynamically reading the text of the `@injection.language` capture (e.g. for Markdown code blocks).
         let language_name = query
             .query
-            .general_predicates(query_match.pattern_index())
+            .property_settings(query_match.pattern_index())
             .into_iter()
             .find_map(|p| {
-                (&*p.operator() == "injection_language!")
-                    .then(|| p.args().into_iter().next())
+                (&*p.key == "injection.language")
+                    .then_some(p.value.as_ref())
                     .flatten()
             })
             .map(|s| s.to_string())
             .or_else(|| {
                 query_match
                     .captures()
-                    .find(|c| c.name(capture_names.as_slice()) == "injection.language")
+                    .find(|c| c.name(&capture_names) == "injection.language")
                     .and_then(|c| c.node().utf8_text(source).ok())
                     .map(|s| s.to_string())
             });
 
         let Some(language_name) = language_name else {
-            log::warn!(
-                "Injection query pattern {} has neither an #injection_language! predicate nor an @injection.language capture; skipping",
+            crate::warn!(
+                "Injection query pattern {} has neither a #set! injection.language property nor an @injection.language capture; skipping",
                 query_match.pattern_index()
             );
             continue;
         };
 
-        for capture in query_match
-            .captures()
-            .filter(|c| c.name(capture_names.as_slice()) == "injection.content")
-        {
+        for capture in content_captures {
             let node = capture.node();
+            let byte_range = node.byte_range();
+            // Skip empty (zero-width) injected nodes. An empty Menhir semantic
+            // action `{ }` or an empty trailer after `%%` still produces a
+            // zero-width `(ocaml)` node that matches the injection query, but
+            // `AtomCollection::collect_leaves_inner` deliberately skips zero-byte
+            // nodes, so no leaf atom is ever created for it. Pushing a span here
+            // would later fail the leaf lookup in `rewrite_injected_leaves`
+            // ("Could not find leaf for injected … span"), and there is nothing
+            // to format anyway.
+            if node.start_byte() == node.end_byte() {
+                continue;
+            }
             spans.push(InjectionSpan {
                 content: input_content
-                    .get(node.byte_range())
+                    .get(byte_range.clone())
                     .expect("`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range."),
                 language: language_name.clone(),
                 node_id: node.id(),
+                byte_range,
             });
         }
     }
@@ -484,22 +503,31 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
 
     // Find the ids of all tree-sitter nodes that were identified as a leaf
     // We want to avoid recursing into them in the collect_leaves function.
-    let mut specified_leaf_nodes: HashSet<usize> =
-        collect_leaf_ids(&matches, capture_names.clone());
+    let mut specified_leaf_nodes: HashSet<usize> = collect_leaf_ids(&matches, &capture_names);
+    // add the ids of all tree-sitter nodes that were identified as a multi line string.
+    // we want to treat them as a leaf too.
+    specified_leaf_nodes.extend(
+        matches
+            .iter()
+            .flat_map(|m| &m.captures)
+            .filter(|c| c.name(&capture_names) == "multi_line_string")
+            .map(|c| c.node().id()),
+    );
+    // add the ids of all tree-sitter nodes that the call site wants us to treat as a leaf.
     specified_leaf_nodes.extend(forced_leaf_nodes);
 
     // The Flattening: collects all terminal nodes of the tree-sitter tree in a Vec
     let mut atoms = AtomCollection::collect_leaves(&root, source, specified_leaf_nodes)?;
 
-    log::debug!("List of atoms before formatting: {atoms:?}");
+    crate::debug!("List of atoms before formatting: {atoms:?}");
 
     // Memoization of the pattern positions
     let mut pattern_positions: Vec<Option<Position>> = Vec::new();
 
     // The web bindings for tree-sitter do not have support for pattern_count, so instead we will resize as needed
     // Only reallocate if we are actually going to use the vec
-    #[cfg(not(target_arch = "wasm32"))]
-    if log::log_enabled!(log::Level::Info) {
+    #[cfg(all(not(target_arch = "wasm32"), feature = "log"))]
+    if log::log_enabled!(log::Level::Debug) {
         pattern_positions.resize(query.query.pattern_count(), None);
     }
 
@@ -511,16 +539,43 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
     // )
     // means we want to append a hardline at
     // the end, but we don't know if we get a line_comment capture or not.
-    for m in matches {
+    for mut m in matches {
         let mut predicates = QueryPredicates::default();
 
         for p in query.query.general_predicates(m.pattern_index) {
             predicates = handle_predicate(&p, &predicates)?;
         }
+        let get_single_capture_content = |name| {
+            match m
+                .captures
+                .iter()
+                .filter(|c| c.name(&capture_names) == name)
+                .take(2)
+                .collect::<Vec<_>>()
+                .as_slice()
+            {
+                [] => Ok(None),
+                [capture] => Ok(Some(
+                    input_content
+                        .get(capture.node().byte_range())
+                        .expect("`tree-sitter::Node::{start_byte, end_byte}` should always return a valid string slice indexes range.")
+                        .to_owned(),
+                )),
+                _ => Err(FormatterError::Query(format!(
+                    "the query{} at location {} should match the @{name} capture once only \
+                    in order to associate @multi_line_string captures with well defined delimiter information.",
+                    if let Some(n) = &predicates.query_name {format!(" {n}")} else {"".to_owned()},
+                    query.pattern_position(m.pattern_index),
+                ))),
+            }
+        };
+        predicates.multi_line_string_start = get_single_capture_content("multi_line_string.start")?;
+        predicates.multi_line_string_end = get_single_capture_content("multi_line_string.end")?;
         check_predicates(&predicates)?;
 
         // NOTE: Only performed if logging is enabled to avoid unnecessary computation of Position
-        if log::log_enabled!(log::Level::Info) {
+        #[cfg(feature = "log")]
+        if log::log_enabled!(log::Level::Debug) {
             #[cfg(target_arch = "wasm32")]
             // Resize the pattern_positions vector if we need to store more positions
             if m.pattern_index >= pattern_positions.len() {
@@ -540,19 +595,27 @@ pub(crate) fn apply_query_tree_with_forced_leaves(
                 "".into()
             };
 
-            log::debug!("Processing match{query_name_info}: {m} at location {pos}");
+            // do not change the log level without changing it in the 2 if conditions above.
+            crate::debug!("Processing match{query_name_info}: {m} at location {pos}");
         }
+
+        m.captures.retain(|c| {
+            !matches!(
+                c.name(&capture_names).deref(),
+                "multi_line_string.start" | "multi_line_string.end"
+            )
+        });
 
         // If any capture is a do_nothing, then do nothing.
         if m.captures
             .iter()
-            .any(|c| c.name(capture_names.as_slice()) == "do_nothing")
+            .any(|c| c.name(&capture_names) == "do_nothing")
         {
             continue;
         }
 
         for c in m.captures {
-            let name = c.name(capture_names.as_slice());
+            let name = c.name(&capture_names);
             atoms.resolve_capture(&name, &c.node(), &predicates)?;
         }
     }
@@ -586,11 +649,10 @@ pub fn parse(
         .context_to()
         .attach("Could not apply Tree-sitter grammar")?;
 
-    let tree = parser.parse(content, None).context_to()?.ok_or_else(|| {
-        report!(FormatterError::Internal(
-            "Could not parse input".to_string()
-        ))
-    })?;
+    let tree = parser
+        .parse(content, None)
+        .context_to()?
+        .ok_or_else(|| FormatterError::Internal("Could not parse input".to_string()))?;
 
     // Fail parsing if we don't get a complete syntax tree.
     if !tolerate_parsing_errors {
@@ -619,12 +681,12 @@ fn check_for_error_nodes(node: &Node) -> FormatterResult<()> {
 ///
 /// This function takes a slice of `LocalQueryMatch` and a slice of capture names,
 /// and returns a `HashSet` of node IDs that are matched by the "leaf" capture name.
-fn collect_leaf_ids(matches: &[LocalQueryMatch], capture_names: Vec<&str>) -> HashSet<usize> {
+fn collect_leaf_ids(matches: &[LocalQueryMatch], capture_names: &[&str]) -> HashSet<usize> {
     let mut ids = HashSet::new();
 
     for m in matches {
         for c in &m.captures {
-            if c.name(capture_names.as_slice()) == "leaf" {
+            if c.name(capture_names) == "leaf" {
                 ids.insert(c.node().id());
             }
         }
@@ -641,7 +703,8 @@ fn collect_leaf_ids(matches: &[LocalQueryMatch], capture_names: Vec<&str>) -> Ha
 ///
 /// # Returns
 ///
-/// A `FormatterResult` that contains either a new `QueryPredicates` object with the updated field, or a `FormatterError` if the predicate is invalid or missing an argument.
+/// `Ok(())` after mutating `predicates` in place, or a `FormatterError` if
+/// the predicate is unknown or missing a required argument.
 ///
 /// # Errors
 ///
@@ -654,72 +717,62 @@ fn handle_predicate(
     predicates: &QueryPredicates,
 ) -> FormatterResult<QueryPredicates> {
     let operator = &*predicate.operator();
-    if "delimiter!" == operator {
-        let arg = predicate
-            .args()
-            .into_iter()
-            .next()
-            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
-        Ok(QueryPredicates {
-            delimiter: Some(arg),
+    match operator {
+        "delimiter!" => Ok(QueryPredicates {
+            delimiter: Some(next_string_arg(predicate, operator)?),
             ..predicates.clone()
-        })
-    } else if "scope_id!" == operator {
-        let arg = predicate
-            .args()
-            .into_iter()
-            .next()
-            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
-        Ok(QueryPredicates {
-            scope_id: Some(arg),
+        }),
+        "scope_id!" => Ok(QueryPredicates {
+            scope_id: Some(next_string_arg(predicate, operator)?),
             ..predicates.clone()
-        })
-    } else if "single_line_only!" == operator {
-        Ok(QueryPredicates {
+        }),
+        "single_line_scope_only!" => Ok(QueryPredicates {
+            single_line_scope_only: Some(next_string_arg(predicate, operator)?),
+            ..predicates.clone()
+        }),
+        "multi_line_scope_only!" => Ok(QueryPredicates {
+            multi_line_scope_only: Some(next_string_arg(predicate, operator)?),
+            ..predicates.clone()
+        }),
+        "query_name!" => Ok(QueryPredicates {
+            query_name: Some(next_string_arg(predicate, operator)?),
+            ..predicates.clone()
+        }),
+        "single_line_only!" => Ok(QueryPredicates {
             single_line_only: true,
             ..predicates.clone()
-        })
-    } else if "multi_line_only!" == operator {
-        Ok(QueryPredicates {
+        }),
+        "multi_line_only!" => Ok(QueryPredicates {
             multi_line_only: true,
             ..predicates.clone()
-        })
-    } else if "single_line_scope_only!" == operator {
-        let arg = predicate
-            .args()
-            .into_iter()
-            .next()
-            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
-        Ok(QueryPredicates {
-            single_line_scope_only: Some(arg),
+        }),
+        "multi_line_string.last_insignificant!" => Ok(QueryPredicates {
+            multi_line_string_last_insignificant: true,
             ..predicates.clone()
-        })
-    } else if "multi_line_scope_only!" == operator {
-        let arg = predicate
-            .args()
-            .into_iter()
-            .next()
-            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
-        Ok(QueryPredicates {
-            multi_line_scope_only: Some(arg),
+        }),
+        "multi_line_string.carriage_return_significant!" => Ok(QueryPredicates {
+            multi_line_string_cr_significant: true,
             ..predicates.clone()
-        })
-    } else if "query_name!" == operator {
-        let arg = predicate
-            .args()
-            .into_iter()
-            .next()
-            .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))?;
-        Ok(QueryPredicates {
-            query_name: Some(arg),
+        }),
+        "multi_line_string.tab_significant!" => Ok(QueryPredicates {
+            multi_line_string_tab_significant: true,
             ..predicates.clone()
-        })
-    } else {
-        Err(FormatterError::Query(format!(
+        }),
+        _ => Err(FormatterError::Query(format!(
             "{operator} is an unknown predicate. Maybe you forgot a \"!\"?"
         )))
-        .into_report()
+        .into_report(),
     }
+}
+
+/// Extract the first string argument from `predicate`, returning a
+/// `FormatterError::Query` mentioning `operator` if no argument is present.
+fn next_string_arg(predicate: &QueryPredicate, operator: &str) -> Result<String, FormatterError> {
+    predicate
+        .args()
+        .into_iter()
+        .next()
+        .ok_or_else(|| FormatterError::Query(format!("{operator} needs an argument")))
 }
 
 /// Checks the validity of the query predicates.

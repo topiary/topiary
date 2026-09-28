@@ -24,6 +24,13 @@ Options:
   -s, --skip-idempotence
           Do not check that formatting twice gives the same output
 
+      --skip-stage <STAGE>
+          Skip a given stage of the formatting pipeline
+
+          Possible values:
+          - host:       Skip host/root language formatting, only format injections
+          - injections: Skip injection formatting
+
   -l, --language <LANGUAGE>
           Topiary language identifier (when formatting stdin)
 

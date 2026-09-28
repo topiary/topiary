@@ -3,9 +3,10 @@
 
 use std::{error::Error, fmt, io};
 
-use rootcause::{Report, ReportConversion, markers};
+use rootcause::{Report, ReportConversion, markers, report};
 
 pub use error_span::{ErrorSpan, SpanAttachment};
+use topiary_tree_sitter_facade::QueryError;
 
 mod error_span;
 
@@ -175,4 +176,13 @@ where
 
         report.context(Self::Io).attach(msg).attach(kind)
     }
+}
+
+pub(crate) fn query_error_report(err: QueryError) -> Report<QueryError> {
+    let range = err.range;
+    let label = format!("{err}");
+    report!(err)
+        .attach_range(range)
+        .attach_label(label)
+        .attach_language("tree_sitter_query".into())
 }

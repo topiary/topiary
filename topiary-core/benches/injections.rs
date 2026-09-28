@@ -18,7 +18,7 @@ fn language_from_config(
     formatting_query_content: &str,
     injection_query_content: Option<&str>,
 ) -> Language {
-    let config_language = config.get_language(name).unwrap();
+    let config_language = config.get_language_cfg(name).unwrap();
     let grammar = config_language.grammar().unwrap();
 
     Language {
@@ -60,6 +60,7 @@ fn format_ocamllex(input: &str, language: &Language, resolve: Option<&LanguageRe
         Operation::Format {
             skip_idempotence: true,
             tolerate_parsing_errors: false,
+            skip_stage: None,
         },
         resolve,
     )

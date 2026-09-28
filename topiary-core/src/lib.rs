@@ -33,6 +33,9 @@ mod pretty;
 mod tree_sitter;
 
 #[doc(hidden)]
+mod macros;
+
+#[doc(hidden)]
 pub mod test_utils;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -48,6 +51,27 @@ pub enum Capitalisation {
     #[default]
     Pass,
 }
+
+pub mod multi_line_indent {
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    pub struct EnforceIndentation {
+        pub(crate) start: String,
+        pub(crate) end: String,
+        pub(crate) last_line_break_significant: bool,
+        pub(crate) carriage_return_significant: bool,
+        pub(crate) tab_significant: bool,
+    }
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    pub enum MultiLineIndent {
+        None,
+        MaintainOffset,
+        EnforceIndentation(EnforceIndentation),
+    }
+}
+
+use multi_line_indent::MultiLineIndent;
+
 /// An atom represents a small piece of the output. We turn Tree-sitter nodes
 /// into atoms, and we add white-space atoms where appropriate. The final list
 /// of atoms is rendered to the output.
@@ -77,7 +101,7 @@ pub enum Atom {
         // marks the leaf to be printed on a single line, with no indentation
         single_line_no_indent: bool,
         // if the leaf is multi-line, each line will be indented, not just the first
-        multi_line_indent_all: bool,
+        multi_line_indent: MultiLineIndent,
         // don't trim trailing newline characters if set to true
         keep_whitespace: bool,
         capitalisation: Capitalisation,
@@ -170,7 +194,7 @@ pub type FormatterResult<T, E = FormatterError> = Result<T, rootcause::Report<E>
 /// Resolves an injected language name to a Topiary language definition.
 ///
 /// The input is the language name declared by an injection query's
-/// `#injection_language!` predicate.
+/// `#set! injection.language` predicate.
 ///
 /// Return `Ok(Some(language))` when the language is available. Return
 /// `Ok(None)` when the resolver ran successfully but does not know that
@@ -182,6 +206,15 @@ pub type FormatterResult<T, E = FormatterError> = Result<T, rootcause::Report<E>
 /// formatting languages without injection queries, or when using non-formatting
 /// operations such as visualisation.
 pub type LanguageResolver<'a> = dyn Fn(&str) -> FormatterResult<Option<Arc<Language>>> + 'a;
+
+/// Skip a given stage of the formatting pipeline.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SkipStage {
+    /// Skip host/root language formatting, only format injections.
+    HostLanguage,
+    /// Skip injection formatting.
+    Injections,
+}
 
 /// Operations that can be performed by the formatter.
 #[derive(Clone, Copy, Debug)]
@@ -195,6 +228,8 @@ pub enum Operation {
         /// If true, Topiary will consider an ERROR as it does a leaf node,
         /// and continues formatting instead of exiting with an error
         tolerate_parsing_errors: bool,
+        /// Optionally skip one stage of the pipeline. See [`SkipStage`].
+        skip_stage: Option<SkipStage>,
     },
     /// Visualises the parsed file's tree-sitter tree
     Visualise {
@@ -222,28 +257,26 @@ pub enum Operation {
 ///
 /// ```
 /// # tokio_test::block_on(async {
-/// use std::fs::File;
-/// use std::io::{BufReader, Read};
 /// use topiary_core::{formatter, Language, FormatterError, TopiaryQuery, Operation};
 ///
 /// let input = "[1,2]".to_string();
 /// let mut input = input.as_bytes();
 /// let mut output = Vec::new();
-/// let json = topiary_tree_sitter_facade::Language::from(tree_sitter_json::LANGUAGE);
 ///
-/// let mut query_file = BufReader::new(File::open("../topiary-queries/queries/json/formatting.scm").expect("query file"));
-/// let mut query_content = String::new();
-/// query_file.read_to_string(&mut query_content).expect("read query file");
+/// // The grammar is loaded dynamically via `topiary-config` rather than
+/// // depending on the `tree-sitter-json` crate directly.
+/// let config = topiary_config::Configuration::default();
+/// let grammar = config.get_language_cfg("json").unwrap().grammar().unwrap();
 ///
 /// let language: Language = Language {
 ///     name: "json".to_owned(),
-///     formatting_query: TopiaryQuery::new(&json.clone().into(), &query_content).unwrap(),
-///     grammar: json.into(),
+///     formatting_query: TopiaryQuery::new(&grammar, topiary_queries::json()).unwrap(),
+///     grammar,
 ///     indent: None,
 ///     injection_query: None,
 /// };
 ///
-/// match formatter(&mut input, &mut output, &language, Operation::Format{ skip_idempotence: false, tolerate_parsing_errors: false }, None) {
+/// match formatter(&mut input, &mut output, &language, Operation::Format{ skip_idempotence: false, tolerate_parsing_errors: false, skip_stage: None }, None) {
 ///   Ok(()) => {
 ///     let formatted = String::from_utf8(output).expect("valid utf-8");
 ///   }
@@ -322,11 +355,27 @@ pub fn formatter_tree(
         Operation::Format {
             skip_idempotence,
             tolerate_parsing_errors,
+            skip_stage,
         } => {
-            log::debug!("Discovering potentially injected languages");
-            let spans = match &language.injection_query {
-                Some(injection_query) => collect_injections(&tree, input_content, injection_query),
-                None => Vec::new(),
+            let spans = match skip_stage {
+                Some(SkipStage::HostLanguage) => {
+                    crate::debug!("Skipping host formatting; only processing injections");
+                    let spans = language.collect_injections(&tree, input_content);
+                    let rendered = splice_formatted_injections(
+                        input_content,
+                        spans,
+                        resolve,
+                        tolerate_parsing_errors,
+                    )?;
+
+                    write!(output, "{rendered}").context_to()?;
+                    return Ok(());
+                }
+                Some(SkipStage::Injections) => Vec::new(),
+                None => {
+                    crate::debug!("Discovering potentially injected languages");
+                    language.collect_injections(&tree, input_content)
+                }
             };
 
             // Create a list of nodes that are injection formatted.
@@ -334,7 +383,7 @@ pub fn formatter_tree(
             let injection_leaf_nodes = spans.iter().map(|span| span.node_id);
 
             // All the work related to tree-sitter and the query is done here
-            log::debug!("Apply Tree-sitter query");
+            crate::debug!("Apply Tree-sitter query");
 
             let mut atoms = tree_sitter::apply_query_tree_with_forced_leaves(
                 tree,
@@ -349,7 +398,7 @@ pub fn formatter_tree(
             atoms.post_process();
 
             // Pretty-print atoms
-            log::debug!("Pretty-print output");
+            crate::debug!("Pretty-print output");
             let rendered = pretty::render(
                 &atoms[..],
                 // Default to "  " if the language has no indentation specified
@@ -360,7 +409,13 @@ pub fn formatter_tree(
             let rendered = format!("{}\n", rendered.trim());
 
             if !skip_idempotence {
-                idempotence_check(&rendered, language, tolerate_parsing_errors, resolve)?;
+                idempotence_check(
+                    &rendered,
+                    language,
+                    tolerate_parsing_errors,
+                    skip_stage,
+                    resolve,
+                )?;
             }
 
             write!(output, "{rendered}").context_to()?;
@@ -388,7 +443,7 @@ fn rewrite_injected_leaves(
         // If the injected language is unsupported, skip formatting this injection
         // by continuing the loop. This leaves the original, unformatted text intact.
         let Some(inner_language) = resolve_injected_language(resolve, &span.language)? else {
-            log::warn!(
+            crate::warn!(
                 "Skipping injection for unsupported language: {}",
                 span.language
             );
@@ -403,6 +458,7 @@ fn rewrite_injected_leaves(
             Operation::Format {
                 skip_idempotence: true,
                 tolerate_parsing_errors,
+                skip_stage: None,
             },
             resolve,
         )?;
@@ -423,6 +479,65 @@ fn rewrite_injected_leaves(
     Ok(())
 }
 
+/// Splice formatted injection matched content back into the input text at each
+/// span's byte range, leaving surrounding bytes as-is.
+/// Used when [`SkipStage::RootFmt`] is passed to the formatter.
+fn splice_formatted_injections(
+    input_content: &str,
+    mut spans: Vec<InjectionSpan>,
+    resolve: Option<&LanguageResolver<'_>>,
+    tolerate_parsing_errors: bool,
+) -> FormatterResult<String> {
+    let mut out = String::with_capacity(input_content.len());
+    let mut cursor = 0;
+
+    // sort by span start so we can splice from left-to-right
+    spans.sort_by_key(|s| s.byte_range.start);
+    for span in spans {
+        if span.byte_range.start < cursor {
+            crate::warn!(
+                "Overlapping spans detected for language {} at byte {}; skipping",
+                span.language,
+                span.byte_range.start
+            );
+            continue;
+        }
+
+        let Some(inner_language) = resolve_injected_language(resolve, &span.language)? else {
+            crate::warn!(
+                "Injection for unsupported language: {}; skipping",
+                span.language
+            );
+            continue;
+        };
+
+        out.push_str(&input_content[cursor..span.byte_range.start]);
+
+        let mut formatted_inner = Vec::new();
+        formatter_str(
+            span.content,
+            &mut formatted_inner,
+            &inner_language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors,
+                skip_stage: None,
+            },
+            resolve,
+        )?;
+        let formatted_inner = String::from_utf8(formatted_inner)
+            .context_to()?
+            .trim_end_matches('\n')
+            .to_owned();
+
+        out.push_str(&formatted_inner);
+        cursor = span.byte_range.end;
+    }
+
+    out.push_str(&input_content[cursor..]);
+    Ok(out)
+}
+
 /// Resolves a language string from an injection (e.g. "rust" in ```rust) into a `Language`
 /// instance.
 ///
@@ -437,7 +552,10 @@ fn resolve_injected_language(
     };
 
     match resolve(language) {
-        Ok(Some(language)) => Ok(Some(language)),
+        Ok(Some(language_cfg)) => {
+            crate::info!("resolved injected language: {language}");
+            Ok(Some(language_cfg))
+        }
         Ok(None) => Ok(None),
         Err(err)
             if matches!(
@@ -473,9 +591,10 @@ fn idempotence_check(
     content: &str,
     language: &Language,
     tolerate_parsing_errors: bool,
+    skip: Option<SkipStage>,
     resolve: Option<&LanguageResolver<'_>>,
 ) -> FormatterResult<()> {
-    log::info!("Checking for idempotence ...");
+    crate::info!("Checking for idempotence ...");
 
     let mut input = content.as_bytes();
     let mut output = io::BufWriter::new(Vec::new());
@@ -487,6 +606,7 @@ fn idempotence_check(
         Operation::Format {
             skip_idempotence: true,
             tolerate_parsing_errors,
+            skip_stage: skip,
         },
         resolve,
     ) {
@@ -500,8 +620,10 @@ fn idempotence_check(
             if content == reformatted {
                 Ok(())
             } else {
-                log::error!("Failed idempotence check");
-                log::error!("{}", StrComparison::new(content, &reformatted));
+                {
+                    crate::error!("Failed idempotence check");
+                    crate::error!("{}", StrComparison::new(content, &reformatted));
+                }
                 Err(report!(FormatterError::Idempotence))
             }
         }
@@ -519,13 +641,13 @@ mod tests {
     use test_log::test;
 
     use crate::{
-        FormatterError, InjectionQuery, Language, Operation, SpanAttachment, TopiaryQuery,
-        collect_injections, formatter, formatter_str, parse, test_utils::pretty_assert_eq,
+        FormatterError, InjectionQuery, Language, LanguageResolver, Operation, SpanAttachment,
+        TopiaryQuery, formatter, formatter_str, parse, test_utils::pretty_assert_eq,
     };
 
     fn language(name: &str, formatting_query: &str, injection_query: Option<&str>) -> Language {
         let config = topiary_config::Configuration::default();
-        let config_language = config.get_language(name).unwrap();
+        let config_language = config.get_language_cfg(name).unwrap();
         let grammar = config_language.grammar().unwrap();
 
         Language {
@@ -561,20 +683,28 @@ mod tests {
         )
     }
 
+    fn rust_language() -> Language {
+        language(
+            "rust",
+            topiary_queries::rust(),
+            Some(topiary_queries::rust_injections()),
+        )
+    }
+
+    fn json_language() -> Language {
+        language("json", topiary_queries::json(), None)
+    }
+
+    fn json_injection_resolver<'a>() -> Option<&'static LanguageResolver<'a>> {
+        Some(&|name| Ok((name == "json").then_some(Arc::new(json_language()))))
+    }
+
     /// Attempt to parse invalid json, expecting a failure
     #[test(tokio::test)]
     async fn parsing_error_fails_formatting() {
         let mut input = r#"{"foo":{"bar"}}"#.as_bytes();
         let mut output = Vec::new();
-        let query_content = "(#language! json)";
-        let grammar = topiary_tree_sitter_facade::Language::from(tree_sitter_json::LANGUAGE);
-        let language = Language {
-            name: "json".to_owned(),
-            formatting_query: TopiaryQuery::new(&grammar, query_content).unwrap(),
-            grammar,
-            indent: None,
-            injection_query: None,
-        };
+        let language = language("json", "(#language! json)", None);
 
         let mut result = formatter(
             &mut input,
@@ -583,6 +713,7 @@ mod tests {
             Operation::Format {
                 skip_idempotence: true,
                 tolerate_parsing_errors: false,
+                skip_stage: None,
             },
             None,
         );
@@ -606,15 +737,7 @@ mod tests {
         let expected = "{ \"one\": {\"bar\"   \"baz\"}, \"two\": \"bar\" }\n";
 
         let mut output = Vec::new();
-        let query_content = topiary_queries::json();
-        let grammar = tree_sitter_json::LANGUAGE.into();
-        let language = Language {
-            name: "json".to_owned(),
-            formatting_query: TopiaryQuery::new(&grammar, query_content).unwrap(),
-            grammar,
-            indent: None,
-            injection_query: None,
-        };
+        let language = language("json", topiary_queries::json(), None);
 
         formatter(
             &mut input,
@@ -623,13 +746,14 @@ mod tests {
             Operation::Format {
                 skip_idempotence: true,
                 tolerate_parsing_errors: true,
+                skip_stage: None,
             },
             None,
         )
         .unwrap();
 
         let formatted = String::from_utf8(output).unwrap();
-        log::debug!("{formatted}");
+        crate::debug!("{formatted}");
 
         pretty_assert_eq(expected, &formatted);
     }
@@ -641,7 +765,7 @@ mod tests {
 "#;
         let language = ocamllex_language();
         let tree = parse(input, &language.grammar, false).unwrap();
-        let spans = collect_injections(&tree, input, language.injection_query.as_ref().unwrap());
+        let spans = language.collect_injections(&tree, input);
 
         assert_eq!(spans.len(), 1);
         assert_eq!(spans[0].language, "ocaml");
@@ -649,6 +773,27 @@ mod tests {
             spans[0].content,
             r#"let values=[1;2;3] in List.map (fun x->x+1) values"#
         );
+    }
+
+    #[test(tokio::test)]
+    async fn collect_injections_skips_pattern_without_content_capture() {
+        let input = r#"rule token = parse
+  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
+"#;
+        let mut language = ocamllex_language();
+        language.injection_query = Some(
+            InjectionQuery::new(
+                &language.grammar,
+                r#"
+(ocaml) @injection.language
+"#,
+            )
+            .unwrap(),
+        );
+        let tree = parse(input, &language.grammar, false).unwrap();
+        let spans = language.collect_injections(&tree, input);
+
+        assert!(spans.is_empty());
     }
 
     #[test(tokio::test)]
@@ -666,6 +811,7 @@ mod tests {
             Operation::Format {
                 skip_idempotence: true,
                 tolerate_parsing_errors: false,
+                skip_stage: None,
             },
             None,
         );
@@ -688,6 +834,7 @@ mod tests {
             Operation::Format {
                 skip_idempotence: true,
                 tolerate_parsing_errors: false,
+                skip_stage: None,
             },
             Some(&|_| {
                 Err(rootcause::report!(FormatterError::Query(
@@ -722,6 +869,7 @@ mod tests {
             Operation::Format {
                 skip_idempotence: true,
                 tolerate_parsing_errors: false,
+                skip_stage: None,
             },
             Some(&|name| Ok((name == "ocaml").then_some(inner_language.clone()))),
         )
@@ -751,6 +899,7 @@ mod tests {
             Operation::Format {
                 skip_idempotence: true,
                 tolerate_parsing_errors: false,
+                skip_stage: None,
             },
             Some(&|name| Ok((name == "ocaml").then_some(inner_language.clone()))),
         );
@@ -776,6 +925,7 @@ mod tests {
             Operation::Format {
                 skip_idempotence: false,
                 tolerate_parsing_errors: false,
+                skip_stage: None,
             },
             Some(&|name| Ok((name == "ocaml").then_some(inner_language.clone()))),
         );
@@ -783,5 +933,94 @@ mod tests {
         assert!(
             matches!(result, Err(ref report) if report.current_context() == &FormatterError::Idempotence)
         );
+    }
+
+    const RUST_INJECTIONS_INPUT: &str = r#"const JSON2: Value
+= json!([
+    "foo",
+"bar",
+]);
+"#;
+    #[test(tokio::test)]
+    async fn skip_host_formats_json() {
+        use crate::SkipStage;
+
+        let skip_host_expected: &str = r#"const JSON2: Value
+= json!([
+  "foo",
+  "bar",
+]);"#;
+        let rust_lang = rust_language();
+        let mut output = Vec::new();
+
+        formatter_str(
+            RUST_INJECTIONS_INPUT,
+            &mut output,
+            &rust_lang,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+                skip_stage: Some(SkipStage::HostLanguage),
+            },
+            json_injection_resolver(),
+        )
+        .unwrap();
+
+        let formatted = String::from_utf8(output).unwrap();
+        pretty_assert_eq(skip_host_expected, formatted.trim_end());
+    }
+
+    #[test(tokio::test)]
+    async fn skip_injections_formats_rust() {
+        use crate::SkipStage;
+
+        // NOTE: skipping injections will still format the JSON
+        // because the (macro_invocation) token will be matched in the rust formatting query
+        let skip_injections_expected: &str = r#"const JSON2: Value = json!(["foo",
+"bar",
+]);"#;
+        let rust_lang = rust_language();
+        let mut output = Vec::new();
+
+        formatter_str(
+            RUST_INJECTIONS_INPUT,
+            &mut output,
+            &rust_lang,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+                skip_stage: Some(SkipStage::Injections),
+            },
+            json_injection_resolver(),
+        )
+        .unwrap();
+
+        let formatted = String::from_utf8(output).unwrap();
+        pretty_assert_eq(skip_injections_expected, formatted.trim_end());
+    }
+    #[test(tokio::test)]
+    async fn skip_none_formats_all() {
+        let skip_none_expected: &str = r#"const JSON2: Value = json!([
+  "foo",
+  "bar",
+]);"#;
+        let rust_lang = rust_language();
+        let mut output = Vec::new();
+
+        formatter_str(
+            RUST_INJECTIONS_INPUT,
+            &mut output,
+            &rust_lang,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+                skip_stage: None,
+            },
+            json_injection_resolver(),
+        )
+        .unwrap();
+
+        let formatted = String::from_utf8(output).unwrap();
+        pretty_assert_eq(skip_none_expected, formatted.trim_end());
     }
 }

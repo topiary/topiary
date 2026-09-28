@@ -1,8 +1,104 @@
 # MAINTAINERS: If the structure of this configuration changes, it may
 # break `prefetchLanguagesNickelFile` in nix/utils/prefetchLanguages.nix
 # Please keep these synchronised.
+let rec
+  NixHash =
+    std.contract.from_validator (fun value =>
+      if !std.is_string value then
+        'Error { message = "expected `NixHash`" }
+      else if !std.string.is_match "^sha256-[A-Za-z0-9+/]{43}=$" value then
+        'Error {
+          message = "invalid nixHash format: %{value}",
+          notes = [
+            "Expected string in this format: 'sha256-[A-Za-z0-9+/]{43}='",
+            "The base64 payload must be exactly 44 characters long."
+          ]
+        }
+      else
+        'Ok
+    ),
+  GitSource = {
+    git
+      | String
+      | doc "URL of the Git repository hosting the tree-sitter grammar.",
+    rev
+      | String
+      | doc "Git revision (commit, tag, or branch) to fetch.",
+    subdir
+      | String
+      | optional
+      | doc "Sub-directory of the repository where the grammar lives.",
+    nixHash
+      | NixHash
+      | optional
+      | doc m%"
+        Pre-computed Nix SHA256 hash.
+
+        This can be generated with:
+        ```
+        nix run nixpkgs@nix-prefetch-git -- <URL> <REV>
+        ```
+      "%,
+  },
+  GrammarSource
+    | doc m%"
+      Either a Git source or a local filesystem path. Fields are optional
+      at the contract layer so that user configurations can override one
+      variant with the other via Nickel record merging (e.g. setting
+      `grammar.source.path` on top of a default `grammar.source.git`).
+    "%
+    =
+      std.contract.any_of [
+        { git | GitSource },
+        { path | String },
+      ],
+  Grammar = {
+    source | GrammarSource,
+    symbol
+      | String
+      | optional
+      | doc "Override for the tree-sitter symbol; defaults to `tree_sitter_<name>`.",
+  },
+  QuerySource
+    | doc m%"
+      A query file location. Always requires `path`; optionally accepts `git` to
+      fetch the file from a remote repository (in which case `path` is resolved
+      relative to the checkout root).
+    "%
+    = {
+      git
+        | GitSource
+        | optional,
+      path | String,
+    },
+  Query = {
+    source | QuerySource,
+    .. # query entries are non-exhaustive for future metadata (e.g. per-query overrides)
+  },
+  LanguageConfig = {
+    extensions
+      | Array String
+      | doc "File extensions (without leading dot) associated with this language.",
+    indent
+      | String
+      | optional
+      | doc "Indentation string for this language; defaults to two spaces.",
+    grammar | Grammar,
+    queries
+      | { _ : Query }
+      | optional
+      | doc m%"
+        Named queries for this language. Well-known names are `formatting`
+        and `injections`; additional entries are permitted for future use.
+        When absent, queries are resolved via the disk-search chain
+        (`topiary config show-sources`)  and the
+        built-in fallbacks.
+      "%,
+    .. # lang config fields should be non exhaustive for future schemas and end user customizability
+  }
+in
 {
-  languages = {
+  languages | { _ : LanguageConfig } = {
     bash = {
       extensions | default = ["sh", "bash"],
       grammar.source | default = {
@@ -59,6 +155,17 @@
           rev = "c3570720f7f7bbad22fe96603f106276618e0cf5",
           subdir = "tree-sitter-markdown",
           nixHash = "sha256-wQKcqU0V6gHj84qOkUwdXsBW3f6MNfJMFxuGTucAgh8=",
+        },
+      },
+    },
+
+    menhir = {
+      extensions | default = ["mly"],
+      grammar.source | default = {
+        git = {
+          git = "https://github.com/tmcgilchrist/tree-sitter-menhir.git",
+          rev = "6b4a30ccc542530f7071ea45496ed5c9c74faa54",
+          nixHash = "sha256-9pW+JpghCt2m+wJ2GclaSQWNo52jnzOCY/AmRHBfUUg=",
         },
       },
     },
@@ -174,10 +281,11 @@
       grammar.source | default = {
         git = {
           git = "https://github.com/bytecodealliance/tree-sitter-wit",
-          rev = "v1.2.0",
-          nixHash = "sha256-scye60ETUak1mXJXC+UY5sqbuqAcjxCsm4+AVJHhGws=",
+          rev = "v1.4.0",
+          nixHash = "sha256-63xH63s6lgticgRtMz7LCL1ThuXegn7qFCZgeQqIZH4=",
         },
       },
     },
-  }
+  },
+  ..
 }

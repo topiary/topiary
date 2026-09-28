@@ -1,5 +1,6 @@
 mod check;
 mod cli;
+mod config;
 mod error;
 mod fs;
 mod io;
@@ -14,52 +15,24 @@ use std::{
 
 use error::Benign;
 use tabled::{Table, settings::Style};
-use topiary_config::{Configuration, source::Source};
-use topiary_core::{
-    FormatterError, FormatterResult, Language, Operation, SpanAttachment, check_query_coverage,
-    formatter,
-};
+use topiary_core::{Operation, SpanAttachment, check_query_coverage, formatter};
 
 use crate::{
     cli::Commands,
-    error::{CLIResult, TopiaryError, print_error},
+    error::{CLIResult, exit_code},
     io::{Inputs, OutputFile, process_inputs, read_input},
-    language::LanguageDefinitionCache,
 };
+pub(crate) use config::Configuration;
 
-use miette::{NamedSource, Report};
-
-fn resolve_injected_language(
-    cache: &LanguageDefinitionCache,
-    config: &Configuration,
-    name: &str,
-) -> FormatterResult<Option<Arc<Language>>> {
-    match cache.fetch_from_config(config, name) {
-        Ok(language) => Ok(Some(language)),
-        Err(TopiaryError::Config(topiary_config::error::TopiaryConfigError::UnknownLanguage(
-            _,
-        ))) => Ok(None),
-        Err(TopiaryError::Lib(report)) => {
-            Err(report.context(FormatterError::InjectionLanguageResolution {
-                language: name.to_owned(),
-            }))
-        }
-        Err(err) => Err(
-            rootcause::report!(FormatterError::InjectionLanguageResolution {
-                language: name.to_owned(),
-            })
-            .attach(err.to_string()),
-        ),
-    }
-}
+use miette::NamedSource;
 
 #[tokio::main]
 async fn main() -> ExitCode {
     if let Err(e) = run().await {
         if !e.benign() {
-            print_error(&e)
+            eprintln!("{e}");
         }
-        return e.into();
+        return exit_code(&e);
     }
 
     ExitCode::SUCCESS
@@ -68,9 +41,10 @@ async fn main() -> ExitCode {
 async fn run() -> CLIResult<()> {
     let args = cli::get_args()?;
 
-    let file_config = &args.global.configuration;
-    let (config, nickel_config) =
-        topiary_config::Configuration::fetch(args.global.merge_configuration, file_config)?;
+    let config = Arc::new(Configuration::new(
+        args.global.merge_configuration,
+        args.global.configuration.as_deref(),
+    )?);
 
     // Delegate by subcommand
     match args.command {
@@ -78,46 +52,47 @@ async fn run() -> CLIResult<()> {
             check: true,
             tolerate_parsing_errors,
             skip_idempotence,
+            skip_stage,
             inputs,
         } => {
             let inputs = Inputs::new(&config, &inputs);
-            let cache = Arc::new(LanguageDefinitionCache::new());
-            let config = config.clone();
             process_inputs(
                 inputs,
-                move |input, language, cache| {
+                move |input, language, config| {
                     log::info!(
                         "Checking {}, as {} using {}",
                         input.source(),
                         input.language().name,
                         input.formatting_query(),
                     );
+                    let filepath = input.filepath().map(|p| p.to_owned());
 
                     check::check_input(
                         input,
                         &language,
                         skip_idempotence,
                         tolerate_parsing_errors,
-                        Some(&|name| resolve_injected_language(&cache, &config, name)),
+                        skip_stage,
+                        Some(&|name| config.resolve_injected_language(name)),
                     )
+                    .attach_filepath(filepath.as_deref())
                 },
-                cache,
+                config.clone(),
             )
             .await?;
         }
         Commands::Format {
             tolerate_parsing_errors,
             skip_idempotence,
+            skip_stage,
             inputs,
             ..
         } => {
             let inputs = Inputs::new(&config, &inputs);
-            let cache = Arc::new(LanguageDefinitionCache::new());
-            let config = config.clone();
 
             process_inputs(
                 inputs,
-                move |input, language, cache| {
+                move |input, language, config| {
                     let output = OutputFile::try_from(&input)?;
 
                     log::info!(
@@ -145,8 +120,9 @@ async fn run() -> CLIResult<()> {
                             Operation::Format {
                                 skip_idempotence,
                                 tolerate_parsing_errors,
+                                skip_stage: skip_stage.map(|s| s.into()),
                             },
-                            Some(&|name| resolve_injected_language(&cache, &config, name)),
+                            Some(&|name| config.resolve_injected_language(name)),
                         )?;
                     }
 
@@ -154,7 +130,7 @@ async fn run() -> CLIResult<()> {
 
                     CLIResult::Ok(())
                 },
-                cache,
+                config.clone(),
             )
             .await?;
         }
@@ -164,7 +140,7 @@ async fn run() -> CLIResult<()> {
 
             process_inputs(
                 inputs,
-                |mut input, language, _cache| {
+                |mut input, language, _config| {
                     let input_content = read_input(&mut input)?;
                     log::debug!(
                         "Checking {}, as {} for grammar correctness",
@@ -176,7 +152,7 @@ async fn run() -> CLIResult<()> {
 
                     Ok(())
                 },
-                Arc::new(LanguageDefinitionCache::new()),
+                config.clone(),
             )
             .await?;
         }
@@ -186,8 +162,7 @@ async fn run() -> CLIResult<()> {
             let input = Inputs::new(&config, &input).next().unwrap()?;
             let output = OutputFile::Stdout;
 
-            let cache = LanguageDefinitionCache::new();
-            let language = tokio::task::block_in_place(|| cache.fetch_input(&input))?;
+            let language = tokio::task::block_in_place(|| config.cache().fetch_input(&input))?;
 
             log::info!(
                 "Visualising {}, as {}, to {}",
@@ -213,6 +188,7 @@ async fn run() -> CLIResult<()> {
 
         Commands::Config {
             command: Some(cli::ConfigCommand::ShowSources),
+            ..
         } => {
             let bool_emoji = |b: bool| {
                 match b {
@@ -220,7 +196,8 @@ async fn run() -> CLIResult<()> {
                     false => "\u{274C}", // Cross Mark
                 }
             };
-            let sources = Source::config_sources(file_config)
+            let sources = config
+                .iter_sources()
                 .map(|(hint, source)| {
                     let languages_exists = bool_emoji(source.languages_exists());
                     let queries_exists =
@@ -236,17 +213,24 @@ async fn run() -> CLIResult<()> {
             println!("{}", table.build().with(Style::modern_rounded()));
         }
 
-        Commands::Config { command: None } => {
+        Commands::Config {
+            command: None,
+            field: Some(field),
+        } => {
+            let nickel_config = config.extract_field(args.global.merge_configuration, &field)?;
+
             // Output the collated nickel configuration.
-            // Don't fail on error but merely log the event since the original `nickel_config` is
-            // already valid.
-            #[cfg(feature = "nickel")]
-            if let Err(e) = io::format_config(&config, &nickel_config).await {
-                log::error!("Config formatting error: {}", e);
-            } else {
-                return Ok(());
-            }
-            println!("{nickel_config}");
+            let mut output = std::io::BufWriter::new(OutputFile::Stdout);
+            write!(output, "{nickel_config}")?;
+        }
+
+        Commands::Config {
+            command: None,
+            field: None,
+        } => {
+            // Output the collated nickel configuration.
+            let mut output = std::io::BufWriter::new(OutputFile::Stdout);
+            write!(output, "{config}")?;
         }
 
         Commands::Prefetch { force, language } => match language {
@@ -259,8 +243,7 @@ async fn run() -> CLIResult<()> {
             let input = Inputs::new(&config, &input).next().unwrap()?;
             let output = OutputFile::Stdout;
 
-            let cache = LanguageDefinitionCache::new();
-            let language = tokio::task::block_in_place(|| cache.fetch_input(&input))?;
+            let language = tokio::task::block_in_place(|| config.cache().fetch_input(&input))?;
 
             log::info!(
                 "Checking query coverage of {}, as {}",
@@ -290,7 +273,7 @@ async fn run() -> CLIResult<()> {
             write!(
                 &mut buf_output,
                 "{:?}",
-                Report::new(coverage_data).with_source_code(query_source)
+                miette::Report::new(coverage_data).with_source_code(query_source)
             )?;
 
             coverage_res?;

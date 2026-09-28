@@ -19,7 +19,7 @@ use rootcause::{
         AttachmentFormattingPlacement, AttachmentFormattingStyle, AttachmentHandler,
         FormattingFunction,
     },
-    markers::ObjectMarkerFor,
+    markers::{ObjectMarkerFor, SendSync},
 };
 use topiary_tree_sitter_facade::Range;
 
@@ -94,6 +94,16 @@ impl ErrorSpan {
         self
     }
 
+    fn set_label(&mut self, label: String) {
+        self.primary_label = Some(label);
+    }
+
+    /// Sets the primary label for the [`miette::Report`] to be rendered
+    pub fn with_label(mut self, label: String) -> Self {
+        self.set_label(label);
+        self
+    }
+
     fn name(&self) -> &str {
         self.filepath
             .as_ref()
@@ -164,12 +174,13 @@ pub trait SpanAttachment {
     fn attach_source(self, source: Option<&str>) -> Self;
     fn attach_language(self, language: Option<&str>) -> Self;
     fn attach_range(self, range: Range) -> Self;
+    fn attach_label(self, label: String) -> Self;
     fn get_span(&mut self) -> Option<&mut ErrorSpan>;
 }
 
-impl<C, T> SpanAttachment for rootcause::Report<C, rootcause::markers::Mutable, T>
+impl<C: ?Sized> SpanAttachment for rootcause::Report<C, rootcause::markers::Mutable, SendSync>
 where
-    ErrorSpan: ObjectMarkerFor<T>,
+    ErrorSpan: ObjectMarkerFor<SendSync>,
 {
     fn attach_filepath(mut self, filepath: Option<&Path>) -> Self {
         let Some(filepath) = filepath else {
@@ -212,6 +223,14 @@ where
         self.attach_custom::<MietteHandler, _>(ErrorSpan::default().with_range(range))
     }
 
+    fn attach_label(mut self, label: String) -> Self {
+        if let Some(span) = self.get_span() {
+            span.set_label(label);
+            return self;
+        }
+        self.attach_custom::<MietteHandler, _>(ErrorSpan::default().with_label(label))
+    }
+
     fn get_span(&mut self) -> Option<&mut ErrorSpan> {
         let attachments = self.attachments_mut();
         attachments
@@ -250,6 +269,13 @@ where
         match self {
             Ok(v) => Ok(v),
             Err(e) => Err(e.attach_range(range)),
+        }
+    }
+
+    fn attach_label(self, label: String) -> Self {
+        match self {
+            Ok(v) => Ok(v),
+            Err(e) => Err(e.attach_label(label)),
         }
     }
 

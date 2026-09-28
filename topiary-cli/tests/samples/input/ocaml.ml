@@ -1449,3 +1449,27 @@ let _ =
 let foo = [
   [bar]; [baz];
 ]
+
+(* #1053 Idempotency error for module with type constraint *)
+let foo () =
+  ((module struct type s end)
+   : t)
+
+(* Typed expressions, related to #1053 *)
+let a = (x : int)
+let b = f (x : int) (y : bool)
+let c = (x : int) + (y : int)
+let d =
+  (long_function_application arg1 arg2 : some_long_type_annotation_here_xxxx)
+let e () =
+  ((module M : S)
+   : t)
+let g = (e :> t)
+let h (x : int) (y : string) = x
+let i = [ (a : t); (b : t) ]
+
+(* #1074 Idempotency error on `pure A.{x}` within a function *)
+let () =
+  with_
+    (fun x ->
+       pure A.{x})

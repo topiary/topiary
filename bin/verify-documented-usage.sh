@@ -1,18 +1,31 @@
-#!/usr/bin/env nix-shell
-#!nix-shell -i bash --packages diffutils gnused
+#!/usr/bin/env bash
 #shellcheck shell=bash
 
 set -euo pipefail
+
+if [[ "${1:-}" == "--no-nix-shell" ]]; then
+  export NO_NIX_SHELL=1
+  shift
+fi
+
+if [[ -z "${NO_NIX_SHELL:-}" && -z "${IN_NIX_SHELL:-}" ]] && command -v nix-shell >/dev/null; then
+  # for macos: brew install gnu-sed awk
+  # PATH="/opt/homebrew/opt/gnu-sed/libexec/gnubin:$PATH"
+  exec nix-shell --pure --packages bash diffutils gnused --run "NO_NIX_SHELL=1 bash '$0' $*"
+fi
+
+export __TOPIARY_TERM_WIDTH=90
 
 readonly FENCE='```'
 
 get-cli-usage() {
   # Get the help text from the CLI
   local subcommand="$1"
+  local topiary="${TOPIARY:-cargo run -q --bin topiary --}"
 
   case "${subcommand}" in
-    "index") nix run .#topiary-wrapped -- --help;;
-    *)       nix run .#topiary-wrapped -- "${subcommand}" --help;;
+    "index") ${topiary} --help;;
+    *)       ${topiary} "${subcommand}" --help;;
   esac
 }
 

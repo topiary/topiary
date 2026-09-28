@@ -4,12 +4,11 @@ use std::{fmt, sync::Once};
     feature = "toml",
     all(feature = "ocamllex", feature = "ocaml")
 ))]
-use {
-    std::{fs, fs::File, io::Write, path::PathBuf},
-    tempfile::TempDir,
-};
+use std::{fs, path::PathBuf};
 
 use assert_cmd::cargo_bin_cmd;
+use std::{fs::File, io::Write};
+use tempfile::TempDir;
 
 // Simple exemplar JSON and TOML state, to verify the formatter
 // is doing something... and hopefully the right thing
@@ -111,13 +110,73 @@ fn test_fmt_stdin_query() {
         .arg("json")
         .arg("--query")
         .arg(format!(
-            "../topiary-queries/queries/json/{}",
+            "../topiary-queries/queries/json/{}.scm",
             topiary_queries::FORMATTING_QUERY
         ))
         .write_stdin(JSON_INPUT)
         .assert()
         .success()
         .stdout(JSON_EXPECTED);
+}
+
+// NOTE `test_fmt_stdin_query`, above, passes the built-in query as the override, so it
+// cannot distinguish an honoured override from an ignored one. These two tests use an
+// override that is observably *not* the built-in query, which is what a regression in the
+// override plumbing actually looks like. See issue #1306.
+
+#[test]
+#[cfg(feature = "json")]
+fn test_fmt_stdin_query_override_is_used() {
+    use predicates::{prelude::PredicateBooleanExt, str::contains};
+
+    // A deliberately idiosyncratic query: unlike the built-in JSON query, it puts a space
+    // *before* the colon and adds no soft lines or indentation. Its output is therefore
+    // unmistakably distinct from `JSON_EXPECTED`.
+    let tmp_dir = TempDir::new().unwrap();
+    let query = tmp_dir.path().join("formatting.scm");
+    fs::write(&query, "(string) @leaf\n\":\" @prepend_space\n").unwrap();
+
+    initialize();
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("fmt")
+        .arg("--language")
+        .arg("json")
+        .arg("--query")
+        .arg(&query)
+        .write_stdin(JSON_INPUT)
+        .assert()
+        .success()
+        .stdout(contains(r#"{"test" :123}"#).and(contains(JSON_EXPECTED.trim()).not()));
+}
+
+#[test]
+#[cfg(feature = "json")]
+fn test_fmt_stdin_invalid_query_override_fails() {
+    use predicates::str::contains;
+
+    // If the override is honoured, this must be compiled -- and fail. If it is silently
+    // dropped in favour of the built-in query, formatting would succeed instead.
+    let tmp_dir = TempDir::new().unwrap();
+    let query = tmp_dir.path().join("formatting.scm");
+    fs::write(&query, "this is not a tree-sitter query").unwrap();
+
+    initialize();
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("fmt")
+        .arg("--language")
+        .arg("json")
+        .arg("--query")
+        .arg(&query)
+        .write_stdin(JSON_INPUT)
+        .assert()
+        .failure()
+        .stderr(contains("this is not a tree-sitter query"));
 }
 
 #[test]
@@ -440,4 +499,48 @@ impl fmt::Display for IsToml {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "is_toml")
     }
+}
+
+#[test]
+fn test_cfg_field_with_custom_queries() {
+    use predicates::str::contains;
+
+    let tmp_dir = TempDir::new().unwrap();
+
+    let formatting_path = "/foo/bar/formatting.scm";
+    let injections_path = "/foo/bar/injections.scm";
+
+    let languages_ncl = format!(
+        r#"{{
+  languages.markdown.queries = {{
+    formatting.source.path = "{formatting_path}",
+    injections.source.path = "{injections_path}",
+  }},
+}}
+"#
+    );
+
+    let config_file = tmp_dir.path().join("languages.ncl");
+    let mut f = File::create(&config_file).unwrap();
+    f.write_all(languages_ncl.as_bytes()).unwrap();
+
+    cargo_bin_cmd!("topiary")
+        .arg("--configuration")
+        .arg(&config_file)
+        .arg("cfg")
+        .arg("--field")
+        .arg("languages.markdown.queries.formatting.source.path")
+        .assert()
+        .success()
+        .stdout(contains(formatting_path));
+
+    cargo_bin_cmd!("topiary")
+        .arg("--configuration")
+        .arg(&config_file)
+        .arg("cfg")
+        .arg("--field")
+        .arg("languages.markdown.queries.injections.source.path")
+        .assert()
+        .success()
+        .stdout(contains(injections_path));
 }

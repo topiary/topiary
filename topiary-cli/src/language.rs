@@ -7,27 +7,30 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use topiary_config::Configuration;
+use crate::Configuration;
+use topiary_config::language::LocalRepos;
 use topiary_core::Language;
 
-use crate::{
-    error::CLIResult,
-    io::{
-        InputFile, to_injection_query_from_language, to_language_from_config_sync,
-        to_query_from_language,
-    },
-};
+use crate::error::CLIResult;
+use crate::io::InputFile;
 
 /// Thread-safe language definition cache
+#[derive(Debug)]
 pub struct LanguageDefinitionCache {
-    cache: Mutex<HashMap<u64, Arc<Language>>>,
+    languages: Mutex<HashMap<u64, Arc<Language>>>,
+    repos: LocalRepos,
 }
 
 impl LanguageDefinitionCache {
     pub fn new() -> Self {
         LanguageDefinitionCache {
-            cache: Mutex::new(HashMap::new()),
+            languages: Mutex::new(HashMap::new()),
+            repos: LocalRepos::new(),
         }
+    }
+
+    pub fn repos(&self) -> &LocalRepos {
+        &self.repos
     }
 
     fn key_for_parts(
@@ -55,7 +58,10 @@ impl LanguageDefinitionCache {
 
         // Lock the entire `HashMap` on access. (This may seem blunt, but is necessary for the
         // correct behaviour when we have near-simultaneous cache access; see issue #605.)
-        let mut cache = self.cache.lock().expect("language cache mutex poisoned");
+        let mut cache = self
+            .languages
+            .lock()
+            .expect("language cache mutex poisoned");
 
         Ok(match cache.entry(key) {
             // Return the language definition from the cache, if it exists...
@@ -93,12 +99,16 @@ impl LanguageDefinitionCache {
         config: &Configuration,
         name: &str,
     ) -> CLIResult<Arc<Language>> {
-        let config_language = config.get_language(name)?;
-        let formatting_query = to_query_from_language(config_language)?;
-        let injection_query = to_injection_query_from_language(config_language);
+        let formatting_query = config.get_query_source(name, topiary_queries::FORMATTING_QUERY)?;
+        let injection_query = config
+            .get_query_source(name, topiary_queries::INJECTIONS_QUERY)
+            .ok();
         let key = Self::key_for_parts(name, &formatting_query, injection_query.as_ref());
 
-        let mut cache = self.cache.lock().expect("language cache mutex poisoned");
+        let mut cache = self
+            .languages
+            .lock()
+            .expect("language cache mutex poisoned");
 
         Ok(match cache.entry(key) {
             Entry::Occupied(lang_def) => {
@@ -108,7 +118,7 @@ impl LanguageDefinitionCache {
 
             Entry::Vacant(slot) => {
                 log::debug!("Cache {:p}: Insert at {:#016x} ({name})", self, key);
-                let lang_def = Arc::new(to_language_from_config_sync(config, name)?);
+                let lang_def = Arc::new(config.get_language(name)?);
                 slot.insert(lang_def).to_owned()
             }
         })

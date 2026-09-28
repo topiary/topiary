@@ -49,7 +49,7 @@ opam install topiary
 ```
 
 Development of this package can be found on [GitHub at
-`tweag/topiary-opam`](https://github.com/topiary/topiary-opam).
+`topiary/topiary-opam`](https://github.com/topiary/topiary-opam).
 
 ## Nix (nixpkgs)
 

@@ -14,7 +14,7 @@ async fn main() {
     let config = Configuration::default();
 
     // Get JSON language configuration
-    let json = config.get_language("json").unwrap();
+    let json = config.get_language_cfg("json").unwrap();
 
     // Get default query for JSON
     let query = topiary_queries::json();
@@ -39,6 +39,7 @@ async fn main() {
         Operation::Format {
             skip_idempotence: false,
             tolerate_parsing_errors: false,
+            skip_stage: None,
         },
         None,
     )

@@ -56,6 +56,17 @@ let
 
   cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
+  workspace-tests = craneLib.cargoTest (
+    commonArgs
+    // {
+      inherit cargoArtifacts;
+      pname = "topiary-workspace-tests";
+      cargoTestExtraArgs = "--workspace --all-features";
+      preConfigurePhases = [ "prepareTopiaryDefaultConfiguration" ];
+      inherit prepareTopiaryDefaultConfiguration;
+    }
+  );
+
   clippy = craneLib.cargoClippy (
     commonArgs
     // {
@@ -284,24 +295,6 @@ let
       };
     };
 
-  # This runs the Topiary CLI in a controlled PTY for stable output
-  # while testing in CI (90 columns and no ANSI extensions)
-  topiary-wrapped = pkgs.writeShellApplication {
-    name = "topiary-wrapped";
-
-    runtimeInputs = [
-      topiary-cli
-      pkgs.expect
-    ];
-
-    text = ''
-      export COLUMNS=90
-      export NO_COLOR=1
-
-      unbuffer topiary "$@"
-    '';
-  };
-
 in
 {
   inherit
@@ -310,6 +303,7 @@ in
     fmt
     audit
     benchmark
+    workspace-tests
     client-app
     topiary-core
     topiary-cli
@@ -319,7 +313,6 @@ in
     mdbook-manmunge
     topiary-book
     topiary-manpages
-    topiary-wrapped
     ;
 
   default = topiary-cli;
