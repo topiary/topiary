@@ -24,9 +24,9 @@ use std::{
 #[cfg(not(target_arch = "wasm32"))]
 use tempfile::TempDir;
 
+use crate::error::TopiaryConfigResult;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::error::{TopiaryConfigError, TopiaryConfigFetchingError};
-use crate::error::TopiaryConfigResult;
 
 /// Language definitions, as far as the CLI and configuration are concerned, contain everything
 /// needed to configure formatting for that language.
@@ -183,7 +183,7 @@ impl Language {
         // create cache dir as well as subdir for query file
         query_path
             .parent()
-            .map(|p| std::fs::create_dir_all(p))
+            .map(std::fs::create_dir_all)
             .transpose()?;
 
         let checkout_dir = repos.get_or_insert(git)?;
