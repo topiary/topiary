@@ -89,26 +89,6 @@ pub enum GrammarSource {
     },
 }
 
-impl TryFrom<&NickelValue> for GrammarSource {
-    type Error = &'static str;
-
-    fn try_from(ncl: &NickelValue) -> Result<Self, Self::Error> {
-        use crate::paths::{GIT, PATH, SUBDIR};
-        // source.git
-        if let Some(git_source) = ncl.field(GIT) {
-            let git = git_source.try_into()?;
-            let subdir = ncl.field_as_string(SUBDIR).map(PathBuf::from);
-            return Ok(Self::Git { git, subdir });
-        }
-        // source.path
-        let path = ncl
-            .field_as_string(PATH)
-            .map(PathBuf::from)
-            .ok_or("unable to resolve grammar source")?;
-        Ok(Self::Path(path))
-    }
-}
-
 /// A query file location. Either a local `path`, or a `path` inside a git checkout that
 /// Topiary will fetch and cache on demand.
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
@@ -119,23 +99,6 @@ pub struct QuerySource {
     /// Path to the query file (relative to the git checkout root when `git` is set,
     /// otherwise resolved as-is).
     pub path: PathBuf,
-}
-
-impl TryFrom<&NickelValue> for QuerySource {
-    type Error = &'static str;
-
-    fn try_from(ncl: &NickelValue) -> Result<Self, Self::Error> {
-        use crate::paths::{GIT, PATH};
-        // source.git
-        let git = ncl.field(GIT).map(GitSource::try_from).transpose()?;
-        // source.path
-        let path = ncl
-            .field_as_string(PATH)
-            .map(PathBuf::from)
-            .ok_or("unable to resolve query source")?;
-
-        Ok(Self { git, path })
-    }
 }
 
 /// A named query entry (e.g. `formatting`, `injections`). The Nickel contract is

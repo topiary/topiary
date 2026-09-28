@@ -25,8 +25,6 @@ use nickel_lang_core::{
     position::{PosIdx, PosTable},
 };
 
-use crate::language::GitSource;
-
 /// The two paths in a language's configuration that name a file on the local
 /// filesystem. Both live in a record called `source`; see [`PathResolver::resolve_source`]
 /// for the caveat about the sibling `git` field.
@@ -36,25 +34,19 @@ const SOURCE: &str = "source";
 pub(crate) const PATH: &str = "path";
 pub(crate) const GIT: &str = "git";
 pub(crate) const REV: &str = "rev";
-pub(crate) const SUBDIR: &str = "subdir";
 
 /// Rewrites relative `path` values in an evaluated configuration so that they are
 /// anchored at the `.ncl` file that defined them, rather than at the working directory.
 pub(crate) struct PathResolver<'a> {
     table: &'a PosTable,
     files: Files,
-    resolve_git: bool,
 }
 
 impl<'a> PathResolver<'a> {
     /// `files` is cloned out of the program once, rather than per lookup:
     /// `Program::files` hands back an owned copy of the whole registry.
-    pub(crate) fn new(table: &'a PosTable, files: Files, resolve_git: bool) -> Self {
-        Self {
-            table,
-            files,
-            resolve_git,
-        }
+    pub(crate) fn new(table: &'a PosTable, files: Files) -> Self {
+        Self { table, files }
     }
 
     /// Walk `languages.<lang>` for the records that name a local file, and resolve them.
@@ -64,14 +56,13 @@ impl<'a> PathResolver<'a> {
             return;
         };
 
-        for (lang, record) in languages.fields.iter_mut().filter_map(|(lang, rec)| {
-            rec.value
-                .as_mut()
-                .and_then(as_record_mut)
-                .map(|rec| (lang.as_ref(), rec))
-        }) {
+        for record in languages
+            .fields
+            .iter_mut()
+            .filter_map(|(_, rec)| rec.value.as_mut().and_then(as_record_mut))
+        {
             if let Some(source) = record.field_mut(GRAMMAR).and_then(|g| g.field_mut(SOURCE)) {
-                self.resolve_source(source, lang);
+                self.resolve_source(source);
             }
 
             let Some(queries) = record.field_mut(QUERIES).and_then(as_record_mut) else {
@@ -84,7 +75,7 @@ impl<'a> PathResolver<'a> {
                 .filter_map(|(_, q)| q.value.as_mut().and_then(as_record_mut))
             {
                 if let Some(source) = query.field_mut(SOURCE) {
-                    self.resolve_source(source, lang);
+                    self.resolve_source(source);
                 }
             }
         }
@@ -92,20 +83,10 @@ impl<'a> PathResolver<'a> {
 
     // If `git is present:
     // * `path` names a file *inside* the checkout Topiary fetches
-    fn resolve_source(&self, source: &mut NickelValue, language: &str) {
+    fn resolve_source(&self, source: &mut NickelValue) {
         let Some(source) = source.as_record_mut() else {
             return;
         };
-        match source.field(GIT) {
-            Some(_) if !self.resolve_git => return,
-            Some(git_source) => {
-                GitSource::try_from(git_source).unwrap();
-            }
-            // { git = "..", rev = ".." }
-            _ => {} // Some(git) if !self.resolve_git => return,
-                    // return;
-        }
-
         let Some(path) = source.field_mut(PATH) else {
             return;
         };

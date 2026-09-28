@@ -1,6 +1,6 @@
 use std::{error, fmt, io, path, result};
 
-use nickel_lang_core::{error::IntoDiagnostics, files::Files};
+use nickel_lang_core::files::Files;
 
 pub type TopiaryConfigResult<T> = result::Result<T, TopiaryConfigError>;
 

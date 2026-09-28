@@ -342,7 +342,7 @@ impl Program {
         // `eval_full_for_export` needs `&mut self`, whereas the position table and file
         // registry are behind `&self`; hence the two statements.
         let mut config = self.eval_full_for_export()?;
-        PathResolver::new(self.inner.pos_table(), self.inner.files(), false).resolve(&mut config);
+        PathResolver::new(self.inner.pos_table(), self.inner.files()).resolve(&mut config);
 
         self.config = Some(config.clone());
         Ok(config)
