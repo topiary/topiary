@@ -71,6 +71,7 @@ This name should be decided amongst the team before the release.
 - [#1291](https://github.com/topiary/topiary/pull/1291) Improve warning for injection queries without content captures
 - [#1322](https://github.com/topiary/topiary/pull/1322) Improve error message when Topiary cannot find a query file
 - [#1325](https://github.com/topiary/topiary/pull/1325) Fix regression with `--query` value parsing in `topiary format`
+- [#1328](https://github.com/topiary/topiary/pull/1328) Resolve relative filepaths in configuration
 
 ### Added
 - [#1200](https://github.com/topiary/topiary/pull/1200) Build and deploy Topiary Docker images to ghcr.io.

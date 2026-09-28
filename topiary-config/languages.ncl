@@ -97,7 +97,6 @@ let rec
     .. # lang config fields should be non exhaustive for future schemas and end user customizability
   }
 in
-
 {
   languages | { _ : LanguageConfig } = {
     bash = {
@@ -187,7 +186,7 @@ in
       grammar.source | default = {
         git = {
           git = "https://github.com/tree-sitter/tree-sitter-ocaml.git",
-          rev = "a45fda5fe73cda92f2593d16340b3f6bd46674b8",
+          rev = "527d62ef0f24ce0d97fbedf004921d75d0a7e086",
           subdir = "grammars/ocaml",
           nixHash = "sha256-u8R3JvjaOrW6kCX1hNTGMl86HnKAoopSMvHr8Sj0i04=",
         },
@@ -199,7 +198,7 @@ in
       grammar.source | default = {
         git = {
           git = "https://github.com/tree-sitter/tree-sitter-ocaml.git",
-          rev = "a45fda5fe73cda92f2593d16340b3f6bd46674b8",
+          rev = "527d62ef0f24ce0d97fbedf004921d75d0a7e086",
           subdir = "grammars/interface",
           nixHash = "sha256-u8R3JvjaOrW6kCX1hNTGMl86HnKAoopSMvHr8Sj0i04=",
         },
@@ -211,7 +210,7 @@ in
       grammar.source | default = {
         git = {
           git = "https://github.com/314eter/tree-sitter-ocamllex.git",
-          rev = "5da5bb7508ac9fd3317561670ef18c126a0fe2aa",
+          rev = "33722b8be73079946a7c6dd9598e3f57956ed36d",
           nixHash = "sha256-qfmIfcZ3zktYzuNNYP7Z6u6c7XoKsKD86MRMxe/qkpY=",
         },
       },
