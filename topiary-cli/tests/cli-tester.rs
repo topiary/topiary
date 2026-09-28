@@ -56,7 +56,7 @@ pub fn initialize() {
 // This causes the path to the state file to be invalid and breaks the tests.
 // So, we keep the TempDir around so the tests don't break.
 #[cfg(any(feature = "json", feature = "toml"))]
-#[allow(dead_code)]
+#[expect(dead_code)]
 struct State(TempDir, PathBuf);
 
 #[cfg(any(feature = "json", feature = "toml"))]
@@ -633,6 +633,65 @@ fn test_format_with_relative_query_path() {
         .assert()
         .success()
         .stdout(EXPECTED);
+}
+
+#[cfg(any(feature = "json", feature = "toml", feature = "markdown"))]
+fn relative_paths_config() -> PathBuf {
+    fs::canonicalize("sample-configs/renaltive-paths.ncl").unwrap()
+}
+
+#[test]
+#[cfg(feature = "json")]
+fn test_relative_path_canonicalization() {
+    use predicates::str;
+
+    initialize();
+
+    let formatting_file = PathBuf::from("../topiary-queries/queries/json/formatting.scm")
+        .canonicalize()
+        .unwrap();
+
+    cargo_bin_cmd!("topiary")
+        .arg("--configuration")
+        .arg(&relative_paths_config())
+        .arg("config")
+        .arg("--field")
+        .arg("languages.json.queries.formatting.source.path")
+        .assert()
+        .success()
+        .stdout(str::contains(formatting_file.to_string_lossy()));
+}
+
+#[test]
+#[cfg(feature = "toml")]
+fn test_git_source_caches_query() {
+    use predicates::str::contains;
+
+    initialize();
+
+    cargo_bin_cmd!("topiary")
+        .arg("--configuration")
+        .arg(&relative_paths_config())
+        .arg("config")
+        .arg("--field")
+        .arg("languages.toml.queries.formatting.source.path")
+        .assert()
+        .success()
+        .stdout(contains(r#""topiary-queries/queries/toml/formatting.scm""#));
+
+    let cwd = TempDir::new().unwrap();
+
+    cargo_bin_cmd!("topiary")
+        .current_dir(cwd.path())
+        .arg("--configuration")
+        .arg(&relative_paths_config())
+        .arg("fmt")
+        .arg("--language")
+        .arg("toml")
+        .write_stdin(TOML_INPUT)
+        .assert()
+        .success()
+        .stdout(TOML_EXPECTED);
 }
 
 /// Nickel's evaluation warnings reach the user rather than being silently discarded.

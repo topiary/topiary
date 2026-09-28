@@ -31,6 +31,7 @@ use nickel_lang_core::{
 const GRAMMAR: &str = "grammar";
 const QUERIES: &str = "queries";
 const SOURCE: &str = "source";
+const GIT: &str = "git";
 pub(crate) const PATH: &str = "path";
 
 /// Rewrites relative `path` values in an evaluated configuration so that they are
@@ -79,12 +80,17 @@ impl<'a> PathResolver<'a> {
         }
     }
 
-    // If `git is present:
-    // * `path` names a file *inside* the checkout Topiary fetches
+    /// A `source` is either `{ path }` or `{ git, path }`. Only the former names a path on
+    /// the local filesystem: when `git` is present, `path` names a file *inside* the
+    /// checkout Topiary fetches, and must be left exactly as written.
     fn resolve_source(&self, source: &mut NickelValue) {
         let Some(source) = source.as_record_mut() else {
             return;
         };
+        // A git-backed source resolves `path` against the checkout root, not the local filesystem
+        if source.fields.contains_key(&Ident::new(GIT)) {
+            return;
+        }
         let Some(path) = source.field_mut(PATH) else {
             return;
         };

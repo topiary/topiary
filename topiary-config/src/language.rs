@@ -122,7 +122,7 @@ impl GitSource {
     /// Resolve local directory for a given [`Self`] that is expected to contain grammar and/or
     /// query files.
     /// This method does not ensure that the directory exists.
-    pub(crate) fn cache_dir(&self, starting_directory: Option<&Path>, language: &str) -> PathBuf {
+    pub fn cache_dir(&self, starting_directory: Option<&Path>, language: &str) -> PathBuf {
         let cache_dir = starting_directory
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| crate::project_dirs().cache_dir().to_path_buf());
@@ -131,7 +131,7 @@ impl GitSource {
 
     // Set the output path as the revision of the grammar, with a platform-appropriate extension.
     // ex: `path/to/cache_dir/grammar.so`
-    pub(crate) fn grammar_file(cache_dir: &Path) -> PathBuf {
+    pub fn grammar_file(cache_dir: &Path) -> PathBuf {
         cache_dir
             .join("grammar")
             .with_extension(std::env::consts::DLL_EXTENSION)
