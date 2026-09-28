@@ -96,7 +96,7 @@ impl fmt::Display for TopiaryConfigError {
                 write!(f, "We could not load the grammar for the given language")
             }
             TopiaryConfigError::Nickel { .. } => {
-                // NOTE(mkatycev) sematincs of the error should be taken cary of by a nickel `Reporter`
+                // NOTE(mkatycev) semantics of the error should be taken cary of by a nickel `Reporter`
                 // such as `LogReporter` because the `nickel_lang_core::Error` does _not_ implement
                 // `Display`
                 write!(

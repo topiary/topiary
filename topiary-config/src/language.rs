@@ -643,6 +643,50 @@ mod tests {
     }
 
     #[test]
+    fn git_source_cache_dir_layout() {
+        let git = GitSource {
+            git: "https://example.invalid/repo.git".to_string(),
+            rev: "deadbeef".to_string(),
+        };
+
+        // With an explicit starting directory the cache dir is
+        // `<starting_directory>/<language>/<rev>`, ignoring the platform cache dir.
+        let base = Path::new("/tmp/topiary-cache");
+        assert_eq!(
+            git.cache_dir(Some(base), "markdown"),
+            base.join("markdown").join("deadbeef"),
+        );
+    }
+
+    #[test]
+    fn git_source_cache_dir_defaults_to_project_dirs() {
+        let git = GitSource {
+            git: "https://example.invalid/repo.git".to_string(),
+            rev: "deadbeef".to_string(),
+        };
+
+        // With no starting directory the cache dir is anchored at the platform cache dir,
+        // and still ends with `<language>/<rev>`.
+        let resolved = git.cache_dir(None, "markdown");
+        assert!(resolved.ends_with(Path::new("markdown").join("deadbeef")));
+        assert!(resolved.starts_with(crate::project_dirs().cache_dir()));
+    }
+
+    #[test]
+    fn git_source_grammar_file_uses_dll_extension() {
+        let cache_dir = Path::new("/tmp/topiary-cache/markdown/deadbeef");
+
+        let expected = cache_dir
+            .join("grammar")
+            .with_extension(std::env::consts::DLL_EXTENSION);
+        assert_eq!(GitSource::grammar_file(cache_dir), expected);
+        assert_eq!(
+            GitSource::grammar_file(cache_dir).file_stem().unwrap(),
+            "grammar"
+        );
+    }
+
+    #[test]
     fn grammar_symbol_override() {
         let src = r#"
 {
