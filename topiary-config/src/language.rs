@@ -11,6 +11,7 @@ use gix::{
     remote::{self, Direction, fetch, fetch::refmap},
     worktree::state::checkout,
 };
+use nickel_lang_core::eval::value::NickelValue;
 #[cfg(not(target_arch = "wasm32"))]
 use std::num::NonZero;
 #[cfg(not(target_arch = "wasm32"))]
@@ -24,9 +25,9 @@ use std::{
 #[cfg(not(target_arch = "wasm32"))]
 use tempfile::TempDir;
 
-use crate::error::TopiaryConfigResult;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::error::{TopiaryConfigError, TopiaryConfigFetchingError};
+use crate::{error::TopiaryConfigResult, paths::AsRecord};
 
 /// Language definitions, as far as the CLI and configuration are concerned, contain everything
 /// needed to configure formatting for that language.
@@ -88,6 +89,26 @@ pub enum GrammarSource {
     },
 }
 
+impl TryFrom<&NickelValue> for GrammarSource {
+    type Error = &'static str;
+
+    fn try_from(ncl: &NickelValue) -> Result<Self, Self::Error> {
+        use crate::paths::{GIT, PATH, SUBDIR};
+        // source.git
+        if let Some(git_source) = ncl.field(GIT) {
+            let git = git_source.try_into()?;
+            let subdir = ncl.field_as_string(SUBDIR).map(PathBuf::from);
+            return Ok(Self::Git { git, subdir });
+        }
+        // source.path
+        let path = ncl
+            .field_as_string(PATH)
+            .map(PathBuf::from)
+            .ok_or("unable to resolve grammar source")?;
+        Ok(Self::Path(path))
+    }
+}
+
 /// A query file location. Either a local `path`, or a `path` inside a git checkout that
 /// Topiary will fetch and cache on demand.
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
@@ -98,6 +119,23 @@ pub struct QuerySource {
     /// Path to the query file (relative to the git checkout root when `git` is set,
     /// otherwise resolved as-is).
     pub path: PathBuf,
+}
+
+impl TryFrom<&NickelValue> for QuerySource {
+    type Error = &'static str;
+
+    fn try_from(ncl: &NickelValue) -> Result<Self, Self::Error> {
+        use crate::paths::{GIT, PATH};
+        // source.git
+        let git = ncl.field(GIT).map(GitSource::try_from).transpose()?;
+        // source.path
+        let path = ncl
+            .field_as_string(PATH)
+            .map(PathBuf::from)
+            .ok_or("unable to resolve query source")?;
+
+        Ok(Self { git, path })
+    }
 }
 
 /// A named query entry (e.g. `formatting`, `injections`). The Nickel contract is
@@ -122,11 +160,7 @@ impl GitSource {
     /// Resolve local directory for a given [`Self`] that is expected to contain grammar and/or
     /// query files.
     /// This method does not ensure that the directory exists.
-    pub(crate) fn as_cache_dir(
-        &self,
-        starting_directory: Option<&Path>,
-        language: &str,
-    ) -> PathBuf {
+    pub(crate) fn cache_dir(&self, starting_directory: Option<&Path>, language: &str) -> PathBuf {
         let cache_dir = starting_directory
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| crate::project_dirs().cache_dir().to_path_buf());
@@ -139,6 +173,22 @@ impl GitSource {
         cache_dir
             .join("grammar")
             .with_extension(std::env::consts::DLL_EXTENSION)
+    }
+}
+
+impl TryFrom<&NickelValue> for GitSource {
+    type Error = &'static str;
+
+    fn try_from(git_source: &NickelValue) -> Result<Self, Self::Error> {
+        use crate::paths::{GIT, REV};
+        // source.git.git
+        let url = git_source.field_as_string(GIT);
+        // source.git.rev
+        let rev = git_source.field_as_string(REV);
+
+        url.zip(rev)
+            .map(|(git, rev)| GitSource { git, rev })
+            .ok_or("unable to resolve git source")
     }
 }
 
@@ -176,7 +226,7 @@ impl Language {
             return Ok(source.path.clone());
         };
 
-        let query_path = git.as_cache_dir(None, &self.name).join(&source.path);
+        let query_path = git.cache_dir(None, &self.name).join(&source.path);
         if query_path.is_file() {
             log::debug!(
                 "{}: query file already exists; returning cached path",
@@ -276,7 +326,7 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
     pub fn grammar_file(&self) -> std::io::Result<PathBuf> {
         match &self.config.grammar.source {
             GrammarSource::Git { git, .. } => {
-                let cache_dir = git.as_cache_dir(None, &self.name);
+                let cache_dir = git.cache_dir(None, &self.name);
                 std::fs::create_dir_all(&cache_dir)?;
 
                 Ok(GitSource::grammar_file(&cache_dir))
