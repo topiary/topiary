@@ -512,7 +512,7 @@ mod tests {
                         carriage_return_significant,
                         tab_significant,
                     },
-                    &"\
+                    "\
 ''
 \ra
 \ra

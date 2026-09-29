@@ -656,7 +656,7 @@ fn test_relative_path_canonicalization() {
 
     cargo_bin_cmd!("topiary")
         .arg("--configuration")
-        .arg(&relative_paths_config())
+        .arg(relative_paths_config())
         .arg("config")
         .arg("--field")
         .arg("languages.json.queries.formatting.source.path")
@@ -674,7 +674,7 @@ fn test_git_source_caches_query() {
 
     cargo_bin_cmd!("topiary")
         .arg("--configuration")
-        .arg(&relative_paths_config())
+        .arg(relative_paths_config())
         .arg("config")
         .arg("--field")
         .arg("languages.toml.queries.formatting.source.path")
@@ -687,7 +687,7 @@ fn test_git_source_caches_query() {
     cargo_bin_cmd!("topiary")
         .current_dir(cwd.path())
         .arg("--configuration")
-        .arg(&relative_paths_config())
+        .arg(relative_paths_config())
         .arg("fmt")
         .arg("--language")
         .arg("toml")

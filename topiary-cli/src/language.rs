@@ -112,12 +112,12 @@ impl LanguageDefinitionCache {
 
         Ok(match cache.entry(key) {
             Entry::Occupied(lang_def) => {
-                log::debug!("Cache {:p}: Hit at {:#016x} ({name})", self, key);
+                log::debug!("Cache {self:p}: Hit at {key:#016x} ({name})");
                 lang_def.get().to_owned()
             }
 
             Entry::Vacant(slot) => {
-                log::debug!("Cache {:p}: Insert at {:#016x} ({name})", self, key);
+                log::debug!("Cache {self:p}: Insert at {key:#016x} ({name})");
                 let lang_def = Arc::new(config.get_language(name)?);
                 slot.insert(lang_def).to_owned()
             }
