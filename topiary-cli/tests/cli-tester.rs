@@ -651,6 +651,9 @@ fn test_relative_path_canonicalization() {
         .canonicalize()
         .unwrap();
 
+    // escapes backslashes in a string literal
+    let formatting_file = formatting_file.to_string_lossy().replace('\\', r"\\");
+
     cargo_bin_cmd!("topiary")
         .arg("--configuration")
         .arg(&relative_paths_config())
@@ -659,7 +662,7 @@ fn test_relative_path_canonicalization() {
         .arg("languages.json.queries.formatting.source.path")
         .assert()
         .success()
-        .stdout(str::contains(formatting_file.to_string_lossy()));
+        .stdout(str::contains(formatting_file));
 }
 
 #[test]
