@@ -260,7 +260,7 @@ inner language and then rendered as a host leaf. See
 [Language injections](../reference/language-injections.md) for the
 full behaviour and limitations.
 
-As with `formatting`, an `injections` query can point at
+As with `formatting` queries, `injections` can point at
 config-relative or git-relative path, see [Pointing at a query file
 explicitly](#pointing-at-a-query-file-explicitly) for mode details.
 
