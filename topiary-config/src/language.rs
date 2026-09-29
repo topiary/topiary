@@ -214,7 +214,7 @@ impl Language {
             let path = self
                 .resolve_query_path_with(&query.source, repos)
                 .map_err(TopiaryConfigError::Fetching)?;
-            log::info!(
+            log::debug!(
                 "detected path for languages.{language_name}.{query_name}: {}",
                 path.display()
             );
