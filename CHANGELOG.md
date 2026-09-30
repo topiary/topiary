@@ -44,7 +44,7 @@ This name should be decided amongst the team before the release.
 
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.8.0...HEAD)
 
-## v0.8.0 - Irresistible Ironwood - 2026-09-30
+## v0.8.0 - Irresistible Ironwood - 2026-10-01
 
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.7.3...v0.8.0)
 
