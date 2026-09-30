@@ -42,7 +42,11 @@ This name should be decided amongst the team before the release.
 
 ## Unreleased
 
-[Full list of changes](https://github.com/topiary/topiary/compare/v0.7.3...HEAD)
+[Full list of changes](https://github.com/topiary/topiary/compare/v0.8.0...HEAD)
+
+## v0.8.0 - Irresistible Ironwood - 2026-09-30
+
+[Full list of changes](https://github.com/topiary/topiary/compare/v0.7.3...v0.8.0)
 
 ### Changed
 - [#1032](https://github.com/topiary/topiary/pull/1032) Replaced the `topiary-core` test and benchmark dependencies on the `tree-sitter-json` and `tree-sitter-nickel` grammar crates with dynamic loading via `topiary-config`.
@@ -91,23 +95,6 @@ This name should be decided amongst the team before the release.
 
 ### Removed
 - [#1217](https://github.com/topiary/topiary/pull/1217) The `check` alias for the `check-grammar` subcommand, to avoid confusion with `topiary fmt --check`.
-
-<!--
-### Changed
-- <Changes in existing functionality>
-
-### Deprecated
-- <Soon-to-be removed features>
-
-### Removed
-- <Removed features>
-
-### Fixed
-- <Bug fixes>
-
-### Security
-- <Vulnerabilities>
--->
 
 ## v0.7.3 - Heavenly Hemlock - 2025-12-31
 
