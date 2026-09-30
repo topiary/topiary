@@ -134,6 +134,15 @@ impl fmt::Display for TopiaryConfigFetchingError {
     }
 }
 
+impl<E> From<gix::Exn<E>> for TopiaryConfigFetchingError
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    fn from(e: gix::Exn<E>) -> Self {
+        Self::Git(e.into_error().into())
+    }
+}
+
 impl From<nickel_lang_core::program::BuilderError> for TopiaryConfigError {
     fn from(e: nickel_lang_core::program::BuilderError) -> Self {
         match e {

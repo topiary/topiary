@@ -471,9 +471,8 @@ impl GitSource {
                 overwrite_existing: true,
                 ..Default::default()
             },
-        )
-        .wrap_err()?;
-        index.write(Default::default()).wrap_err()?;
+        )?;
+        index.write(Default::default())?;
 
         Ok(LocalRepo(dest))
     }

@@ -9,6 +9,7 @@ pub fn pretty_assert_eq(v1: &str, v2: &str) {
                 Some(ContextConfig {
                     context_size: 2,
                     skipping_marker: "...",
+                    ..Default::default()
                 }),
                 true,
             )
