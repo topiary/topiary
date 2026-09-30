@@ -637,7 +637,7 @@ fn test_format_with_relative_query_path() {
 
 #[cfg(any(feature = "json", feature = "toml", feature = "markdown"))]
 fn relative_paths_config() -> PathBuf {
-    fs::canonicalize("sample-configs/relative-paths.ncl").unwrap()
+    fs::canonicalize("example-configs/relative-paths-config.ncl").unwrap()
 }
 
 #[test]
