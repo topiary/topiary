@@ -1,2 +1,9 @@
 [advisories]
-ignore = []
+ignore = [
+  # imbl-sized-chunks 0.1 is pulled in transitively by
+  # nickel-lang-vector, which cannot be resolved to the fixed 0.2 until
+  # Nickel bumps it upstream. The issue requires an element's Drop to
+  # panic during removal, which is not expected of Nickel's runtime
+  # values.
+  "RUSTSEC-2026-0292",
+]

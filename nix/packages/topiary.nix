@@ -81,6 +81,17 @@ let
     commonArgs
     // {
       inherit advisory-db;
+
+      # A minimal source, rather than commonArgs' src, so that
+      # cargo-audit sees its configuration without audit.toml changes
+      # invalidating the sources of every other derivation.
+      src = fileset.toSource {
+        root = ../..;
+        fileset = fileset.unions [
+          ../../Cargo.lock
+          ../../.cargo/audit.toml
+        ];
+      };
     }
   );
 
