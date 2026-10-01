@@ -59,40 +59,53 @@ and can therefore be installed in whichever way you prefer. For example:
 ### NixOS (`configuration.nix`)
 
 ```nix
-environment.systemPackages = with pkgs; [
-  topiary
-];
+{
+  environment.systemPackages = [
+    pkgs.topiary
+  ];
+}
 ```
 
 ### Home Manager (`home.nix`)
 
 ```nix
-home.packages = with pkgs; [
-  topiary
-];
+{
+  home.packages = [
+    pkgs.topiary
+  ];
+}
 ```
 
 ### Nix install
 
-```sh
-# Using flakes:
-nix profile install nixpkgs#topiary
+#### With stable features
 
-# Or, without flakes:
-# (Note: Use nixos.topiary on NixOS)
-nix-env -iA nixpkgs.topiary
+```console
+$ nix-env -iA nixpkgs.topiary
+```
+
+NOTE: Use `nixos.topiary` on NixOS
+
+#### With flakes + nix-command
+
+```console
+$ nix profile add nixpkgs#topiary
 ```
 
 ### `nix-shell`
 
 To temporarily add Topiary to your path, use:
 
-```sh
-# Using flakes:
-nix shell nixpkgs#topiary
+#### With stable features
 
-# Or, without flakes:
-nix-shell -p topiary
+```console
+$ nix-shell -p topiary
+```
+
+#### With nix-command
+
+```console
+$ nix shell -f "<nixpkgs>" topiary
 ```
 
 ## Arch Linux (AUR)
