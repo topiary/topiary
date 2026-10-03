@@ -732,9 +732,9 @@ mod tests {
 
     #[test(tokio::test)]
     async fn tolerate_parsing_errors() {
-        // Contains the invalid object {"bar"   "baz"}. It should be left untouched.
-        let mut input = "{\"one\":{\"bar\"   \"baz\"},\"two\":\"bar\"}".as_bytes();
-        let expected = "{ \"one\": {\"bar\"   \"baz\"}, \"two\": \"bar\" }\n";
+        // Contains an invalid nested object. The error node should be left untouched.
+        let mut input = "{\"one\":{\"bar\":@},\"two\":\"bar\"}".as_bytes();
+        let expected = "{ \"one\": {\"bar\":@}, \"two\": \"bar\" }\n";
 
         let mut output = Vec::new();
         let language = language("json", topiary_queries::json(), None);

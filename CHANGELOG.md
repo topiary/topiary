@@ -44,6 +44,10 @@ This name should be decided amongst the team before the release.
 
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.8.0...HEAD)
 
+### Changed
+
+- [#1342](https://github.com/topiary/topiary/pull/1342) Upgrade `tree-sitter` and `tree-sitter-loader` to 0.27.0, with the required API compatibility updates.
+
 ## v0.8.0 - Irresistible Ironwood - 2026-10-01
 
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.7.3...v0.8.0)

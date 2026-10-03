@@ -17,7 +17,12 @@ mod native {
 
         #[inline]
         fn captures(&self) -> impl ExactSizeIterator<Item = QueryCapture<'tree>> {
-            self.captures.iter().map(Into::into)
+            // Since tree-sitter 0.27 the `captures` field is private, so we go
+            // through the inherent accessor. It is spelled out in full because
+            // it shares its name with this trait method.
+            tree_sitter::QueryMatch::captures(self)
+                .iter()
+                .map(Into::into)
         }
     }
 }

@@ -34,7 +34,8 @@ mod native {
 
         #[inline]
         pub fn child_count(&self) -> u32 {
-            u32::try_from(self.inner.child_count()).unwrap()
+            // tree-sitter 0.27 returns a `u32` here, unlike `named_child_count`
+            self.inner.child_count()
         }
 
         #[inline]
@@ -146,9 +147,12 @@ mod native {
             self.inner.language().into()
         }
 
+        // The name is owned rather than borrowed: `Node::language` hands back a
+        // `LanguageRef` by value, and since tree-sitter 0.27 the name borrows
+        // from the language, so a `&str` here would point into a temporary.
         #[inline]
-        pub fn language_name(&self) -> Option<&'static str> {
-            self.inner.language().name()
+        pub fn language_name(&self) -> Option<String> {
+            self.inner.language().name().map(ToOwned::to_owned)
         }
 
         #[inline]
