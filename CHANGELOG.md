@@ -42,6 +42,8 @@ This name should be decided amongst the team before the release.
 
 ## Unreleased
 
+### Added
+
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.8.0...HEAD)
 
 ## v0.8.0 - Irresistible Ironwood - 2026-10-01
@@ -68,6 +70,7 @@ This name should be decided amongst the team before the release.
 - [#1311](https://github.com/topiary/topiary/pull/1311) Use `#set!` directive for `injection.language` property
 - [#1328](https://github.com/topiary/topiary/pull/1328) [#1335](https://github.com/topiary/topiary/pull/1335) **Breaking:** A relative `grammar.source.path` or `queries.<name>.source.path` in a configuration is now resolved against the directory of the `languages.ncl` that defined it, rather than against the working directory. A `path` accompanied by a `git` source is unaffected: it remains relative to the checkout root.
 - [#1335](https://github.com/topiary/topiary/pull/1335) Nickel's evaluation warnings, previously discarded, are now reported through Topiary's logger.
+- [#1343](https://github.com/topiary/topiary/pull/1343) Add callout when failing to copy queries during fetch
 
 ### Fixed
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
