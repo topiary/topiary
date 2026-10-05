@@ -1,0 +1,27 @@
+name: Publish to crates.io
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up build dependencies
+        uses: ./.github/actions/nix-build
+        with:
+          nix_path: nixpkgs=channel:nixpkgs-unstable
+          auth_token: "${{ secrets.CACHIX_TWEAG_TOPIARY_AUTH_TOKEN }}"
+
+      - run: nix develop .#minimal --command cargo publish --workspace
+        env:
+          CARGO_REGISTRY_TOKEN: "${{ secrets.CRATES_IO_TOKEN }}"

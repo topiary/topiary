@@ -15,10 +15,12 @@ targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-da
 install-path = "CARGO_HOME"
 # Whether to install an updater program
 install-updater = false
+# Publish jobs to run in CI
+publish-jobs = ["./publish-crates"]
 
 ########################################################################
 
-# Custom runner set-up to workaround ubuntu-20.04 deprecation
+# Custom runner set-up to workaround old Ubuntu runner images
 # See https://github.com/axodotdev/cargo-dist/issues/1760#issuecomment-2769218034
 
 [dist.github-custom-runners]
