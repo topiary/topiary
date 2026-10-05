@@ -57,6 +57,8 @@ example: `bin/changelog.nu --no-cc-header --save --section Added`
 ### Fixed
 - [#1348](https://github.com/topiary/topiary/pull/1348) injections now preserve trailing newlines
 
+- [#1343](https://github.com/topiary/topiary/pull/1343) Add callout when failing to copy queries during fetch
+
 ## v0.8.0 - Irresistible Ironwood - 2026-10-01
 
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.7.3...v0.8.0)
@@ -81,7 +83,6 @@ example: `bin/changelog.nu --no-cc-header --save --section Added`
 - [#1311](https://github.com/topiary/topiary/pull/1311) Use `#set!` directive for `injection.language` property
 - [#1328](https://github.com/topiary/topiary/pull/1328) [#1335](https://github.com/topiary/topiary/pull/1335) **Breaking:** A relative `grammar.source.path` or `queries.<name>.source.path` in a configuration is now resolved against the directory of the `languages.ncl` that defined it, rather than against the working directory. A `path` accompanied by a `git` source is unaffected: it remains relative to the checkout root.
 - [#1335](https://github.com/topiary/topiary/pull/1335) Nickel's evaluation warnings, previously discarded, are now reported through Topiary's logger.
-- [#1343](https://github.com/topiary/topiary/pull/1343) Add callout when failing to copy queries during fetch
 
 ### Fixed
 - [#1176](https://github.com/topiary/topiary/pull/1176) Increase the stack size to 4MiB in Windows builds.
