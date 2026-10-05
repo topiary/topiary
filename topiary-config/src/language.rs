@@ -187,15 +187,7 @@ impl Language {
             .transpose()?;
 
         let checkout_dir = repos.get_or_insert(git)?;
-        let copy_from = checkout_dir.join(&source.path);
-        std::fs::copy(&copy_from, &query_path).inspect_err(|_e| {
-            // NOTE(mkatychev): current error will be too noisy if add this data
-            log::error!(
-                "failed to copy query from {} to {}",
-                copy_from.display(),
-                query_path.display(),
-            );
-        })?;
+        std::fs::copy(checkout_dir.join(&source.path), &query_path)?;
         Ok(query_path)
     }
 

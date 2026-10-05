@@ -56,7 +56,6 @@ example: `bin/changelog.nu --no-cc-header --save --section Added`
 
 ### Fixed
 - [#1348](https://github.com/topiary/topiary/pull/1348) injections now preserve trailing newlines
-
 - [#1343](https://github.com/topiary/topiary/pull/1343) Add callout when failing to copy queries during fetch
 
 ## v0.8.0 - Irresistible Ironwood - 2026-10-01
