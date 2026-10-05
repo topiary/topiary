@@ -78,8 +78,7 @@ let rec
       path | String,
     },
   Query = {
-    source | QuerySource,
-    .. # query entries are non-exhaustive for future metadata (e.g. per-query overrides)
+    source | std.contract.any_of [QuerySource, Array QuerySource],
   },
   LanguageConfig = {
     extensions
@@ -284,13 +283,7 @@ in
     wit = {
       extensions | default = ["wit"],
       indent | default = "    ", # 4 spaces
-      grammar.source | default = {
-        git = {
-          git = "https://github.com/bytecodealliance/tree-sitter-wit",
-          rev = "v1.4.0",
-          nixHash = "sha256-63xH63s6lgticgRtMz7LCL1ThuXegn7qFCZgeQqIZH4=",
-        },
-      },
+      grammar.source.path = "/Users/mkatychev/Documents/tree-sitter/wit/parser.dylib"
     },
   },
   ..

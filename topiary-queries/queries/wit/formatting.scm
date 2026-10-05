@@ -24,19 +24,15 @@
 
 ; Allow blank line before
 [
-  (enum_items)
+  (statement)
+  (func_item)
+  (world_definition)
+  (typedef_item)
+  (gate_item)
   (external_id)
-  (flags_items)
-  (interface_item)
-  (line_comment)
+  (resource_method)
   (block_comment)
-  (nested_package_definition)
-  (package_decl)
-  (record_item)
-  (resource_item)
-  (type_item)
-  (variant_items)
-  (world_item)
+  (line_comment)
 ] @allow_blank_line_before
 
 [
@@ -66,24 +62,21 @@
 ; because the input softlines and spaces above will already have sorted out the
 ; formatting.
 (
+  (block_comment)?
+  .
   [
-    (deprecated_gate)
-    (export_item)
-    (external_id)
+    (package_items)
+    (statement)
     (func_item)
-    (import_item)
-    (include_item)
-    (interface_item)
-    (nested_package_definition)
-    (package_decl)
-    (resource_item)
+    (world_definition)
+    (typedef_item)
+    (gate_item)
+    (external_id)
     (resource_method)
-    (since_gate)
-    (toplevel_use_item)
-    (type_item)
-    (unstable_gate)
+    (line_comment)
+    (variant_items)
+    (enum_items)
     (use_item)
-    (world_item)
   ] @append_hardline
   .
   [
@@ -92,16 +85,15 @@
   ]* @do_nothing
 )
 
-(world_item) @append_hardline
-
 (line_comment) @append_hardline
 
-[
-  (since_gate)
-  (deprecated_gate)
-  (unstable_gate)
-  (external_id)
-] @append_spaced_softline
+; A block comment that trails a comma (e.g. an enum/variant case) belongs with
+; the preceding item, so break the line after it.
+(
+  ","
+  .
+  (block_comment) @append_hardline
+)
 
 ; Always leave a space before an opening `{`, even when the body is empty
 ; (the `{ _ }` pattern below only fires for non-empty bodies).
