@@ -283,7 +283,13 @@ in
     wit = {
       extensions | default = ["wit"],
       indent | default = "    ", # 4 spaces
-      grammar.source.path = "/Users/mkatychev/Documents/tree-sitter/wit/parser.dylib"
+      grammar.source | default = {
+        git = {
+          git = "https://github.com/bytecodealliance/tree-sitter-wit",
+          rev = "f777cdbe11281ccc68ffa30bd7ea34cdf4ddbec6",
+          nixHash = "sha256-63xH63s6lgticgRtMz7LCL1ThuXegn7qFCZgeQqIZH4=",
+        },
+      },
     },
   },
   ..
