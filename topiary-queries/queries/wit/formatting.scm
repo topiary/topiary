@@ -24,9 +24,10 @@
 
 ; Allow blank line before
 [
-  (statement)
-  (func_item)
-  (world_definition)
+  (interface_item)
+  (world_item)
+  (nested_package_definition)
+  (package_decl)
   (typedef_item)
   (gate_item)
   (external_id)
