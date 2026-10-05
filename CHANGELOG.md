@@ -42,9 +42,9 @@ This name should be decided amongst the team before the release.
 
 ## Unreleased
 
-### Added
-
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.8.0...HEAD)
+
+### Added
 
 ## v0.8.0 - Irresistible Ironwood - 2026-10-01
 
