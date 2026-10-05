@@ -46,8 +46,6 @@ example: `bin/changelog.nu --no-cc-header --save --section Added`
 
 ## Unreleased
 
-### Added
-
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.8.0...HEAD)
 
 ### Added
