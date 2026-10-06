@@ -79,13 +79,11 @@ impl Configuration {
         })
     }
 
-    /// The stage of the formatting pipeline requested to be skipped, if any.
     pub fn skip_stage(&self) -> Option<SkipStage> {
         self.skip_stage
     }
 
-    /// Whether input formatting queries need to be resolved.
-    pub fn resolve_formatting_query(&self) -> bool {
+    pub fn use_formatting_query(&self) -> bool {
         !matches!(self.skip_stage, Some(SkipStage::HostLanguage))
     }
 

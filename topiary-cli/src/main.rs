@@ -14,7 +14,7 @@ use std::{
 };
 
 use error::Benign;
-use rootcause::report;
+use rootcause::{option_ext::OptionExt, report};
 use tabled::{Table, settings::Style};
 use topiary_core::{FormatterError, Operation, SpanAttachment, check_query_coverage, formatter};
 
@@ -252,8 +252,7 @@ async fn run() -> CLIResult<()> {
 
             let language = tokio::task::block_in_place(|| config.cache().fetch_input(&input))?;
 
-            // Coverage is computed against the host formatting query, which we
-            // always resolve for this subcommand.
+            // Formatting query is always resolved for `Coverage`.
             let Some(formatting_query) = language.formatting_query.as_ref() else {
                 return Err(report!(FormatterError::MissingFormattingQuery).into_dynamic());
             };
@@ -279,8 +278,8 @@ async fn run() -> CLIResult<()> {
                 buf_input
                     .get_ref()
                     .formatting_query()
-                    .map(ToString::to_string)
-                    .unwrap_or_else(|| "<none>".to_owned()),
+                    .ok_or_report()?
+                    .to_string(),
                 formatting_query.query_content.clone(),
             )
             .with_language(&language.name);

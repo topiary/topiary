@@ -24,10 +24,6 @@ pub struct Cli {
 }
 
 impl Cli {
-    /// The formatting stage requested to be skipped, if any.
-    ///
-    /// `--skip-stage` is only accepted by the `format` subcommand, so this is
-    /// `None` for every other subcommand.
     pub fn skip_stage(&self) -> Option<SkipStage> {
         match &self.command {
             Commands::Format { skip_stage, .. } => *skip_stage,

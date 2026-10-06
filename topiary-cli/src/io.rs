@@ -190,8 +190,6 @@ impl InputFile<'_> {
                         .context(FormatterError::Parsing)?,
                 )
             }
-            // No formatting query was resolved (e.g. because the host stage is
-            // skipped): the host query is never consulted.
             None => None,
         };
         let injection_query = match &self.injection_query {
@@ -264,18 +262,10 @@ impl Read for InputFile<'_> {
 pub struct Inputs<'cfg>(Vec<CLIResult<InputFile<'cfg>>>);
 
 impl<'cfg, 'i> Inputs<'cfg> {
-    /// Build the set of inputs.
-    ///
-    /// Whether the host formatting query is resolved is decided by the
-    /// [`Configuration`]'s [`SkipStage`](crate::cli::SkipStage): it is not
-    /// needed when the host stage is skipped (e.g. `--skip-stage host`), in
-    /// which case the host query may legitimately be absent from the
-    /// configuration.
     pub fn new<T>(config: &'cfg Configuration, inputs: &'i T) -> Self
     where
         &'i T: Into<InputFrom>,
     {
-        let resolve_formatting_query = config.resolve_formatting_query();
         let inputs = match inputs.into() {
             InputFrom::Stdin(language_name, query) => {
                 vec![(|| {
@@ -283,7 +273,7 @@ impl<'cfg, 'i> Inputs<'cfg> {
                         .get_language_cfg(&language_name)
                         .preformat_context()
                         .context(TopiaryError::Config)?;
-                    let formatting_query = if resolve_formatting_query {
+                    let formatting_query = if config.use_formatting_query() {
                         Some(match query {
                             // The user specified a query file
                             Some(p) => p,
@@ -313,7 +303,7 @@ impl<'cfg, 'i> Inputs<'cfg> {
                     let language = config.detect(&path).preformat_context()?;
                     let language_name = language.name.clone();
                     let formatting_query =
-                        if resolve_formatting_query {
+                        if config.use_formatting_query() {
                             Some(config.get_query_source(
                                 &language_name,
                                 topiary_queries::FORMATTING_QUERY,
