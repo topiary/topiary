@@ -47,7 +47,7 @@ impl fmt::Display for TopiaryError {
             Self::SkippedHostLanguage(name) => {
                 write!(
                     f,
-                    "Host languages (the root language for a given input) cannot be used as an argument for `--skip-language`"
+                    "{name} cannot be used as an argument for `--skip-language` because it is a host language for one or more inputs"
                 )
             }
             Self::CheckFailed {
