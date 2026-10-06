@@ -26,7 +26,7 @@ pub struct LanguageDefinitionCache {
     /// Skipping only affects *injected* languages (and the associated query
     /// searching); formatting an input whose own language is skipped is an
     /// error, as the host grammar is required to format the file.
-    skipped: HashSet<String>,
+    skip_languages: HashSet<String>,
 }
 
 impl LanguageDefinitionCache {
@@ -34,7 +34,7 @@ impl LanguageDefinitionCache {
         LanguageDefinitionCache {
             languages: Mutex::new(HashMap::new()),
             repos: LocalRepos::new(),
-            skipped: skipped.into_iter().collect(),
+            skip_languages: skipped.into_iter().collect(),
         }
     }
 
@@ -44,7 +44,7 @@ impl LanguageDefinitionCache {
 
     /// Returns `true` if `name` is excluded via `--skip-language`.
     pub fn is_skipped(&self, name: &str) -> bool {
-        self.skipped.contains(name)
+        self.skip_languages.contains(name)
     }
 
     fn key_for_parts(
@@ -119,13 +119,14 @@ impl LanguageDefinitionCache {
     pub fn fetch_from_config(
         &self,
         config: &Configuration,
-        name: &str,
+        language: &str,
     ) -> CLIResult<Arc<Language>> {
-        let formatting_query = config.get_query_source(name, topiary_queries::FORMATTING_QUERY)?;
+        let formatting_query =
+            config.get_query_source(language, topiary_queries::FORMATTING_QUERY)?;
         let injection_query = config
-            .get_query_source(name, topiary_queries::INJECTIONS_QUERY)
+            .get_query_source(language, topiary_queries::INJECTIONS_QUERY)
             .ok();
-        let key = Self::key_for_parts(name, &formatting_query, injection_query.as_ref());
+        let key = Self::key_for_parts(language, &formatting_query, injection_query.as_ref());
 
         let mut cache = self
             .languages
@@ -134,34 +135,33 @@ impl LanguageDefinitionCache {
 
         Ok(match cache.entry(key) {
             Entry::Occupied(lang_def) => {
-                log::debug!("Cache {self:p}: Hit at {key:#016x} ({name})");
+                log::debug!("Cache {self:p}: Hit at {key:#016x} ({language})");
                 lang_def.get().to_owned()
             }
 
             Entry::Vacant(slot) => {
-                log::debug!("Cache {self:p}: Insert at {key:#016x} ({name})");
-                let lang_def = Arc::new(config.get_language(name)?);
+                log::debug!("Cache {self:p}: Insert at {key:#016x} ({language})");
+                let lang_def = Arc::new(config.get_language(language)?);
                 slot.insert(lang_def).to_owned()
             }
         })
     }
 
-    /// Resolve an *injected* language by name, filtering out any language excluded via
-    /// `--skip-language`.
+    /// Fetch _injected_ language by name, filtering out any language excluded languages.
     ///
-    /// Unlike [`Self::fetch_input`], a skipped language is not an error here: it returns
-    /// `Ok(None)` so the injection is gracefully left unformatted (e.g. a `rust` code block
-    /// inside Markdown can be skipped without failing the whole format).
-    pub fn fetch_injected(
+    /// NOTE: Unlike [`Self::fetch_input`], failing to fetch a skipped language should not result in
+    /// an error so long as the language is for an injected grammar; such a `rust` code fence inside
+    /// a markdown document.
+    pub fn fetch_injected
         &self,
         config: &Configuration,
-        name: &str,
+        language: &str,
     ) -> CLIResult<Option<Arc<Language>>> {
-        if self.is_skipped(name) {
-            log::debug!("Skipping injected language {name} (excluded via --skip-language)");
+        if self.is_skipped(language) {
+            log::debug!("Skipping injected language: {language}");
             return Ok(None);
         }
 
-        self.fetch_from_config(config, name).map(Some)
+        self.fetch_from_config(config, language).map(Some)
     }
 }

@@ -43,7 +43,7 @@ fn expand_tilde(path: &Path) -> PathBuf {
 
 impl Configuration {
     /// Create a new Configuration by fetching from the given path
-    pub fn new(merge: bool, path: Option<&Path>, skip_language: Vec<String>) -> CLIResult<Self> {
+    pub fn new(merge: bool, path: Option<&Path>, skip_languages: Vec<String>) -> CLIResult<Self> {
         // expand tilde paths: "~/.config/topiary/foo.ncl"
         let path = path.map(expand_tilde);
         let (inner, ncl) =
@@ -66,7 +66,7 @@ impl Configuration {
             inner,
             ncl_id,
             path,
-            cache: Arc::new(LanguageDefinitionCache::new(skip_language)),
+            cache: Arc::new(LanguageDefinitionCache::new(skip_languages)),
         })
     }
 
@@ -205,12 +205,8 @@ impl Configuration {
         self.cache.clone()
     }
 
-    /// Resolve an injected language by name, returning None if the language is unknown
-    /// or filtered out via `--skip-language`.
-    ///
-    /// This is used to fetch language definitions for code injections during formatting.
-    /// Returns `Ok(None)` if the language is not configured or skipped, `Ok(Some(language))`
-    /// if found, or `Err` if there was an error resolving the language.
+    /// Find an injected [`Language`] by name, returning None if the language is unknown
+    /// or filtered out.
     pub fn resolve_injected_language(&self, name: &str) -> FormatterResult<Option<Arc<Language>>> {
         if matches!(
             self.get_language_cfg(name),

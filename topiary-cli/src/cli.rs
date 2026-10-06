@@ -53,7 +53,7 @@ pub struct GlobalArgs {
     )]
     pub verbose: u8,
 
-    /// Skip formatting the given language (repeatable)
+    /// Skip formatting the given language(s)
     #[arg(long, value_name = "LANGUAGE", global = true, display_order = 103)]
     pub skip_language: Vec<String>,
 }

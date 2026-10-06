@@ -530,10 +530,10 @@ fn splice_formatted_injections(
             .trim_end_matches('\n')
             .to_owned();
 
-        let had_trailing_newline = span.content.ends_with('\n');
+        let has_trailing_newline = span.content.ends_with('\n');
         out.push_str(&formatted_inner);
-        // Add one trailing newline if injected document ends in one or more newlines
-        if had_trailing_newline {
+        // preserve ONE trailing newline if injected input has one or more trailing newlines
+        if has_trailing_newline {
             out.push('\n');
         }
         cursor = span.byte_range.end;
@@ -810,15 +810,8 @@ mod tests {
         assert!(spans.is_empty());
     }
 
-    /// When splicing formatted injection content back into the host text, the
-    /// injected node's byte range may include a trailing newline (e.g. the
-    /// newline before a closing Markdown code fence). Formatting trims trailing
-    /// newlines, so the splice logic must re-add at most one if the original
-    /// injected content ended with one.
     #[test]
-    fn splice_injection_preserves_at_most_one_trailing_newline() {
-        // Use the explicitly configured Markdown grammar together with its
-        // shipped injection query (`markdown_language`).
+    fn injection_trailing_newline_preserved() {
         let language = markdown_language();
 
         let splice_fn = |input| {
@@ -832,13 +825,11 @@ mod tests {
             &splice_fn("```json\n[true, false]```\n"),
             "```json\n[ true, false ]```\n",
         );
-
         // single trailing newline
         pretty_assert_eq(
             &splice_fn("```json\n[true, false]\n```\n"),
             "```json\n[ true, false ]\n```\n",
         );
-
         // two or more trailing newlines collapse to one
         pretty_assert_eq(
             &splice_fn("```json\n[true, false]\n\n```\n"),
