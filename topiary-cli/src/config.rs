@@ -35,10 +35,7 @@ pub struct Configuration {
     ncl_id: u32,
     path: Option<PathBuf>,
     cache: Arc<LanguageDefinitionCache>,
-    /// Stage of the formatting pipeline to skip, if any.
-    ///
-    /// This decides whether input formatting queries need to be resolved: they
-    /// do not when the host stage is skipped (e.g. `--skip-stage host`).
+    /// Stage of the formatting pipeline to skip if formatting is called.
     skip_stage: Option<SkipStage>,
 }
 
@@ -88,10 +85,6 @@ impl Configuration {
     }
 
     /// Whether input formatting queries need to be resolved.
-    ///
-    /// The host formatting query is not needed when the host stage is skipped
-    /// (`--skip-stage host`), so a language configured with only an injection
-    /// query is still valid.
     pub fn resolve_formatting_query(&self) -> bool {
         !matches!(self.skip_stage, Some(SkipStage::HostLanguage))
     }

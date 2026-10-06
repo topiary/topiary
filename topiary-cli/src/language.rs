@@ -77,10 +77,6 @@ impl LanguageDefinitionCache {
             &input.formatting_query(),
             input.injection_query(),
         );
-        let formatting_query = input
-            .formatting_query()
-            .map(ToString::to_string)
-            .unwrap_or_else(|| "<none>".to_owned());
 
         // Lock the entire `HashMap` on access. (This may seem blunt, but is necessary for the
         // correct behaviour when we have near-simultaneous cache access; see issue #605.)
@@ -93,11 +89,11 @@ impl LanguageDefinitionCache {
             // Return the language definition from the cache, if it exists...
             Entry::Occupied(lang_def) => {
                 log::debug!(
-                    "Cache {:p}: Hit at {:#016x} ({}, {})",
+                    "Cache {:p}: Hit at {:#016x} ({}, {:?})",
                     self,
                     key,
                     input.language().name,
-                    formatting_query
+                    input.formatting_query()
                 );
 
                 lang_def.get().to_owned()
@@ -106,11 +102,11 @@ impl LanguageDefinitionCache {
             // ...otherwise, fetch the language definition, to populate the cache
             Entry::Vacant(slot) => {
                 log::debug!(
-                    "Cache {:p}: Insert at {:#016x} ({}, {})",
+                    "Cache {:p}: Insert at {:#016x} ({}, {:?})",
                     self,
                     key,
                     input.language().name,
-                    formatting_query
+                    input.formatting_query()
                 );
 
                 let lang_def = Arc::new(input.to_language_sync(self.repos())?);

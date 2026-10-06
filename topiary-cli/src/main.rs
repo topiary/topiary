@@ -65,13 +65,10 @@ async fn run() -> CLIResult<()> {
                 inputs,
                 move |input, language, config| {
                     log::info!(
-                        "Checking {}, as {} using {}",
+                        "Checking {}, as {} using {:?}",
                         input.source(),
                         input.language().name,
-                        input
-                            .formatting_query()
-                            .map(ToString::to_string)
-                            .unwrap_or_else(|| "<none>".to_owned()),
+                        input.formatting_query()
                     );
                     let filepath = input.filepath().map(|p| p.to_owned());
 
@@ -103,13 +100,10 @@ async fn run() -> CLIResult<()> {
                     let output = OutputFile::try_from(&input)?;
 
                     log::info!(
-                        "Formatting {}, as {} using {}, to {}",
+                        "Formatting {}, as {} using {:?}, to {}",
                         input.source(),
                         input.language().name,
-                        input
-                            .formatting_query()
-                            .map(ToString::to_string)
-                            .unwrap_or_else(|| "<none>".to_owned()),
+                        input.formatting_query(),
                         output
                     );
 
