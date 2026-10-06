@@ -44,6 +44,7 @@ async fn run() -> CLIResult<()> {
     let config = Arc::new(Configuration::new(
         args.global.merge_configuration,
         args.global.configuration.as_deref(),
+        args.global.skip_language.clone(),
     )?);
 
     // Delegate by subcommand
@@ -53,25 +54,12 @@ async fn run() -> CLIResult<()> {
             tolerate_parsing_errors,
             skip_idempotence,
             skip_stage,
-            skip_language,
             inputs,
         } => {
             let inputs = Inputs::new(&config, &inputs);
-            let skip_language = Arc::new(skip_language);
             process_inputs(
                 inputs,
                 move |input, language, config| {
-                    let skip_language = skip_language.clone();
-                    // Skip the input entirely if its own language is to be skipped.
-                    if skip_language.iter().any(|l| l == &input.language().name) {
-                        log::info!(
-                            "Skipping {}, language {} is excluded via --skip-language",
-                            input.source(),
-                            input.language().name,
-                        );
-                        return CLIResult::Ok(());
-                    }
-
                     log::info!(
                         "Checking {}, as {} using {}",
                         input.source(),
@@ -86,12 +74,7 @@ async fn run() -> CLIResult<()> {
                         skip_idempotence,
                         tolerate_parsing_errors,
                         skip_stage,
-                        Some(&|name| {
-                            if skip_language.iter().any(|l| l == name) {
-                                return Ok(None);
-                            }
-                            config.resolve_injected_language(name)
-                        }),
+                        Some(&|name| config.resolve_injected_language(name)),
                     )
                     .attach_filepath(filepath.as_deref())
                 },
@@ -103,33 +86,15 @@ async fn run() -> CLIResult<()> {
             tolerate_parsing_errors,
             skip_idempotence,
             skip_stage,
-            skip_language,
             inputs,
             ..
         } => {
             let inputs = Inputs::new(&config, &inputs);
-            let skip_language = Arc::new(skip_language);
 
             process_inputs(
                 inputs,
                 move |input, language, config| {
-                    let skip_language = skip_language.clone();
                     let output = OutputFile::try_from(&input)?;
-                    // Skip formatting if the input's own language is excluded, but still
-                    // copy the input through to the output so stdin passthrough works and
-                    // on-disk files are left byte-for-byte unchanged.
-                    if skip_language.iter().any(|l| l == &input.language().name) {
-                        log::info!(
-                            "Skipping {}, language {} is excluded via --skip-language",
-                            input.source(),
-                            input.language().name,
-                        );
-                        let mut buf_output = BufWriter::new(output);
-                        let mut buf_input = BufReader::new(input);
-                        std::io::copy(&mut buf_input, &mut buf_output)?;
-                        buf_output.into_inner()?.persist()?;
-                        return CLIResult::Ok(());
-                    }
 
                     log::info!(
                         "Formatting {}, as {} using {}, to {}",
@@ -158,12 +123,7 @@ async fn run() -> CLIResult<()> {
                                 tolerate_parsing_errors,
                                 skip_stage: skip_stage.map(|s| s.into()),
                             },
-                            Some(&|name| {
-                                if skip_language.iter().any(|l| l == name) {
-                                    return Ok(None);
-                                }
-                                config.resolve_injected_language(name)
-                            }),
+                            Some(&|name| config.resolve_injected_language(name)),
                         )?;
                     }
 

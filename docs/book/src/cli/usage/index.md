@@ -25,6 +25,7 @@ Options:
   -C, --configuration <CONFIGURATION>  Configuration file [env: TOPIARY_CONFIG_FILE]
   -M, --merge-configuration            Enable merging for configuration files
   -v, --verbose...                     Logging verbosity (increased per occurrence)
+      --skip-language <LANGUAGE>       Skip formatting the given language (repeatable)
   -h, --help                           Print help
   -V, --version                        Print version
 ```

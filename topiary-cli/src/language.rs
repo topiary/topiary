@@ -1,17 +1,19 @@
 use std::{
     collections::{
-        HashMap,
+        HashMap, HashSet,
         hash_map::{DefaultHasher, Entry},
     },
     hash::{Hash, Hasher},
     sync::{Arc, Mutex},
 };
 
+use rootcause::report;
+
 use crate::Configuration;
 use topiary_config::language::LocalRepos;
 use topiary_core::Language;
 
-use crate::error::CLIResult;
+use crate::error::{CLIResult, TopiaryError};
 use crate::io::InputFile;
 
 /// Thread-safe language definition cache
@@ -19,18 +21,30 @@ use crate::io::InputFile;
 pub struct LanguageDefinitionCache {
     languages: Mutex<HashMap<u64, Arc<Language>>>,
     repos: LocalRepos,
+    /// Languages excluded via `--skip-language`.
+    ///
+    /// Skipping only affects *injected* languages (and the associated query
+    /// searching); formatting an input whose own language is skipped is an
+    /// error, as the host grammar is required to format the file.
+    skipped: HashSet<String>,
 }
 
 impl LanguageDefinitionCache {
-    pub fn new() -> Self {
+    pub fn new(skipped: impl IntoIterator<Item = String>) -> Self {
         LanguageDefinitionCache {
             languages: Mutex::new(HashMap::new()),
             repos: LocalRepos::new(),
+            skipped: skipped.into_iter().collect(),
         }
     }
 
     pub fn repos(&self) -> &LocalRepos {
         &self.repos
+    }
+
+    /// Returns `true` if `name` is excluded via `--skip-language`.
+    pub fn is_skipped(&self, name: &str) -> bool {
+        self.skipped.contains(name)
     }
 
     fn key_for_parts(
@@ -46,8 +60,16 @@ impl LanguageDefinitionCache {
         hash.finish()
     }
 
-    /// Fetch the language definition from the cache, populating if necessary, with thread-safety
+    /// Fetch the language definition from the cache, populating if necessary, with thread-safety.
+    ///
+    /// This is the host-language path: a language excluded via `--skip-language` is an
+    /// error, since the host grammar is required to format the input.
     pub fn fetch_input<'i>(&self, input: &'i InputFile<'i>) -> CLIResult<Arc<Language>> {
+        let name = &input.language().name;
+        if self.is_skipped(name) {
+            return Err(report!(TopiaryError::SkippedHostLanguage(name.clone())).into_dynamic());
+        }
+
         // There's no need to store the input's identifying information (language name and query)
         // in the key, so we use its hash directly. This side-steps any awkward lifetime issues.
         let key = Self::key_for_parts(
@@ -122,5 +144,24 @@ impl LanguageDefinitionCache {
                 slot.insert(lang_def).to_owned()
             }
         })
+    }
+
+    /// Resolve an *injected* language by name, filtering out any language excluded via
+    /// `--skip-language`.
+    ///
+    /// Unlike [`Self::fetch_input`], a skipped language is not an error here: it returns
+    /// `Ok(None)` so the injection is gracefully left unformatted (e.g. a `rust` code block
+    /// inside Markdown can be skipped without failing the whole format).
+    pub fn fetch_injected(
+        &self,
+        config: &Configuration,
+        name: &str,
+    ) -> CLIResult<Option<Arc<Language>>> {
+        if self.is_skipped(name) {
+            log::debug!("Skipping injected language {name} (excluded via --skip-language)");
+            return Ok(None);
+        }
+
+        self.fetch_from_config(config, name).map(Some)
     }
 }

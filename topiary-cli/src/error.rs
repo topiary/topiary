@@ -27,6 +27,8 @@ pub enum TopiaryError {
     Io,
     Config,
     UnsupportedLanguage(String),
+    /// The input's host language was excluded via `--skip-language`
+    SkippedHostLanguage(String),
     /// Formatting check failed: input is not already formatted
     CheckFailed {
         source_name: String,
@@ -41,6 +43,12 @@ impl fmt::Display for TopiaryError {
             Self::Config => write!(f, "Configuration error"),
             Self::UnsupportedLanguage(name) => {
                 write!(f, "The specified language is unsupported: {name}")
+            }
+            Self::SkippedHostLanguage(name) => {
+                write!(
+                    f,
+                    "The host language {name} is excluded via --skip-language and cannot be used to format an input"
+                )
             }
             Self::CheckFailed {
                 source_name,

@@ -51,6 +51,9 @@ Options:
   -v, --verbose...
           Logging verbosity (increased per occurrence)
 
+      --skip-language <LANGUAGE>
+          Skip formatting the given language (repeatable)
+
   -h, --help
           Print help (see a summary with '-h')
 ```

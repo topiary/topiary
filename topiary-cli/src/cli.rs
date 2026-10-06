@@ -52,6 +52,10 @@ pub struct GlobalArgs {
         display_order = 102
     )]
     pub verbose: u8,
+
+    /// Skip formatting the given language (repeatable)
+    #[arg(long, value_name = "LANGUAGE", global = true, display_order = 103)]
+    pub skip_language: Vec<String>,
 }
 
 // NOTE This abstraction is largely to workaround clap-rs/clap#4707
@@ -135,13 +139,6 @@ pub enum Commands {
         /// Skip a given stage of the formatting pipeline.
         #[arg(alias = "skip", long, value_name = "STAGE")]
         skip_stage: Option<SkipStage>,
-
-        /// Skip formatting a given language (repeatable).
-        ///
-        /// Primarily aimed at omitting injected languages (e.g. a `rust` code block inside
-        /// Markdown), but also skips any input file whose own language matches.
-        #[arg(long, value_name = "LANGUAGE")]
-        skip_language: Vec<String>,
 
         #[command(flatten)]
         inputs: AtLeastOneInput,

@@ -352,8 +352,11 @@ fn test_check_file_clean() {
 
 #[test]
 #[cfg(feature = "json")]
-fn test_fmt_skip_language_host_passthrough() {
-    // Skipping the host language itself should leave the input untouched.
+fn test_fmt_skip_language_host_errors() {
+    use predicates::str::contains;
+
+    // Skipping the host language is an error: the host grammar is required to
+    // format the input. `--skip-language` only applies to injected languages.
     initialize();
     let mut topiary = cargo_bin_cmd!("topiary");
 
@@ -366,8 +369,8 @@ fn test_fmt_skip_language_host_passthrough() {
         .arg("json")
         .write_stdin(JSON_INPUT)
         .assert()
-        .success()
-        .stdout(JSON_INPUT);
+        .failure()
+        .stderr(contains("excluded via --skip-language"));
 }
 
 #[test]
