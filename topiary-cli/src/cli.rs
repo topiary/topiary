@@ -136,6 +136,13 @@ pub enum Commands {
         #[arg(alias = "skip", long, value_name = "STAGE")]
         skip_stage: Option<SkipStage>,
 
+        /// Skip formatting a given language (repeatable).
+        ///
+        /// Primarily aimed at omitting injected languages (e.g. a `rust` code block inside
+        /// Markdown), but also skips any input file whose own language matches.
+        #[arg(long, value_name = "LANGUAGE")]
+        skip_language: Vec<String>,
+
         #[command(flatten)]
         inputs: AtLeastOneInput,
     },

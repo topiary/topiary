@@ -49,6 +49,8 @@ This name should be decided amongst the team before the release.
 - [#1344](https://github.com/topiary/topiary/pull/1344) Automatic publishing of releases to crates.io
 - [#1351](https://github.com/topiary/topiary/pull/1351) Use file extension as language alias
 
+### Fixed
+- TODO
 
 ## v0.8.0 - Irresistible Ironwood - 2026-10-01
 

@@ -352,6 +352,49 @@ fn test_check_file_clean() {
 
 #[test]
 #[cfg(feature = "json")]
+fn test_fmt_skip_language_host_passthrough() {
+    // Skipping the host language itself should leave the input untouched.
+    initialize();
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("fmt")
+        .arg("--language")
+        .arg("json")
+        .arg("--skip-language")
+        .arg("json")
+        .write_stdin(JSON_INPUT)
+        .assert()
+        .success()
+        .stdout(JSON_INPUT);
+}
+
+#[test]
+#[cfg(all(feature = "ocamllex", feature = "ocaml"))]
+fn test_fmt_skip_injected_language_left_unformatted() {
+    use predicates::str::contains;
+
+    // The inner OCaml action is left unformatted (spacing preserved) when its
+    // language is skipped, while the surrounding ocamllex host is still formatted.
+    initialize();
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("fmt")
+        .arg("--language")
+        .arg("ocamllex")
+        .arg("--skip-language")
+        .arg("ocaml")
+        .write_stdin(r#"rule token = parse | "x" { let values=[1;2;3] in values }"#)
+        .assert()
+        .success()
+        .stdout(contains("let values=[1;2;3] in values"));
+}
+
+#[test]
+#[cfg(feature = "json")]
 fn test_fmt_invalid() {
     initialize();
     let mut topiary = cargo_bin_cmd!("topiary");

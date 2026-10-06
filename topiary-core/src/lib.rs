@@ -530,7 +530,12 @@ fn splice_formatted_injections(
             .trim_end_matches('\n')
             .to_owned();
 
+        let had_trailing_newline = span.content.ends_with('\n');
         out.push_str(&formatted_inner);
+        // Add one trailing newline if injected document ends in one or more newlines
+        if had_trailing_newline {
+            out.push('\n');
+        }
         cursor = span.byte_range.end;
     }
 
@@ -641,8 +646,9 @@ mod tests {
     use test_log::test;
 
     use crate::{
-        FormatterError, InjectionQuery, Language, LanguageResolver, Operation, SpanAttachment,
-        TopiaryQuery, formatter, formatter_str, parse, test_utils::pretty_assert_eq,
+        FormatterError, InjectionQuery, InjectionSpan, Language, LanguageResolver, Operation,
+        SpanAttachment, TopiaryQuery, formatter, formatter_str, parse, splice_formatted_injections,
+        test_utils::pretty_assert_eq,
     };
 
     fn language(name: &str, formatting_query: &str, injection_query: Option<&str>) -> Language {
@@ -700,8 +706,8 @@ mod tests {
     }
 
     /// Attempt to parse invalid json, expecting a failure
-    #[test(tokio::test)]
-    async fn parsing_error_fails_formatting() {
+    #[test]
+    fn parsing_error_fails_formatting() {
         let mut input = r#"{"foo":{"bar"}}"#.as_bytes();
         let mut output = Vec::new();
         let language = language("json", "(#language! json)", None);
@@ -730,8 +736,8 @@ mod tests {
         panic!("Expected a parsing error on line 1, but got {result:?}");
     }
 
-    #[test(tokio::test)]
-    async fn tolerate_parsing_errors() {
+    #[test]
+    fn tolerate_parsing_errors() {
         // Contains the invalid object {"bar"   "baz"}. It should be left untouched.
         let mut input = "{\"one\":{\"bar\"   \"baz\"},\"two\":\"bar\"}".as_bytes();
         let expected = "{ \"one\": {\"bar\"   \"baz\"}, \"two\": \"bar\" }\n";
@@ -758,8 +764,8 @@ mod tests {
         pretty_assert_eq(expected, &formatted);
     }
 
-    #[test(tokio::test)]
-    async fn collect_injections_returns_content_span() {
+    #[test]
+    fn collect_injections_returns_content_span() {
         let input = r#"rule token = parse
   | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
 "#;
@@ -775,8 +781,8 @@ mod tests {
         );
     }
 
-    #[test(tokio::test)]
-    async fn collect_injections_skips_pattern_without_content_capture() {
+    #[test]
+    fn collect_injections_skips_pattern_without_content_capture() {
         let input = r#"rule token = parse
   | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
 "#;
@@ -796,8 +802,62 @@ mod tests {
         assert!(spans.is_empty());
     }
 
-    #[test(tokio::test)]
-    async fn unresolved_injection_skips_formatting() {
+    const MARKDOWN_CODE_FENCE_QUERY: &'static str = r#"
+(fenced_code_block
+  (info_string
+    (language) @injection.language
+  )
+  (code_fence_content) @injection.content
+)
+"#;
+    /// When splicing formatted injection content back into the host text, the
+    /// injected node's byte range may include a trailing newline (e.g. the
+    /// newline before a closing Markdown code fence). Formatting trims trailing
+    /// newlines, so the splice logic must re-add at most one if the original
+    /// injected content ended with one.
+    #[test]
+    fn splice_injection_preserves_at_most_one_trailing_newline() {
+        let mut language = markdown_language();
+        language.injection_query =
+            Some(InjectionQuery::new(&language.grammar, MARKDOWN_CODE_FENCE_QUERY).unwrap());
+
+        let splice_fn = |input| {
+            let tree = parse(input, &language.grammar, false).unwrap();
+            let spans = language.collect_injections(&tree, input);
+            splice_formatted_injections(input, spans, json_injection_resolver(), false).unwrap()
+        };
+        let no_trailing_newline = "```json\n[true, false]```\n";
+        // No trailing newline means none is added.
+        assert_eq!(
+            splice_fn(no_trailing_newline)
+                .chars()
+                .filter(|&c| c == '\n')
+                .count(),
+            0,
+        );
+
+        let one_trailing_newline = "```json\n[true, false]\n```\n";
+        assert_eq!(
+            splice_fn(one_trailing_newline)
+                .chars()
+                .filter(|&c| c == '\n')
+                .count(),
+            1,
+        );
+
+        // Multiple trailing newlines collapse to exactly one.
+        let two_trailing_newlines = "```json\n[true, false]\n\n```\n";
+        assert_eq!(
+            splice_fn(two_trailing_newlines)
+                .chars()
+                .filter(|&c| c == '\n')
+                .count(),
+            1,
+        );
+    }
+
+    #[test]
+    fn unresolved_injection_skips_formatting() {
         let input = r#"rule token = parse
   | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
 "#;
@@ -819,8 +879,8 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[test(tokio::test)]
-    async fn resolver_error_fails_formatting() {
+    #[test]
+    fn resolver_error_fails_formatting() {
         let input = r#"rule token = parse
   | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
 "#;
@@ -853,8 +913,8 @@ mod tests {
         ));
     }
 
-    #[test(tokio::test)]
-    async fn resolved_injection_rewrites_forced_leaf() {
+    #[test]
+    fn resolved_injection_rewrites_forced_leaf() {
         let input = r#"rule token = parse
   | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
 "#;
@@ -883,8 +943,8 @@ mod tests {
         );
     }
 
-    #[test(tokio::test)]
-    async fn invalid_injected_source_fails_formatting() {
+    #[test]
+    fn invalid_injected_source_fails_formatting() {
         let input = r#"rule token = parse
   | "x" { let x = }
 "#;
@@ -909,8 +969,8 @@ mod tests {
         );
     }
 
-    #[test(tokio::test)]
-    async fn non_idempotent_injection_fails_outer_idempotence() {
+    #[test]
+    fn non_idempotent_injection_fails_outer_idempotence() {
         let input = r#"rule token = parse
   | "x" { value }
 "#;
@@ -941,8 +1001,8 @@ mod tests {
 "bar",
 ]);
 "#;
-    #[test(tokio::test)]
-    async fn skip_host_formats_json() {
+    #[test]
+    fn skip_host_formats_json() {
         use crate::SkipStage;
 
         let skip_host_expected: &str = r#"const JSON2: Value
@@ -970,8 +1030,8 @@ mod tests {
         pretty_assert_eq(skip_host_expected, formatted.trim_end());
     }
 
-    #[test(tokio::test)]
-    async fn skip_injections_formats_rust() {
+    #[test]
+    fn skip_injections_formats_rust() {
         use crate::SkipStage;
 
         // NOTE: skipping injections will still format the JSON
@@ -998,8 +1058,8 @@ mod tests {
         let formatted = String::from_utf8(output).unwrap();
         pretty_assert_eq(skip_injections_expected, formatted.trim_end());
     }
-    #[test(tokio::test)]
-    async fn skip_none_formats_all() {
+    #[test]
+    fn skip_none_formats_all() {
         let skip_none_expected: &str = r#"const JSON2: Value = json!([
   "foo",
   "bar",
