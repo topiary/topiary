@@ -59,6 +59,7 @@ example: `bin/changelog.nu --no-cc-header --save --section Added`
 - [#1343](https://github.com/topiary/topiary/pull/1343) Add callout when failing to copy queries during fetch
 - [#1344](https://github.com/topiary/topiary/pull/1344) Automatic publishing of releases to crates.io
 
+
 ## v0.8.0 - Irresistible Ironwood - 2026-10-01
 
 [Full list of changes](https://github.com/topiary/topiary/compare/v0.7.3...v0.8.0)

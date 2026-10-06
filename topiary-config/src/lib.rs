@@ -116,7 +116,7 @@ impl Configuration {
             language::GrammarSource::Git { git, subdir } => {
                 let library_path = language.grammar_file()?;
 
-                log::info!(
+                log::debug!(
                     "Fetch \"{}\": Configured via Git ({} ({})); to {}",
                     language.name,
                     git.git,
@@ -125,7 +125,7 @@ impl Configuration {
                 );
 
                 if !force && library_path.is_file() {
-                    log::info!(
+                    log::debug!(
                         "{}: Built grammar already exists; nothing to do",
                         language.name
                     );
@@ -141,7 +141,7 @@ impl Configuration {
             }
 
             language::GrammarSource::Path(path) => {
-                log::info!(
+                log::debug!(
                     "Fetch \"{}\": Configured via filesystem ({}); nothing to do",
                     language.name,
                     path.display(),
