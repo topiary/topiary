@@ -152,7 +152,7 @@ impl LanguageDefinitionCache {
     /// NOTE: Unlike [`Self::fetch_input`], failing to fetch a skipped language should not result in
     /// an error so long as the language is for an injected grammar; such a `rust` code fence inside
     /// a markdown document.
-    pub fn fetch_injected
+    pub fn fetch_injected(
         &self,
         config: &Configuration,
         language: &str,
