@@ -52,9 +52,10 @@ example: `bin/changelog.nu --no-cc-header --save --section Added`
 - [#1343](https://github.com/topiary/topiary/pull/1343) Add callout when failing to copy queries during fetch
 - [#1344](https://github.com/topiary/topiary/pull/1344) Automatic publishing of releases to crates.io
 - [#1351](https://github.com/topiary/topiary/pull/1351) Use file extension as language alias
+- [#1348](https://github.com/topiary/topiary/pull/1348) Added `topiary format --skip-language <LANGUAGE>` flag
 
 ### Fixed
-- TODO
+- [#1348](https://github.com/topiary/topiary/pull/1348) injections now preserve trailing newlines
 
 ## v0.8.0 - Irresistible Ironwood - 2026-10-01
 

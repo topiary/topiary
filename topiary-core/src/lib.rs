@@ -532,7 +532,7 @@ fn splice_formatted_injections(
 
         let has_trailing_newline = span.content.ends_with('\n');
         out.push_str(&formatted_inner);
-        // preserve ONE trailing newline if injected input has one or more trailing newlines
+        // preserve at most ONE trailing newline
         if has_trailing_newline {
             out.push('\n');
         }
