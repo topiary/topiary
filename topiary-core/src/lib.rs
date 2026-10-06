@@ -646,8 +646,8 @@ mod tests {
     use test_log::test;
 
     use crate::{
-        FormatterError, InjectionQuery, InjectionSpan, Language, LanguageResolver, Operation,
-        SpanAttachment, TopiaryQuery, formatter, formatter_str, parse, splice_formatted_injections,
+        FormatterError, InjectionQuery, Language, LanguageResolver, Operation, SpanAttachment,
+        TopiaryQuery, formatter, formatter_str, parse, splice_formatted_injections,
         test_utils::pretty_assert_eq,
     };
 
@@ -703,6 +703,14 @@ mod tests {
 
     fn json_injection_resolver<'a>() -> Option<&'static LanguageResolver<'a>> {
         Some(&|name| Ok((name == "json").then_some(Arc::new(json_language()))))
+    }
+
+    fn markdown_language() -> Language {
+        language(
+            "markdown",
+            topiary_queries::markdown(),
+            Some(topiary_queries::markdown_injections()),
+        )
     }
 
     /// Attempt to parse invalid json, expecting a failure
@@ -802,14 +810,6 @@ mod tests {
         assert!(spans.is_empty());
     }
 
-    const MARKDOWN_CODE_FENCE_QUERY: &'static str = r#"
-(fenced_code_block
-  (info_string
-    (language) @injection.language
-  )
-  (code_fence_content) @injection.content
-)
-"#;
     /// When splicing formatted injection content back into the host text, the
     /// injected node's byte range may include a trailing newline (e.g. the
     /// newline before a closing Markdown code fence). Formatting trims trailing
@@ -817,42 +817,32 @@ mod tests {
     /// injected content ended with one.
     #[test]
     fn splice_injection_preserves_at_most_one_trailing_newline() {
-        let mut language = markdown_language();
-        language.injection_query =
-            Some(InjectionQuery::new(&language.grammar, MARKDOWN_CODE_FENCE_QUERY).unwrap());
+        // Use the explicitly configured Markdown grammar together with its
+        // shipped injection query (`markdown_language`).
+        let language = markdown_language();
 
         let splice_fn = |input| {
             let tree = parse(input, &language.grammar, false).unwrap();
             let spans = language.collect_injections(&tree, input);
             splice_formatted_injections(input, spans, json_injection_resolver(), false).unwrap()
         };
-        let no_trailing_newline = "```json\n[true, false]```\n";
-        // No trailing newline means none is added.
-        assert_eq!(
-            splice_fn(no_trailing_newline)
-                .chars()
-                .filter(|&c| c == '\n')
-                .count(),
-            0,
+
+        // no trailing newline
+        pretty_assert_eq(
+            &splice_fn("```json\n[true, false]```\n"),
+            "```json\n[ true, false ]```\n",
         );
 
-        let one_trailing_newline = "```json\n[true, false]\n```\n";
-        assert_eq!(
-            splice_fn(one_trailing_newline)
-                .chars()
-                .filter(|&c| c == '\n')
-                .count(),
-            1,
+        // single trailing newline
+        pretty_assert_eq(
+            &splice_fn("```json\n[true, false]\n```\n"),
+            "```json\n[ true, false ]\n```\n",
         );
 
-        // Multiple trailing newlines collapse to exactly one.
-        let two_trailing_newlines = "```json\n[true, false]\n\n```\n";
-        assert_eq!(
-            splice_fn(two_trailing_newlines)
-                .chars()
-                .filter(|&c| c == '\n')
-                .count(),
-            1,
+        // two or more trailing newlines collapse to one
+        pretty_assert_eq(
+            &splice_fn("```json\n[true, false]\n\n```\n"),
+            "```json\n[ true, false ]\n```\n",
         );
     }
 
