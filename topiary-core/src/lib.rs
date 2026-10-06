@@ -378,17 +378,15 @@ pub fn formatter_tree(
                 }
             };
 
-            // Create a list of nodes that are injection formatted.
-            // These must will be treated as leaves (although, in all likelihood, they already are).
-            let injection_leaf_nodes = spans.iter().map(|span| span.node_id);
-
-            // The host formatting query is required from here on. It may be absent
-            // when a language is configured with only an injection query (and the
-            // host stage was not skipped, so we now need it).
+            // The host formatting query is required from here on.
             let formatting_query = language
                 .formatting_query
                 .as_ref()
                 .ok_or_else(|| report!(FormatterError::MissingFormattingQuery))?;
+
+            // Create a list of nodes that are injection formatted.
+            // These must will be treated as leaves (although, in all likelihood, they already are).
+            let injection_leaf_nodes = spans.iter().map(|span| span.node_id);
 
             // All the work related to tree-sitter and the query is done here
             crate::debug!("Apply Tree-sitter query");
@@ -1048,11 +1046,8 @@ mod tests {
         pretty_assert_eq(skip_injections_expected, formatted.trim_end());
     }
 
-    /// A language may be configured with only an injection query (no host
-    /// formatting query). When the host stage is skipped, the absent formatting
-    /// query must not be required.
     #[test]
-    fn skip_host_without_formatting_query_formats_injections() {
+    fn missing_host_query_ok() {
         use crate::SkipStage;
 
         let input = r#"# Title
@@ -1061,7 +1056,6 @@ mod tests {
 [1,2]
 ```
 "#;
-        // Markdown configured with only an injection query (no host formatting query).
         let mut language = markdown_language();
         language.formatting_query = None;
 
@@ -1084,10 +1078,8 @@ mod tests {
         assert!(formatted.contains("[ 1, 2 ]"));
     }
 
-    /// Without a host formatting query and without skipping the host stage,
-    /// formatting must fail with a dedicated error rather than panicking.
     #[test]
-    fn host_formatting_without_formatting_query_errors() {
+    fn missing_host_query_err() {
         let input = r#"# Title
 
 ```json

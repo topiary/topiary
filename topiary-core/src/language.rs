@@ -12,12 +12,9 @@ pub struct Language {
     /// the Configuration, and to convert from a language to the respective tree-sitter
     /// grammar.
     pub name: String,
-    /// The Query Topiary will use to get the formatting captures. Optional:
-    /// it is absent when formatting only injections (e.g. `--skip-stage host`),
-    /// in which case the host query is never consulted.
+    /// The host stage query for formatting pipeline.
     pub formatting_query: Option<TopiaryQuery>,
-    /// Optional injection query identifying regions of source that should be
-    /// formatted as a different language.
+    /// The injection stage query for formatting pipeline.
     pub injection_query: Option<InjectionQuery>,
     /// The tree-sitter Language. Topiary will use this Language for parsing.
     pub grammar: topiary_tree_sitter_facade::Language,
