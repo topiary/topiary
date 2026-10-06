@@ -81,11 +81,6 @@ impl Configuration {
 
     /// Gets a language configuration from the entire configuration.
     ///
-    /// The `name` is normally the language's proper name (e.g. `rust`), but a
-    /// file extension is also accepted as an alias (e.g. `rs`), which makes
-    /// `--language rs` equivalent to `--language rust`. An exact name match
-    /// always takes precedence over an extension match.
-    ///
     /// # Errors
     ///
     /// If the provided language name cannot be found in the `Configuration`, this
