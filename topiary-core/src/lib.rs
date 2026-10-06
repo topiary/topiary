@@ -1055,13 +1055,16 @@ mod tests {
     fn skip_host_without_formatting_query_formats_injections() {
         use crate::SkipStage;
 
-        let input = r#"rule token = parse
-  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
+        let input = r#"# Title
+
+```json
+[1,2]
+```
 "#;
-        let mut language = ocamllex_language();
+        // Markdown configured with only an injection query (no host formatting query).
+        let mut language = markdown_language();
         language.formatting_query = None;
 
-        let inner_language: Arc<Language> = Arc::new(ocaml_language());
         let mut output = Vec::new();
 
         formatter_str(
@@ -1073,25 +1076,27 @@ mod tests {
                 tolerate_parsing_errors: false,
                 skip_stage: Some(SkipStage::HostLanguage),
             },
-            Some(&|name| Ok((name == "ocaml").then_some(inner_language.clone()))),
+            json_injection_resolver(),
         )
         .unwrap();
 
         let formatted = String::from_utf8(output).unwrap();
-        assert!(formatted.contains("let values = [1; 2; 3] in List.map (fun x -> x + 1) values"));
+        assert!(formatted.contains("[ 1, 2 ]"));
     }
 
     /// Without a host formatting query and without skipping the host stage,
     /// formatting must fail with a dedicated error rather than panicking.
     #[test]
     fn host_formatting_without_formatting_query_errors() {
-        let input = r#"rule token = parse
-  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
+        let input = r#"# Title
+
+```json
+[1,2]
+```
 "#;
-        let mut language = ocamllex_language();
+        let mut language = markdown_language();
         language.formatting_query = None;
 
-        let inner_language: Arc<Language> = Arc::new(ocaml_language());
         let mut output = Vec::new();
 
         let result = formatter_str(
@@ -1103,7 +1108,7 @@ mod tests {
                 tolerate_parsing_errors: false,
                 skip_stage: None,
             },
-            Some(&|name| Ok((name == "ocaml").then_some(inner_language.clone()))),
+            json_injection_resolver(),
         );
 
         assert!(matches!(
