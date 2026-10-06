@@ -42,8 +42,6 @@ async fn main() -> ExitCode {
 async fn run() -> CLIResult<()> {
     let args = cli::get_args()?;
 
-    // The formatting stage to skip is a property of the whole run, so it is
-    // held by the `Configuration` and consulted when resolving input queries.
     let config = Arc::new(Configuration::new(
         args.global.merge_configuration,
         args.global.configuration.as_deref(),
