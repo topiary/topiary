@@ -42,10 +42,13 @@ async fn main() -> ExitCode {
 async fn run() -> CLIResult<()> {
     let args = cli::get_args()?;
 
+    // The formatting stage to skip is a property of the whole run, so it is
+    // held by the `Configuration` and consulted when resolving input queries.
     let config = Arc::new(Configuration::new(
         args.global.merge_configuration,
         args.global.configuration.as_deref(),
         args.global.skip_language.clone(),
+        args.skip_stage(),
     )?);
 
     // Delegate by subcommand
@@ -54,12 +57,10 @@ async fn run() -> CLIResult<()> {
             check: true,
             tolerate_parsing_errors,
             skip_idempotence,
-            skip_stage,
             inputs,
+            ..
         } => {
-            let resolve_formatting_query =
-                !matches!(skip_stage, Some(crate::cli::SkipStage::HostLanguage));
-            let inputs = Inputs::new(&config, &inputs, resolve_formatting_query);
+            let inputs = Inputs::new(&config, &inputs);
             process_inputs(
                 inputs,
                 move |input, language, config| {
@@ -79,7 +80,7 @@ async fn run() -> CLIResult<()> {
                         &language,
                         skip_idempotence,
                         tolerate_parsing_errors,
-                        skip_stage,
+                        config.skip_stage(),
                         Some(&|name| config.resolve_injected_language(name)),
                     )
                     .attach_filepath(filepath.as_deref())
@@ -91,13 +92,10 @@ async fn run() -> CLIResult<()> {
         Commands::Format {
             tolerate_parsing_errors,
             skip_idempotence,
-            skip_stage,
             inputs,
             ..
         } => {
-            let resolve_formatting_query =
-                !matches!(skip_stage, Some(crate::cli::SkipStage::HostLanguage));
-            let inputs = Inputs::new(&config, &inputs, resolve_formatting_query);
+            let inputs = Inputs::new(&config, &inputs);
 
             process_inputs(
                 inputs,
@@ -132,7 +130,7 @@ async fn run() -> CLIResult<()> {
                             Operation::Format {
                                 skip_idempotence,
                                 tolerate_parsing_errors,
-                                skip_stage: skip_stage.map(|s| s.into()),
+                                skip_stage: config.skip_stage().map(Into::into),
                             },
                             Some(&|name| config.resolve_injected_language(name)),
                         )?;
@@ -148,7 +146,7 @@ async fn run() -> CLIResult<()> {
         }
 
         Commands::CheckGrammar { inputs } => {
-            let inputs = Inputs::new(&config, &inputs, false);
+            let inputs = Inputs::new(&config, &inputs);
 
             process_inputs(
                 inputs,
@@ -171,7 +169,7 @@ async fn run() -> CLIResult<()> {
 
         Commands::Visualise { format, input } => {
             // We are guaranteed (by clap) to have exactly one input, so it's safe to unwrap
-            let input = Inputs::new(&config, &input, false).next().unwrap()?;
+            let input = Inputs::new(&config, &input).next().unwrap()?;
             let output = OutputFile::Stdout;
 
             let language = tokio::task::block_in_place(|| config.cache().fetch_input(&input))?;
@@ -255,7 +253,7 @@ async fn run() -> CLIResult<()> {
 
         Commands::Coverage { input } => {
             // We are guaranteed (by clap) to have exactly one input, so it's safe to unwrap
-            let input = Inputs::new(&config, &input, true).next().unwrap()?;
+            let input = Inputs::new(&config, &input).next().unwrap()?;
             let output = OutputFile::Stdout;
 
             let language = tokio::task::block_in_place(|| config.cache().fetch_input(&input))?;

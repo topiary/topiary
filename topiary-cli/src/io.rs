@@ -266,18 +266,16 @@ pub struct Inputs<'cfg>(Vec<CLIResult<InputFile<'cfg>>>);
 impl<'cfg, 'i> Inputs<'cfg> {
     /// Build the set of inputs.
     ///
-    /// `resolve_formatting_query` controls whether the host formatting query is
-    /// resolved up-front. It can be `false` when the host stage is skipped
-    /// (e.g. `--skip-stage host`), in which case the host query is never used
-    /// and may legitimately be absent from the configuration.
-    pub fn new<T>(
-        config: &'cfg Configuration,
-        inputs: &'i T,
-        resolve_formatting_query: bool,
-    ) -> Self
+    /// Whether the host formatting query is resolved is decided by the
+    /// [`Configuration`]'s [`SkipStage`](crate::cli::SkipStage): it is not
+    /// needed when the host stage is skipped (e.g. `--skip-stage host`), in
+    /// which case the host query may legitimately be absent from the
+    /// configuration.
+    pub fn new<T>(config: &'cfg Configuration, inputs: &'i T) -> Self
     where
         &'i T: Into<InputFrom>,
     {
+        let resolve_formatting_query = config.resolve_formatting_query();
         let inputs = match inputs.into() {
             InputFrom::Stdin(language_name, query) => {
                 vec![(|| {

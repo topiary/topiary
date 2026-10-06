@@ -13,6 +13,7 @@ use topiary_core::{
     TopiaryQuery, formatter,
 };
 
+use crate::cli::SkipStage;
 use crate::error::{CLIResult, ResultPreformat, TopiaryError};
 use crate::io::QuerySource;
 use crate::language::LanguageDefinitionCache;
@@ -34,6 +35,11 @@ pub struct Configuration {
     ncl_id: u32,
     path: Option<PathBuf>,
     cache: Arc<LanguageDefinitionCache>,
+    /// Stage of the formatting pipeline to skip, if any.
+    ///
+    /// This decides whether input formatting queries need to be resolved: they
+    /// do not when the host stage is skipped (e.g. `--skip-stage host`).
+    skip_stage: Option<SkipStage>,
 }
 
 // expand tilde paths: "~/.config/topiary/foo.ncl"
@@ -43,7 +49,12 @@ fn expand_tilde(path: &Path) -> PathBuf {
 
 impl Configuration {
     /// Create a new Configuration by fetching from the given path
-    pub fn new(merge: bool, path: Option<&Path>, skip_languages: Vec<String>) -> CLIResult<Self> {
+    pub fn new(
+        merge: bool,
+        path: Option<&Path>,
+        skip_languages: Vec<String>,
+        skip_stage: Option<SkipStage>,
+    ) -> CLIResult<Self> {
         // expand tilde paths: "~/.config/topiary/foo.ncl"
         let path = path.map(expand_tilde);
         let (inner, ncl) =
@@ -67,7 +78,22 @@ impl Configuration {
             ncl_id,
             path,
             cache: Arc::new(LanguageDefinitionCache::new(skip_languages)),
+            skip_stage,
         })
+    }
+
+    /// The stage of the formatting pipeline requested to be skipped, if any.
+    pub fn skip_stage(&self) -> Option<SkipStage> {
+        self.skip_stage
+    }
+
+    /// Whether input formatting queries need to be resolved.
+    ///
+    /// The host formatting query is not needed when the host stage is skipped
+    /// (`--skip-stage host`), so a language configured with only an injection
+    /// query is still valid.
+    pub fn resolve_formatting_query(&self) -> bool {
+        !matches!(self.skip_stage, Some(SkipStage::HostLanguage))
     }
 
     /// Get the [`Program`] that this configuration was evaluated from.
