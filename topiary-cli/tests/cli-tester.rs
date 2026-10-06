@@ -352,11 +352,9 @@ fn test_check_file_clean() {
 
 #[test]
 #[cfg(feature = "json")]
-fn test_fmt_skip_language_host_errors() {
+fn test_fmt_skip_host_language_errors() {
     use predicates::str::contains;
 
-    // Skipping the host language is an error: the host grammar is required to
-    // format the input. `--skip-language` only applies to injected languages.
     initialize();
     let mut topiary = cargo_bin_cmd!("topiary");
 
@@ -370,16 +368,14 @@ fn test_fmt_skip_language_host_errors() {
         .write_stdin(JSON_INPUT)
         .assert()
         .failure()
-        .stderr(contains("excluded via --skip-language"));
+        .stderr(contains("--skip-language"));
 }
 
 #[test]
 #[cfg(all(feature = "ocamllex", feature = "ocaml"))]
-fn test_fmt_skip_injected_language_left_unformatted() {
+fn test_fmt_skip_injected_language_noop() {
     use predicates::str::contains;
 
-    // The inner OCaml action is left unformatted (spacing preserved) when its
-    // language is skipped, while the surrounding ocamllex host is still formatted.
     initialize();
     let mut topiary = cargo_bin_cmd!("topiary");
 
