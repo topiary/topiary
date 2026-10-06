@@ -14,8 +14,9 @@ use std::{
 };
 
 use error::Benign;
+use rootcause::report;
 use tabled::{Table, settings::Style};
-use topiary_core::{Operation, SpanAttachment, check_query_coverage, formatter};
+use topiary_core::{FormatterError, Operation, SpanAttachment, check_query_coverage, formatter};
 
 use crate::{
     cli::Commands,
@@ -56,7 +57,9 @@ async fn run() -> CLIResult<()> {
             skip_stage,
             inputs,
         } => {
-            let inputs = Inputs::new(&config, &inputs);
+            let resolve_formatting_query =
+                !matches!(skip_stage, Some(crate::cli::SkipStage::HostLanguage));
+            let inputs = Inputs::new(&config, &inputs, resolve_formatting_query);
             process_inputs(
                 inputs,
                 move |input, language, config| {
@@ -64,7 +67,10 @@ async fn run() -> CLIResult<()> {
                         "Checking {}, as {} using {}",
                         input.source(),
                         input.language().name,
-                        input.formatting_query(),
+                        input
+                            .formatting_query()
+                            .map(ToString::to_string)
+                            .unwrap_or_else(|| "<none>".to_owned()),
                     );
                     let filepath = input.filepath().map(|p| p.to_owned());
 
@@ -89,7 +95,9 @@ async fn run() -> CLIResult<()> {
             inputs,
             ..
         } => {
-            let inputs = Inputs::new(&config, &inputs);
+            let resolve_formatting_query =
+                !matches!(skip_stage, Some(crate::cli::SkipStage::HostLanguage));
+            let inputs = Inputs::new(&config, &inputs, resolve_formatting_query);
 
             process_inputs(
                 inputs,
@@ -100,7 +108,10 @@ async fn run() -> CLIResult<()> {
                         "Formatting {}, as {} using {}, to {}",
                         input.source(),
                         input.language().name,
-                        input.formatting_query(),
+                        input
+                            .formatting_query()
+                            .map(ToString::to_string)
+                            .unwrap_or_else(|| "<none>".to_owned()),
                         output
                     );
 
@@ -137,7 +148,7 @@ async fn run() -> CLIResult<()> {
         }
 
         Commands::CheckGrammar { inputs } => {
-            let inputs = Inputs::new(&config, &inputs);
+            let inputs = Inputs::new(&config, &inputs, false);
 
             process_inputs(
                 inputs,
@@ -160,7 +171,7 @@ async fn run() -> CLIResult<()> {
 
         Commands::Visualise { format, input } => {
             // We are guaranteed (by clap) to have exactly one input, so it's safe to unwrap
-            let input = Inputs::new(&config, &input).next().unwrap()?;
+            let input = Inputs::new(&config, &input, false).next().unwrap()?;
             let output = OutputFile::Stdout;
 
             let language = tokio::task::block_in_place(|| config.cache().fetch_input(&input))?;
@@ -244,10 +255,16 @@ async fn run() -> CLIResult<()> {
 
         Commands::Coverage { input } => {
             // We are guaranteed (by clap) to have exactly one input, so it's safe to unwrap
-            let input = Inputs::new(&config, &input).next().unwrap()?;
+            let input = Inputs::new(&config, &input, true).next().unwrap()?;
             let output = OutputFile::Stdout;
 
             let language = tokio::task::block_in_place(|| config.cache().fetch_input(&input))?;
+
+            // Coverage is computed against the host formatting query, which we
+            // always resolve for this subcommand.
+            let Some(formatting_query) = language.formatting_query.as_ref() else {
+                return Err(report!(FormatterError::MissingFormattingQuery).into_dynamic());
+            };
 
             log::info!(
                 "Checking query coverage of {}, as {}",
@@ -260,18 +277,19 @@ async fn run() -> CLIResult<()> {
 
             let input_content = read_input(&mut buf_input)?;
 
-            let coverage_data = check_query_coverage(
-                &input_content,
-                &language.formatting_query,
-                &language.grammar,
-            )
-            .attach_source(Some(input_content.as_str()))
-            .attach_filepath(buf_input.get_ref().filepath())?;
+            let coverage_data =
+                check_query_coverage(&input_content, formatting_query, &language.grammar)
+                    .attach_source(Some(input_content.as_str()))
+                    .attach_filepath(buf_input.get_ref().filepath())?;
             let coverage_res = coverage_data.get_result();
 
             let query_source = NamedSource::new(
-                buf_input.get_ref().formatting_query.to_string(),
-                language.formatting_query.query_content.clone(),
+                buf_input
+                    .get_ref()
+                    .formatting_query()
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|| "<none>".to_owned()),
+                formatting_query.query_content.clone(),
             )
             .with_language(&language.name);
             write!(

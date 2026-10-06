@@ -162,7 +162,7 @@ impl Configuration {
         };
         Ok(topiary_core::Language {
             name: name_ref.to_string(),
-            formatting_query,
+            formatting_query: Some(formatting_query),
             injection_query,
             grammar,
             indent: config_language.indent(),

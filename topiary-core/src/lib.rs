@@ -270,7 +270,7 @@ pub enum Operation {
 ///
 /// let language: Language = Language {
 ///     name: "json".to_owned(),
-///     formatting_query: TopiaryQuery::new(&grammar, topiary_queries::json()).unwrap(),
+///     formatting_query: Some(TopiaryQuery::new(&grammar, topiary_queries::json()).unwrap()),
 ///     grammar,
 ///     indent: None,
 ///     injection_query: None,
@@ -382,13 +382,21 @@ pub fn formatter_tree(
             // These must will be treated as leaves (although, in all likelihood, they already are).
             let injection_leaf_nodes = spans.iter().map(|span| span.node_id);
 
+            // The host formatting query is required from here on. It may be absent
+            // when a language is configured with only an injection query (and the
+            // host stage was not skipped, so we now need it).
+            let formatting_query = language
+                .formatting_query
+                .as_ref()
+                .ok_or_else(|| report!(FormatterError::MissingFormattingQuery))?;
+
             // All the work related to tree-sitter and the query is done here
             crate::debug!("Apply Tree-sitter query");
 
             let mut atoms = tree_sitter::apply_query_tree_with_forced_leaves(
                 tree,
                 input_content,
-                &language.formatting_query,
+                formatting_query,
                 injection_leaf_nodes,
             )?;
 
@@ -658,7 +666,7 @@ mod tests {
 
         Language {
             name: name.to_owned(),
-            formatting_query: TopiaryQuery::new(&grammar, formatting_query).unwrap(),
+            formatting_query: Some(TopiaryQuery::new(&grammar, formatting_query).unwrap()),
             injection_query: injection_query
                 .map(|query_content| InjectionQuery::new(&grammar, query_content).unwrap()),
             grammar,
@@ -1038,6 +1046,70 @@ mod tests {
 
         let formatted = String::from_utf8(output).unwrap();
         pretty_assert_eq(skip_injections_expected, formatted.trim_end());
+    }
+
+    /// A language may be configured with only an injection query (no host
+    /// formatting query). When the host stage is skipped, the absent formatting
+    /// query must not be required.
+    #[test]
+    fn skip_host_without_formatting_query_formats_injections() {
+        use crate::SkipStage;
+
+        let input = r#"rule token = parse
+  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
+"#;
+        let mut language = ocamllex_language();
+        language.formatting_query = None;
+
+        let inner_language: Arc<Language> = Arc::new(ocaml_language());
+        let mut output = Vec::new();
+
+        formatter_str(
+            input,
+            &mut output,
+            &language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+                skip_stage: Some(SkipStage::HostLanguage),
+            },
+            Some(&|name| Ok((name == "ocaml").then_some(inner_language.clone()))),
+        )
+        .unwrap();
+
+        let formatted = String::from_utf8(output).unwrap();
+        assert!(formatted.contains("let values = [1; 2; 3] in List.map (fun x -> x + 1) values"));
+    }
+
+    /// Without a host formatting query and without skipping the host stage,
+    /// formatting must fail with a dedicated error rather than panicking.
+    #[test]
+    fn host_formatting_without_formatting_query_errors() {
+        let input = r#"rule token = parse
+  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
+"#;
+        let mut language = ocamllex_language();
+        language.formatting_query = None;
+
+        let inner_language: Arc<Language> = Arc::new(ocaml_language());
+        let mut output = Vec::new();
+
+        let result = formatter_str(
+            input,
+            &mut output,
+            &language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+                skip_stage: None,
+            },
+            Some(&|name| Ok((name == "ocaml").then_some(inner_language.clone()))),
+        );
+
+        assert!(matches!(
+            result,
+            Err(ref report) if report.current_context() == &FormatterError::MissingFormattingQuery
+        ));
     }
     #[test]
     fn skip_none_formats_all() {
