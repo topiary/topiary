@@ -18,7 +18,7 @@ Arguments:
 
 Options:
   -l, --language <LANGUAGE>
-          Topiary language identifier (when formatting stdin)
+          Topiary language identifier or file extension (when formatting stdin)
 
   -q, --query <QUERY>
           Topiary query file override (when formatting stdin)
