@@ -115,6 +115,8 @@
   - Publish a release announcement, featuring the relevant section from
     the `CHANGELOG` for this version.
 
+  - Publish the Topiary crates to `crates.io`.
+
 > [!WARNING]
 > If this step fails, delete the new release tag as quickly as possible
 > from GitHub and start over:
@@ -123,18 +125,9 @@
 > git push --delete origin vX.Y.Z
 > ```
 
-- Update `crates.io`:
-
-  ```bash
-  cargo publish --workspace
-  ```
-
 > [!IMPORTANT]
-> Publication to `crates.io` requires appropriate access. You may need
-> to escalate this appropriately.
-
-> [!TIP]
-> `cargo tree --invert` is useful to determine the topology.
+> Publication to `crates.io` currently uses a releasing-new-configuration-and-queriestHub Actions secret,
+> rather than OIDC. This needs to be maintained.
 
 ### 3. Publicise
 
@@ -167,7 +160,7 @@ dissimilar from a usual release:
 
 2. Do not tag the release, as this will trigger `dist` into cutting a
    full release. However, importantly, the new version of the respective
-   subpackage(s) will need to be pushed to `crates.io`:
+   subpackage(s) will need to be pushed to `crates.io` manually:
 
    ```bash
    # Delete as appropriate
@@ -175,8 +168,8 @@ dissimilar from a usual release:
    cargo publish --package topiary-config
    ```
 
-   As with a full release, publication to `crates.io` requires
-   appropriate access.
+> [!IMPORTANT]
+> Publication to `crates.io` requires appropriate access.
 
 ## Generating the PR list for the `CHANGELOG`
 
