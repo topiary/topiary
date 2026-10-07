@@ -106,7 +106,50 @@ pub struct QuerySource {
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
 #[cfg(not(target_arch = "wasm32"))]
 pub struct Query {
-    pub source: QuerySource,
+    /// One or more query sources. When more than one is provided, the contents of
+    /// every source are concatenated (composed) into a single query.
+    #[serde(
+        deserialize_with = "one_or_many::deserialize",
+        serialize_with = "one_or_many::serialize"
+    )]
+    pub source: Vec<QuerySource>,
+}
+
+/// (De)serialisation helpers for fields that accept either a single value or an
+/// array of values, mirroring the `std.contract.any_of [T, Array T]` Nickel contract.
+#[cfg(not(target_arch = "wasm32"))]
+mod one_or_many {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub(super) fn deserialize<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+    where
+        D: Deserializer<'de>,
+        T: Deserialize<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum OneOrMany<T> {
+            One(T),
+            Many(Vec<T>),
+        }
+
+        Ok(match OneOrMany::deserialize(deserializer)? {
+            OneOrMany::One(one) => vec![one],
+            OneOrMany::Many(many) => many,
+        })
+    }
+
+    pub(super) fn serialize<S, T>(value: &[T], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        T: Serialize,
+    {
+        if let [one] = value {
+            one.serialize(serializer)
+        } else {
+            value.serialize(serializer)
+        }
+    }
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, Eq, Hash, serde::Serialize, Clone)]
@@ -199,12 +242,14 @@ impl Language {
         Ok(query_path)
     }
 
-    /// Locate a query file for this language by well-known name (e.g. `"formatting"`,
-    /// `"injections"`, matching the constants exported by `topiary-queries`).
+    /// Locate the query files for this language by well-known name (e.g.
+    /// `"formatting"`, `"injections"`, matching the constants exported by
+    /// `topiary-queries`).
     ///
     /// Prefer `languages.<language>.<query_name>` config entries over implicit query paths.
+    /// A single entry may name several sources, whose contents are composed.
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn find_query_file(&self, query_name: &str) -> TopiaryConfigResult<PathBuf> {
+    pub fn find_query_file(&self, query_name: &str) -> TopiaryConfigResult<Vec<PathBuf>> {
         self.find_query_file_with(query_name, &LocalRepos::new())
     }
 
@@ -213,23 +258,31 @@ impl Language {
         &self,
         query_name: &str,
         repos: &LocalRepos,
-    ) -> TopiaryConfigResult<PathBuf> {
+    ) -> TopiaryConfigResult<Vec<PathBuf>> {
         use crate::source::Source;
 
         let language_name = self.name.as_str();
 
         if let Some(query) = self.config_query(query_name) {
-            let path = self
-                .resolve_query_path_with(&query.source, repos)
-                .map_err(TopiaryConfigError::Fetching)?;
-            log::debug!(
-                "detected path for languages.{language_name}.{query_name}: {}",
-                path.display()
-            );
-            if path.is_file() {
-                return Ok(path);
+            let paths = query
+                .source
+                .iter()
+                .map(|source| {
+                    self.resolve_query_path_with(source, repos)
+                        .map_err(TopiaryConfigError::Fetching)
+                })
+                .collect::<TopiaryConfigResult<Vec<_>>>()?;
+
+            for path in &paths {
+                if !path.is_file() {
+                    return Err(TopiaryConfigError::QueryFileNotFound(path.clone()));
+                }
             }
-            return Err(TopiaryConfigError::QueryFileNotFound(path));
+
+            log::debug!(
+                "detected path(s) for languages.{language_name}.{query_name}: {paths:?}"
+            );
+            return Ok(paths);
         } else {
             log::debug!("field not present: 'languages.{language_name}.{query_name}'");
         }
@@ -272,7 +325,7 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
                 );
             }
         }
-        Ok(path_match)
+        Ok(vec![path_match])
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -553,10 +606,54 @@ mod tests {
         ));
 
         let formatting = config.queries.unwrap().get("formatting").cloned().unwrap();
+        assert_eq!(formatting.source.len(), 1);
         assert!(matches!(
-            &formatting,
-            Query { source: QuerySource { git: None, path } } if path == Path::new("/path/to/nickel/formatting.scm")
+            &formatting.source[0],
+            QuerySource { git: None, path } if path == Path::new("/path/to/nickel/formatting.scm")
         ));
+    }
+
+    #[test]
+    fn query_source_accepts_single_or_array() {
+        let single: LanguageConfiguration = from_nickel_str(
+            r#"
+{
+  extensions = ["x"],
+  grammar.source.path = "/tmp/grammar.so",
+  queries.formatting.source.path = "/a.scm",
+}
+        "#,
+        )
+        .unwrap();
+        assert_eq!(
+            single
+                .queries
+                .unwrap()
+                .get("formatting")
+                .unwrap()
+                .source
+                .len(),
+            1
+        );
+
+        let many: LanguageConfiguration = from_nickel_str(
+            r#"
+{
+  extensions = ["x"],
+  grammar.source.path = "/tmp/grammar.so",
+  queries.formatting.source = [
+    { path = "/a.scm" },
+    { path = "/b.scm" },
+  ],
+}
+        "#,
+        )
+        .unwrap();
+        let queries = many.queries.unwrap();
+        let source = &queries.get("formatting").unwrap().source;
+        assert_eq!(source.len(), 2);
+        assert_eq!(source[0].path, Path::new("/a.scm"));
+        assert_eq!(source[1].path, Path::new("/b.scm"));
     }
 
     #[test]
@@ -610,19 +707,19 @@ mod tests {
             rev: "d2c79b9ecd341d40aa0baf87f4a761ae242dfa67".to_string(),
         };
         let formatting = queries.get("formatting").unwrap();
+        assert_eq!(formatting.source.len(), 1);
         assert!(matches!(
-            formatting,
-            Query {
-                source: QuerySource { git: Some(git), path }
-            } if git == &expected_git && path.ends_with("formatting.scm")
+            &formatting.source[0],
+            QuerySource { git: Some(git), path }
+                if git == &expected_git && path.ends_with("formatting.scm")
         ));
 
         let injections = queries.get("injections").unwrap();
+        assert_eq!(injections.source.len(), 1);
         assert!(matches!(
-            injections,
-            Query {
-                source: QuerySource { git: Some(git), path }
-            } if git == &expected_git && path.ends_with("injections.scm")
+            &injections.source[0],
+            QuerySource { git: Some(git), path }
+                if git == &expected_git && path.ends_with("injections.scm")
         ));
     }
 
@@ -643,8 +740,9 @@ mod tests {
             .config_query("formatting")
             .unwrap();
 
+        assert_eq!(formatting.source.len(), 1);
         assert!(matches!(
-            &formatting.source,
+            &formatting.source[0],
             QuerySource { git: None, path } if path == Path::new("/tmp/formatting.scm")
         ));
     }

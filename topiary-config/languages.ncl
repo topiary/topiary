@@ -78,7 +78,7 @@ let rec
       path | String,
     },
   Query = {
-    source | QuerySource,
+    source | std.contract.any_of [QuerySource, Array QuerySource],
     .. # query entries are non-exhaustive for future metadata (e.g. per-query overrides)
   },
   LanguageConfig = {

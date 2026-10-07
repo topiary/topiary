@@ -151,8 +151,12 @@ impl Configuration {
 
         // Ensure `topiary prefetch` covers both grammars and queries.
         if let Some(queries) = language.config.queries.as_ref() {
-            for (_, query) in queries.iter().filter(|(_, q)| q.source.git.is_some()) {
-                language.resolve_query_path_with(&query.source, repos)?;
+            for source in queries
+                .values()
+                .flat_map(|query| query.source.iter())
+                .filter(|source| source.git.is_some())
+            {
+                language.resolve_query_path_with(source, repos)?;
             }
         }
 

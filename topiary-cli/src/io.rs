@@ -24,52 +24,74 @@ use crate::cli::{AtLeastOneInput, ExactlyOneInput, FromStdin};
 use crate::config::Configuration;
 use crate::error::{CLIResult, ResultPreformat, TopiaryError};
 
+/// A resolved query source: one or more query files (or built-in query contents)
+/// whose contents are concatenated (composed) into a single query.
 #[derive(Debug, Clone, Hash)]
-pub enum QuerySource {
+pub struct QuerySource(Vec<QuerySourcePart>);
+
+#[derive(Debug, Clone, Hash)]
+enum QuerySourcePart {
     Path(PathBuf),
     BuiltIn(String),
 }
 
 impl From<PathBuf> for QuerySource {
     fn from(path: PathBuf) -> Self {
-        QuerySource::Path(path)
+        Self(vec![QuerySourcePart::Path(path)])
     }
 }
 
 impl From<&PathBuf> for QuerySource {
     fn from(path: &PathBuf) -> Self {
-        QuerySource::Path(path.clone())
+        Self(vec![QuerySourcePart::Path(path.clone())])
+    }
+}
+
+impl From<Vec<PathBuf>> for QuerySource {
+    fn from(paths: Vec<PathBuf>) -> Self {
+        Self(paths.into_iter().map(QuerySourcePart::Path).collect())
     }
 }
 
 impl From<&str> for QuerySource {
     fn from(string: &str) -> Self {
-        QuerySource::BuiltIn(String::from(string))
+        Self(vec![QuerySourcePart::BuiltIn(String::from(string))])
     }
 }
 
 impl Display for QuerySource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            QuerySource::Path(p) => write!(f, "{}", p.display()),
-            QuerySource::BuiltIn(_) => write!(f, "built-in query"),
+        match &self.0[..] {
+            [QuerySourcePart::Path(p)] => write!(f, "{}", p.display()),
+            [QuerySourcePart::BuiltIn(_)] => write!(f, "built-in query"),
+            parts => write!(f, "composed query ({} files)", parts.len()),
         }
     }
 }
 
 impl QuerySource {
+    /// The single backing file, if this source is exactly one on-disk query file.
     pub(crate) fn filepath(&self) -> Option<&Path> {
-        match self {
-            QuerySource::Path(p) => Some(p.as_path()),
-            QuerySource::BuiltIn(_) => None,
+        match &self.0[..] {
+            [QuerySourcePart::Path(p)] => Some(p.as_path()),
+            _ => None,
         }
     }
 
     pub(crate) fn get_content_sync(&self) -> CLIResult<String> {
-        let contents = match self {
-            Self::Path(query) => std::fs::read_to_string(query)?,
-            Self::BuiltIn(contents) => contents.to_owned(),
-        };
+        let mut contents = String::new();
+        for part in &self.0 {
+            let content = match part {
+                QuerySourcePart::Path(query) => std::fs::read_to_string(query)?,
+                QuerySourcePart::BuiltIn(content) => content.clone(),
+            };
+            // Separate composed query files with a newline, so that a file which
+            // does not end in one doesn't run into the start of the next.
+            if !contents.is_empty() {
+                contents.push('\n');
+            }
+            contents.push_str(&content);
+        }
         Ok(contents)
     }
 }
