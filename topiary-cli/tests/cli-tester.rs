@@ -154,6 +154,48 @@ fn test_fmt_stdin_query_override_is_used() {
 
 #[test]
 #[cfg(feature = "json")]
+fn test_fmt_stdin_composed_query_sources() {
+    use predicates::{prelude::PredicateBooleanExt, str::contains};
+
+    // Split the override query from `test_fmt_stdin_query_override_is_used` across two
+    // files and compose them through the configuration. The composed result must be
+    // identical to the single-file override.
+    let tmp_dir = TempDir::new().unwrap();
+    let config_dir = tmp_dir.path().join(".topiary");
+    fs::create_dir_all(&config_dir).unwrap();
+    fs::write(config_dir.join("leaf.scm"), "(string) @leaf\n").unwrap();
+    fs::write(config_dir.join("colon.scm"), "\":\" @prepend_space\n").unwrap();
+    let config = config_dir.join("languages.ncl");
+    fs::write(
+        &config,
+        r#"{
+  languages.json.queries.formatting.source = [
+    { path = "./leaf.scm" },
+    { path = "./colon.scm" },
+  ],
+}
+"#,
+    )
+    .unwrap();
+
+    initialize();
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("--configuration")
+        .arg(&config)
+        .arg("fmt")
+        .arg("--language")
+        .arg("json")
+        .write_stdin(JSON_INPUT)
+        .assert()
+        .success()
+        .stdout(contains(r#"{"test" :123}"#).and(contains(JSON_EXPECTED.trim()).not()));
+}
+
+#[test]
+#[cfg(feature = "json")]
 fn test_fmt_stdin_invalid_query_override_fails() {
     use predicates::str::contains;
 

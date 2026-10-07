@@ -264,6 +264,33 @@ across every query (and grammar) that references it, so listing several
 queries from the same repository does not incur repeated network
 calls.
 
+#### Composing queries
+
+A `source` may also be an array of sources. The contents of every source
+are then concatenated, in order, into a single query. This lets you add
+to, or cherry-pick from, the queries Topiary ships with, without having
+to copy and maintain a whole query file:
+
+```nickel
+rust = {
+  extensions = ["rs"],
+  queries = {
+    injections.source = [
+      # The built-in injections, taken from a pinned revision...
+      {
+        git = {
+          git = "https://github.com/topiary/topiary.git",
+          rev = "2eb5bd2d801c767f9a500a48d79c1a9b6a1877a7",
+        },
+        path = "topiary-queries/queries/rust/injections.scm",
+      },
+      # ...plus your own, local additions.
+      { path = "./my-extra-injections.scm" },
+    ],
+  },
+},
+```
+
 ### Usage with Nix
 
 For usage in Nix, a `prefetchLanguages.nix` file provides utilities

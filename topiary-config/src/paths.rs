@@ -80,10 +80,21 @@ impl<'a> PathResolver<'a> {
         }
     }
 
-    /// A `source` is either `{ path }` or `{ git, path }`. Only the former names a path on
-    /// the local filesystem: when `git` is present, `path` names a file *inside* the
-    /// checkout Topiary fetches, and must be left exactly as written.
+    /// A `source` is either `{ path }` or `{ git, path }`, or an array of such
+    /// records. Only the local form names a path on the local filesystem: when
+    /// `git` is present, `path` names a file *inside* the checkout Topiary
+    /// fetches, and must be left exactly as written.
     fn resolve_source(&self, source: &mut NickelValue) {
+        // A `source` may be given as an array of sources (`Array QuerySource`).
+        if let ValueContentRefMut::Array(container) = source.content_make_mut()
+            && let Some(array) = container.into_opt()
+        {
+            for element in array.array.iter_mut() {
+                self.resolve_source(element);
+            }
+            return;
+        }
+
         let Some(source) = source.as_record_mut() else {
             return;
         };
@@ -207,7 +218,7 @@ mod tests {
             .unwrap()
             .config_query(query)
             .unwrap()
-            .source
+            .source[0]
             .clone()
     }
 
@@ -226,6 +237,34 @@ mod tests {
             query_source(&config, "markdown", "formatting").path,
             tmp.path().join("queries/markdown/formatting.scm")
         );
+    }
+
+    /// Each source in an array of query sources is anchored independently.
+    #[test]
+    fn relative_query_paths_in_an_array_are_each_anchored() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config_file = tmp.path().join("languages.ncl");
+        write(
+            &config_file,
+            r#"{
+              languages.markdown.queries.injections.source = [
+                { path = "./a.scm" },
+                { path = "./b.scm" },
+              ],
+            }"#,
+        );
+
+        let config = fetch(&config_file);
+        let sources = &config
+            .get_language_cfg("markdown")
+            .unwrap()
+            .config_query("injections")
+            .unwrap()
+            .source;
+
+        assert_eq!(sources.len(), 2);
+        assert_eq!(sources[0].path, tmp.path().join("a.scm"));
+        assert_eq!(sources[1].path, tmp.path().join("b.scm"));
     }
 
     /// A path that is already rooted is left as written. On Windows this covers the

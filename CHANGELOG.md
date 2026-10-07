@@ -47,6 +47,7 @@ This name should be decided amongst the team before the release.
 ### Added
 - [#1343](https://github.com/topiary/topiary/pull/1343) Add callout when failing to copy queries during fetch
 - [#1344](https://github.com/topiary/topiary/pull/1344) Automatic publishing of releases to crates.io
+- [#839](https://github.com/topiary/topiary/issues/839) Query composition: a query `source` may be an array of query sources, whose contents are concatenated
 
 
 ## v0.8.0 - Irresistible Ironwood - 2026-10-01
