@@ -279,9 +279,7 @@ impl Language {
                 }
             }
 
-            log::debug!(
-                "detected path(s) for languages.{language_name}.{query_name}: {paths:?}"
-            );
+            log::debug!("detected path(s) for languages.{language_name}.{query_name}: {paths:?}");
             return Ok(paths);
         } else {
             log::debug!("field not present: 'languages.{language_name}.{query_name}'");
