@@ -199,6 +199,10 @@ impl InputFile<'_> {
             injection_query,
             grammar,
             indent: self.language().indent(),
+            external_formatter: self
+                .language()
+                .external_formatter()
+                .map(crate::external_formatter::runner),
         })
     }
 

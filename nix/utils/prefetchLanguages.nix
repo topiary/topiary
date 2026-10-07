@@ -100,6 +100,7 @@ let
         "extensions | default = ${toNickelValue lang.extensions}"
       ]
       ++ lib.optional (lang ? indent) "indent | default = ${toNickelValue lang.indent}"
+      ++ lib.optional (lang ? external_formatter) "external_formatter | default = ${toNickelValue lang.external_formatter}"
       ++ [
         (
           let

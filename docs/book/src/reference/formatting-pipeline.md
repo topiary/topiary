@@ -17,6 +17,15 @@ forced leaves during query matching. The captured leaf content is
 rewritten with the inner language's formatted output before atom
 post-processing and pretty printing continue.
 
+## External formatters
+
+If the language being formatted has a configured [external
+formatter](../cli/configuration.md#external-formatters), the query matching
+step is skipped for that language: the input is handed to the external program
+instead, and its output becomes the host text. Injections are still discovered
+-- by parsing the externally formatted output -- and formatted as usual, so an
+external host formatter and injected (external) formatters compose.
+
 ## Atom processing
 
 The list of atoms from the first step are then processed into a

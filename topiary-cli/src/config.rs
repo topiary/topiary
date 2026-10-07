@@ -160,12 +160,16 @@ impl Configuration {
             }
             Err(_) => None,
         };
+        let external_formatter = config_language
+            .external_formatter()
+            .map(crate::external_formatter::runner);
         Ok(topiary_core::Language {
             name: name_ref.to_string(),
             formatting_query,
             injection_query,
             grammar,
             indent: config_language.indent(),
+            external_formatter,
         })
     }
 

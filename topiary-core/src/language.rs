@@ -2,7 +2,10 @@ use std::fmt;
 
 use topiary_tree_sitter_facade::Tree;
 
-use crate::{InjectionQuery, InjectionSpan, TopiaryQuery, collect_injections};
+use crate::{
+    InjectionQuery, InjectionSpan, TopiaryQuery, collect_injections,
+    external_formatter::ExternalFormatter,
+};
 
 /// A Language contains all the information Topiary requires to format that
 /// specific languages.
@@ -24,6 +27,16 @@ pub struct Language {
     /// if not provided. Any string can be provided, but in most instances will be
     /// some whitespace: "  ", "    ", or "\t".
     pub indent: Option<String>,
+    /// An optional external formatter to delegate to.
+    ///
+    /// When present, it supersedes `formatting_query` for this language: the
+    /// input is handed to the external formatter instead of being formatted
+    /// with the tree-sitter query. The formatting query is still required (and
+    /// used, for example, to discover injections), but its formatting rules are
+    /// not applied to this language.
+    ///
+    /// The formatter itself is opaque to core; see [`ExternalFormatter`].
+    pub external_formatter: Option<ExternalFormatter>,
 }
 
 impl Language {

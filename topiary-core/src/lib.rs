@@ -18,6 +18,7 @@ use tree_sitter::Position;
 
 pub use crate::{
     error::{ErrorSpan, FormatterError, SpanAttachment},
+    external_formatter::ExternalFormatter,
     language::Language,
     tree_sitter::{
         CoverageData, InjectionQuery, InjectionSpan, SyntaxNode, TopiaryQuery, Visualisation,
@@ -27,6 +28,7 @@ pub use crate::{
 
 mod atom_collection;
 mod error;
+pub mod external_formatter;
 mod graphviz;
 mod language;
 mod pretty;
@@ -274,6 +276,7 @@ pub enum Operation {
 ///     grammar,
 ///     indent: None,
 ///     injection_query: None,
+///     external_formatter: None,
 /// };
 ///
 /// match formatter(&mut input, &mut output, &language, Operation::Format{ skip_idempotence: false, tolerate_parsing_errors: false, skip_stage: None }, None) {
@@ -377,6 +380,49 @@ pub fn formatter_tree(
                     language.collect_injections(&tree, input_content)
                 }
             };
+
+            // An external formatter supersedes the tree-sitter formatting query
+            // for this language: the host formatting is delegated to it. We
+            // still bring injection handling along, but against the externally
+            // formatted output, so that injected languages are formatted on top
+            // of it (including by their own external formatters).
+            if let Some(external_formatter) = language.external_formatter.as_ref() {
+                crate::info!(
+                    "Delegating formatting of `{}` to an external formatter",
+                    language.name
+                );
+
+                // Topiary guarantees a single trailing newline.
+                let mut rendered = format!("{}\n", external_formatter.run(input_content)?.trim());
+
+                if !matches!(skip_stage, Some(SkipStage::Injections)) && !spans.is_empty() {
+                    // The injection spans were collected from the original input,
+                    // so they do not apply to the externally formatted output;
+                    // re-parse it to discover injections at their new offsets.
+                    let formatted_tree =
+                        tree_sitter::parse(&rendered, &language.grammar, tolerate_parsing_errors)?;
+                    let formatted_spans = language.collect_injections(&formatted_tree, &rendered);
+                    rendered = splice_formatted_injections(
+                        &rendered,
+                        formatted_spans,
+                        resolve,
+                        tolerate_parsing_errors,
+                    )?;
+                }
+
+                if !skip_idempotence {
+                    idempotence_check(
+                        &rendered,
+                        language,
+                        tolerate_parsing_errors,
+                        skip_stage,
+                        resolve,
+                    )?;
+                }
+
+                write!(output, "{rendered}").context_to()?;
+                return Ok(());
+            }
 
             // Create a list of nodes that are injection formatted.
             // These must will be treated as leaves (although, in all likelihood, they already are).
@@ -641,8 +687,9 @@ mod tests {
     use test_log::test;
 
     use crate::{
-        FormatterError, InjectionQuery, Language, LanguageResolver, Operation, SpanAttachment,
-        TopiaryQuery, formatter, formatter_str, parse, test_utils::pretty_assert_eq,
+        ExternalFormatter, FormatterError, InjectionQuery, Language, LanguageResolver, Operation,
+        SpanAttachment, TopiaryQuery, formatter, formatter_str, parse,
+        test_utils::pretty_assert_eq,
     };
 
     fn language(name: &str, formatting_query: &str, injection_query: Option<&str>) -> Language {
@@ -657,6 +704,7 @@ mod tests {
                 .map(|query_content| InjectionQuery::new(&grammar, query_content).unwrap()),
             grammar,
             indent: config_language.indent(),
+            external_formatter: None,
         }
     }
 
@@ -756,6 +804,118 @@ mod tests {
         crate::debug!("{formatted}");
 
         pretty_assert_eq(expected, &formatted);
+    }
+
+    /// When a language has an external formatter, it takes the place of the
+    /// formatting query for that language.
+    #[test(tokio::test)]
+    async fn external_formatter_supersedes_formatting_query() {
+        let mut language = json_language();
+        // Uppercasing is something the JSON formatting query would never do, so
+        // uppercase output proves the query was superseded.
+        language.external_formatter =
+            Some(ExternalFormatter::new(|input| Ok(input.to_uppercase())));
+
+        let mut input = r#"{"foo":"bar"}"#.as_bytes();
+        let mut output = Vec::new();
+
+        formatter(
+            &mut input,
+            &mut output,
+            &language,
+            Operation::Format {
+                skip_idempotence: false,
+                tolerate_parsing_errors: false,
+                skip_stage: None,
+            },
+            None,
+        )
+        .unwrap();
+
+        let formatted = String::from_utf8(output).unwrap();
+        pretty_assert_eq("{\"FOO\":\"BAR\"}\n", &formatted);
+    }
+
+    /// A failing external formatter surfaces as a formatting error, rather than
+    /// silently producing unformatted output.
+    #[test(tokio::test)]
+    async fn external_formatter_failure_is_reported() {
+        let mut language = json_language();
+        language.external_formatter = Some(ExternalFormatter::new(|_| {
+            Err(rootcause::report!(FormatterError::ExternalFormatter {
+                command: "boom".to_owned(),
+                message: "intentional test failure".to_owned(),
+            }))
+        }));
+
+        let mut input = r#"{"foo":"bar"}"#.as_bytes();
+        let mut output = Vec::new();
+
+        let result = formatter(
+            &mut input,
+            &mut output,
+            &language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+                skip_stage: None,
+            },
+            None,
+        );
+
+        assert!(matches!(
+            result,
+            Err(ref report)
+                if matches!(
+                    report.current_context(),
+                    FormatterError::ExternalFormatter { command, .. } if command == "boom"
+                )
+        ));
+    }
+
+    /// A host external formatter and language injections compose: the host is
+    /// delegated to the external formatter, while the injected region is still
+    /// formatted by the injected language (here, via its own external
+    /// formatter).
+    #[test(tokio::test)]
+    async fn external_formatter_composes_with_injections() {
+        let mut host = ocamllex_language();
+        // The identity, so the ocamllex formatting query is fully superseded
+        // and the host text is passed through unchanged.
+        host.external_formatter = Some(ExternalFormatter::new(|input| Ok(input.to_owned())));
+
+        let mut injected = ocaml_language();
+        // Uppercase the injected ocaml so that we can observe it was formatted.
+        injected.external_formatter =
+            Some(ExternalFormatter::new(|input| Ok(input.to_uppercase())));
+        let injected = Arc::new(injected);
+
+        let input = r#"rule token = parse
+  | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
+"#;
+        let mut output = Vec::new();
+
+        let resolver: &LanguageResolver =
+            &|name| Ok((name == "ocaml").then(|| Arc::clone(&injected)));
+
+        formatter_str(
+            input,
+            &mut output,
+            &host,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+                skip_stage: None,
+            },
+            Some(resolver),
+        )
+        .unwrap();
+
+        let formatted = String::from_utf8(output).unwrap();
+        // The host was passed through by the identity formatter...
+        assert!(formatted.contains("rule token = parse"), "{formatted}");
+        // ...while the injected ocaml was uppercased by its external formatter.
+        assert!(formatted.contains("LET VALUES"), "{formatted}");
     }
 
     #[test(tokio::test)]

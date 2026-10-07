@@ -55,12 +55,36 @@ pub struct LanguageConfiguration {
     /// The tree-sitter source of the language, contains all that is needed to pull and compile the tree-sitter grammar
     pub grammar: Grammar,
 
+    /// An optional external formatter to delegate to.
+    ///
+    /// When present, it supersedes this language's formatting query: Topiary
+    /// delegates to the external program instead of applying the tree-sitter
+    /// formatting rules. A formatting query must still exist for the language
+    /// (see [`LanguageConfiguration::queries`]), but it is not used to format
+    /// the language's own source.
+    #[serde(default)]
+    pub external_formatter: Option<Command>,
+
     /// Optional map of named queries (e.g. `formatting`, `injections`). When present, entries
     /// override the disk-search chain in `find_query_file`.
     #[cfg(not(target_arch = "wasm32"))]
     #[serde(default)]
     // TODO Query source
     pub queries: Option<HashMap<String, Query>>,
+}
+
+/// An invocation of an external formatter, as configured under
+/// `languages.<language>.external_formatter`.
+///
+/// The command is spawned directly, without a shell: `command` is the program
+/// to run and `args` are passed verbatim, one element per argument.
+#[derive(Debug, serde::Deserialize, PartialEq, Eq, Hash, serde::Serialize, Clone)]
+pub struct Command {
+    /// Program to run, resolved on `PATH` (or given as an absolute path).
+    pub command: String,
+    /// Arguments passed to `command`, one array element per argument.
+    #[serde(default)]
+    pub args: Vec<String>,
 }
 
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
@@ -145,6 +169,11 @@ impl Language {
 
     pub fn indent(&self) -> Option<String> {
         self.config.indent.clone()
+    }
+
+    /// The external formatter configured for this language, if any.
+    pub fn external_formatter(&self) -> Option<&Command> {
+        self.config.external_formatter.as_ref()
     }
 
     /// Look up a named `Query` entry (e.g. "formatting", "injections") on this language's config.
@@ -707,5 +736,49 @@ mod tests {
             grammar.source,
             GrammarSource::Path(PathBuf::from("/tmp/grammar.so"))
         );
+    }
+
+    #[test]
+    fn language_external_formatter() {
+        let src = r#"
+{
+  extensions = ["json"],
+  grammar.source.path = "/tmp/grammar.so",
+  external_formatter = { command = "prettier", args = ["--parser", "json"] },
+}
+        "#;
+        let config: LanguageConfiguration = from_nickel_str(src).unwrap();
+
+        let formatter = config.external_formatter.unwrap();
+        assert_eq!(formatter.command, "prettier");
+        assert_eq!(formatter.args, vec!["--parser", "json"]);
+    }
+
+    #[test]
+    fn language_external_formatter_args_default_to_empty() {
+        let src = r#"
+{
+  extensions = ["go"],
+  grammar.source.path = "/tmp/grammar.so",
+  external_formatter = { command = "gofmt" },
+}
+        "#;
+        let config: LanguageConfiguration = from_nickel_str(src).unwrap();
+
+        let formatter = config.external_formatter.unwrap();
+        assert_eq!(formatter.command, "gofmt");
+        assert!(formatter.args.is_empty());
+    }
+
+    #[test]
+    fn language_external_formatter_is_optional() {
+        let src = r#"
+{
+  extensions = ["json"],
+  grammar.source.path = "/tmp/grammar.so",
+}
+        "#;
+        let config: LanguageConfiguration = from_nickel_str(src).unwrap();
+        assert!(config.external_formatter.is_none());
     }
 }
