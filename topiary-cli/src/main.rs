@@ -2,6 +2,7 @@ mod check;
 mod cli;
 mod config;
 mod error;
+mod external_formatter;
 mod fs;
 mod io;
 mod language;

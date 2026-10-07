@@ -264,6 +264,35 @@ across every query (and grammar) that references it, so listing several
 queries from the same repository does not incur repeated network
 calls.
 
+### External formatters
+
+Some languages already have a capable native formatter and Topiary need not
+compete with it. A language can delegate its formatting to an external program
+by setting the optional `external_formatter` field:
+
+```nickel
+rust = {
+  extensions = ["rs"],
+  external_formatter = {
+    command = "rustfmt",
+    args = ["--edition", "2021"],
+  },
+},
+```
+
+The command is described as an argv vector (`command` plus `args`), not as a
+shell command line: `command` is spawned directly, without a shell, and each
+element of `args` is passed verbatim. The input is written to the process's
+standard input and the formatted result is read from its standard output.
+
+The external formatter *supersedes* the language's formatting query: Topiary
+does not apply the query's rules to the language itself. A formatting query must
+still exist for the language, however, and it is still used to discover
+[injections](../reference/language-injections.md) -- which are then formatted as usual,
+including by their own external formatters. These compose: `rust` can be
+delegated to `rustfmt` while, say, the SQL injected into a `sqlx::query!` macro
+is formatted by an external formatter configured for `sql`.
+
 ### Usage with Nix
 
 For usage in Nix, a `prefetchLanguages.nix` file provides utilities

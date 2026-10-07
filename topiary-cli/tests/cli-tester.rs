@@ -198,6 +198,76 @@ fn test_fmt_stdin_query_fallback() {
         .stdout(JSON_EXPECTED);
 }
 
+/// A language with an external formatter delegates formatting to that program
+/// instead of applying its formatting query.
+#[cfg(all(unix, feature = "json"))]
+#[test]
+fn test_external_formatter_supersedes_query() {
+    use predicates::{prelude::PredicateBooleanExt, str::contains};
+
+    initialize();
+
+    let tmp_dir = TempDir::new().unwrap();
+    let config_file = tmp_dir.path().join("languages.ncl");
+    File::create(&config_file)
+        .unwrap()
+        .write_all(
+            br#"{
+  languages.json.external_formatter = { command = "tr", args = ["a-z", "A-Z"] },
+}
+"#,
+        )
+        .unwrap();
+
+    cargo_bin_cmd!("topiary")
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("--configuration")
+        .arg(&config_file)
+        .arg("fmt")
+        .arg("--language")
+        .arg("json")
+        .write_stdin(JSON_INPUT)
+        .assert()
+        .success()
+        // `tr` uppercases the input, which the JSON query would never do; and
+        // the normal JSON formatting must not have run.
+        .stdout(contains("\"TEST\"").and(contains(JSON_EXPECTED).not()));
+}
+
+/// A failing external formatter is reported as an error rather than silently
+/// leaving the input unformatted.
+#[cfg(all(unix, feature = "json"))]
+#[test]
+fn test_external_formatter_failure_is_reported() {
+    use predicates::str::contains;
+
+    initialize();
+
+    let tmp_dir = TempDir::new().unwrap();
+    let config_file = tmp_dir.path().join("languages.ncl");
+    File::create(&config_file)
+        .unwrap()
+        .write_all(
+            br#"{
+  languages.json.external_formatter = { command = "false" },
+}
+"#,
+        )
+        .unwrap();
+
+    cargo_bin_cmd!("topiary")
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("--configuration")
+        .arg(&config_file)
+        .arg("fmt")
+        .arg("--language")
+        .arg("json")
+        .write_stdin(JSON_INPUT)
+        .assert()
+        .failure()
+        .stderr(contains("External formatter `false`"));
+}
+
 #[test]
 #[cfg(all(feature = "json", feature = "toml"))]
 fn test_fmt_files() {

@@ -37,11 +37,13 @@ impl LanguageDefinitionCache {
         language_name: &str,
         formatting_query: &impl Hash,
         injection_query: Option<&impl Hash>,
+        external_formatter: Option<&topiary_config::language::Command>,
     ) -> u64 {
         let mut hash = DefaultHasher::new();
         language_name.hash(&mut hash);
         formatting_query.hash(&mut hash);
         injection_query.hash(&mut hash);
+        external_formatter.hash(&mut hash);
 
         hash.finish()
     }
@@ -54,6 +56,7 @@ impl LanguageDefinitionCache {
             &input.language().name,
             input.formatting_query(),
             input.injection_query(),
+            input.language().external_formatter(),
         );
 
         // Lock the entire `HashMap` on access. (This may seem blunt, but is necessary for the
@@ -103,7 +106,16 @@ impl LanguageDefinitionCache {
         let injection_query = config
             .get_query_source(name, topiary_queries::INJECTIONS_QUERY)
             .ok();
-        let key = Self::key_for_parts(name, &formatting_query, injection_query.as_ref());
+        let external_formatter = config
+            .get_language_cfg(name)
+            .ok()
+            .and_then(|language| language.external_formatter());
+        let key = Self::key_for_parts(
+            name,
+            &formatting_query,
+            injection_query.as_ref(),
+            external_formatter,
+        );
 
         let mut cache = self
             .languages

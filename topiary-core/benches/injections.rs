@@ -28,6 +28,7 @@ fn language_from_config(
             .map(|query_content| InjectionQuery::new(&grammar, query_content).unwrap()),
         grammar,
         indent: config_language.indent(),
+        external_formatter: None,
     }
 }
 

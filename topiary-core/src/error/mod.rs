@@ -41,6 +41,14 @@ pub enum FormatterError {
     /// provided query files, it is a bug. Please log an issue.
     Query(String),
 
+    /// An external formatter could not be started, or exited unsuccessfully.
+    ExternalFormatter {
+        /// The program that was invoked.
+        command: String,
+        /// A description of what went wrong.
+        message: String,
+    },
+
     /// I/O-related errors
     Io,
 }
@@ -82,6 +90,10 @@ impl fmt::Display for FormatterError {
 
             Self::InjectionLanguageResolution { language, .. } => {
                 write!(f, "Could not resolve injected language \"{language}\"")
+            }
+
+            Self::ExternalFormatter { command, message } => {
+                write!(f, "External formatter `{command}` {message}")
             }
         }
     }

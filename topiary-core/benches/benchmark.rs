@@ -21,6 +21,7 @@ fn setup() -> (String, Language) {
         grammar,
         indent: None,
         injection_query: None,
+        external_formatter: None,
     };
 
     (input, language)

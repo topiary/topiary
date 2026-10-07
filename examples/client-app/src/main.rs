@@ -29,6 +29,7 @@ async fn main() {
         grammar,
         indent: None,
         injection_query: None,
+        external_formatter: None,
     };
 
     // Format the input JSON using the language configuration
