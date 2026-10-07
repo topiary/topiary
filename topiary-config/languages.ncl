@@ -40,6 +40,29 @@ let rec
         ```
       "%,
   },
+  Command
+    | doc m%"
+      An external formatter to delegate to (e.g. `rustfmt`, `gofmt`).
+
+      A command is an argv vector rather than a shell string: `command` is
+      spawned directly (without a shell) and each element of `args` is passed
+      verbatim, in order. This makes the invocation unambiguous and means that
+      values interpolated from elsewhere in the configuration never need shell
+      quoting.
+
+      The input to format is written to the process's stdin and the formatted
+      result is read back from its stdout.
+    "%
+    = {
+      command
+        | String
+        | doc "Program to run, resolved on `PATH` (or given as an absolute path).",
+      args
+        | Array String
+        | doc "Arguments passed to `command`, one array element per argument."
+        | default
+        = [],
+    },
   GrammarSource
     | doc m%"
       Either a Git source or a local filesystem path. Fields are optional
@@ -90,6 +113,14 @@ let rec
       | optional
       | doc "Indentation string for this language; defaults to two spaces.",
     grammar | Grammar,
+    external_formatter
+      | Command
+      | optional
+      | doc m%"
+        Delegate formatting to an external program, given as an argv vector
+        (see `Command`). When absent, the language is formatted entirely by
+        Topiary from its tree-sitter queries.
+      "%,
     queries
       | { _ : Query }
       | optional
