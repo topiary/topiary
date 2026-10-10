@@ -3,4 +3,6 @@
     (language) @injection.language
   )
   (code_fence_content) @injection.content
+  ; mdBook inline macro
+  (#not-match? @injection.content "\\{\\{\\#include")
 )

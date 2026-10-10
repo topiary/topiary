@@ -146,8 +146,11 @@ interface types {
     enum errno {
         too-big,
         too-small,
-        too-fast, /* block-comment-trailing-comma */ too-slow, // inline-comment-trailing-comma
+        too-fast, /* block-comment-trailing-comma */
+        too-slow, // inline-comment-trailing-comma
+        /* leading-block-comment */ just-right, // inline-comment-trailing-comma
     }
+    eval-expression: func(op: op, x: u32, y: u32) -> u32;
 
     // a bitflags type
     flags permissions {

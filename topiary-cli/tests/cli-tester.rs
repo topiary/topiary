@@ -48,6 +48,14 @@ pub fn initialize() {
             .write_stdin("")
             .assert()
             .success();
+        #[cfg(feature = "markdown")]
+        cargo_bin_cmd!("topiary")
+            .arg("fmt")
+            .arg("--language")
+            .arg("markdown")
+            .write_stdin("")
+            .assert()
+            .success();
     });
 }
 

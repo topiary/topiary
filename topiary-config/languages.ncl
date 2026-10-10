@@ -287,8 +287,8 @@ in
       grammar.source | default = {
         git = {
           git = "https://github.com/bytecodealliance/tree-sitter-wit",
-          rev = "v1.4.0",
-          nixHash = "sha256-63xH63s6lgticgRtMz7LCL1ThuXegn7qFCZgeQqIZH4=",
+          rev = "f777cdbe11281ccc68ffa30bd7ea34cdf4ddbec6",
+          nixHash = "sha256-fSIEn2UN2YMehDu2BUR7dHwwvheiMAiTP14zv4cYCKE=",
         },
       },
     },
