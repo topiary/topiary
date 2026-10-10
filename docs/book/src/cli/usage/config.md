@@ -21,6 +21,8 @@ Options:
           Enable merging for configuration files
   -v, --verbose...
           Logging verbosity (increased per occurrence)
+      --skip-language <LANGUAGE>
+          Skip formatting the given language(s)
   -h, --help
           Print help
 ```

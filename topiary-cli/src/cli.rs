@@ -52,6 +52,10 @@ pub struct GlobalArgs {
         display_order = 102
     )]
     pub verbose: u8,
+
+    /// Skip formatting the given language(s)
+    #[arg(long, value_name = "LANGUAGE", global = true, display_order = 103)]
+    pub skip_language: Vec<String>,
 }
 
 // NOTE This abstraction is largely to workaround clap-rs/clap#4707

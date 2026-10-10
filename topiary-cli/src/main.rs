@@ -44,6 +44,7 @@ async fn run() -> CLIResult<()> {
     let config = Arc::new(Configuration::new(
         args.global.merge_configuration,
         args.global.configuration.as_deref(),
+        args.global.skip_language.clone(),
     )?);
 
     // Delegate by subcommand
