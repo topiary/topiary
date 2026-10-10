@@ -89,10 +89,16 @@ impl Configuration {
     where
         T: AsRef<str> + fmt::Display,
     {
+        let name = name.as_ref();
         self.languages
             .iter()
-            .find(|language| language.name == name.as_ref())
-            .ok_or(TopiaryConfigError::UnknownLanguage(name.to_string()))
+            .find(|language| language.name == name)
+            .or_else(|| {
+                self.languages
+                    .iter()
+                    .find(|language| language.config.extensions.contains(name))
+            })
+            .ok_or_else(|| TopiaryConfigError::UnknownLanguage(name.to_string()))
     }
 
     /// Prefetch a language's grammar and queries per its configuration.
@@ -418,5 +424,32 @@ impl std::ops::Deref for Program {
 impl std::ops::DerefMut for Program {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_language_cfg_resolves_extension_aliases() {
+        let config = Configuration::default();
+
+        // The proper language name resolves as before.
+        assert_eq!(config.get_language_cfg("rust").unwrap().name, "rust");
+        // A file extension resolves to the language that owns it.
+        assert_eq!(config.get_language_cfg("rs").unwrap().name, "rust");
+        assert_eq!(config.get_language_cfg("md").unwrap().name, "markdown");
+        assert_eq!(config.get_language_cfg("ncl").unwrap().name, "nickel");
+
+        // An exact name match takes precedence over an extension match. `json`
+        // is both the name of the JSON language and one of its extensions.
+        assert_eq!(config.get_language_cfg("json").unwrap().name, "json");
+
+        // Unknown names/extensions still error.
+        assert!(matches!(
+            config.get_language_cfg("definitely-not-a-language"),
+            Err(TopiaryConfigError::UnknownLanguage(_))
+        ));
     }
 }

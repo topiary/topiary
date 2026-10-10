@@ -57,7 +57,7 @@ pub struct GlobalArgs {
 // NOTE This abstraction is largely to workaround clap-rs/clap#4707
 #[derive(Args, Debug)]
 pub struct FromStdin {
-    /// Topiary language identifier (when formatting stdin)
+    /// Topiary language identifier or file extension (when formatting stdin)
     #[arg(short, long)]
     pub language: String,
 

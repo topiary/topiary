@@ -99,6 +99,24 @@ fn test_fmt_stdin() {
 
 #[test]
 #[cfg(feature = "json")]
+fn test_fmt_stdin_language_extension_alias() {
+    initialize();
+    let mut topiary = cargo_bin_cmd!("topiary");
+
+    // `avsc` is one of JSON's file extensions; it should resolve to the `json` language.
+    topiary
+        .env("TOPIARY_LANGUAGE_DIR", "../topiary-queries/queries")
+        .arg("fmt")
+        .arg("--language")
+        .arg("avsc")
+        .write_stdin(JSON_INPUT)
+        .assert()
+        .success()
+        .stdout(JSON_EXPECTED);
+}
+
+#[test]
+#[cfg(feature = "json")]
 fn test_fmt_stdin_query() {
     initialize();
     let mut topiary = cargo_bin_cmd!("topiary");
