@@ -270,7 +270,7 @@ pub enum Operation {
 ///
 /// let language: Language = Language {
 ///     name: "json".to_owned(),
-///     formatting_query: TopiaryQuery::new(&grammar, topiary_queries::json()).unwrap(),
+///     formatting_query: Some(TopiaryQuery::new(&grammar, topiary_queries::json()).unwrap()),
 ///     grammar,
 ///     indent: None,
 ///     injection_query: None,
@@ -378,6 +378,12 @@ pub fn formatter_tree(
                 }
             };
 
+            // The host formatting query is required from here on.
+            let formatting_query = language
+                .formatting_query
+                .as_ref()
+                .ok_or_else(|| report!(FormatterError::MissingFormattingQuery))?;
+
             // Create a list of nodes that are injection formatted.
             // These must will be treated as leaves (although, in all likelihood, they already are).
             let injection_leaf_nodes = spans.iter().map(|span| span.node_id);
@@ -388,7 +394,7 @@ pub fn formatter_tree(
             let mut atoms = tree_sitter::apply_query_tree_with_forced_leaves(
                 tree,
                 input_content,
-                &language.formatting_query,
+                formatting_query,
                 injection_leaf_nodes,
             )?;
 
@@ -658,7 +664,7 @@ mod tests {
 
         Language {
             name: name.to_owned(),
-            formatting_query: TopiaryQuery::new(&grammar, formatting_query).unwrap(),
+            formatting_query: Some(TopiaryQuery::new(&grammar, formatting_query).unwrap()),
             injection_query: injection_query
                 .map(|query_content| InjectionQuery::new(&grammar, query_content).unwrap()),
             grammar,
@@ -1038,6 +1044,69 @@ mod tests {
 
         let formatted = String::from_utf8(output).unwrap();
         pretty_assert_eq(skip_injections_expected, formatted.trim_end());
+    }
+
+    #[test]
+    fn missing_host_query_ok() {
+        use crate::SkipStage;
+
+        let input = r#"# Title
+
+```json
+[1,2]
+```
+"#;
+        let mut language = markdown_language();
+        language.formatting_query = None;
+
+        let mut output = Vec::new();
+
+        formatter_str(
+            input,
+            &mut output,
+            &language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+                skip_stage: Some(SkipStage::HostLanguage),
+            },
+            json_injection_resolver(),
+        )
+        .unwrap();
+
+        let formatted = String::from_utf8(output).unwrap();
+        assert!(formatted.contains("[ 1, 2 ]"));
+    }
+
+    #[test]
+    fn missing_host_query_err() {
+        let input = r#"# Title
+
+```json
+[1,2]
+```
+"#;
+        let mut language = markdown_language();
+        language.formatting_query = None;
+
+        let mut output = Vec::new();
+
+        let result = formatter_str(
+            input,
+            &mut output,
+            &language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+                skip_stage: None,
+            },
+            json_injection_resolver(),
+        );
+
+        assert!(matches!(
+            result,
+            Err(ref report) if report.current_context() == &FormatterError::MissingFormattingQuery
+        ));
     }
     #[test]
     fn skip_none_formats_all() {

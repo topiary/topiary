@@ -173,7 +173,7 @@ impl fmt::Display for InputLocation {
 pub struct InputFile<'cfg> {
     source: InputSource,
     language: &'cfg topiary_config::language::Language,
-    pub(crate) formatting_query: QuerySource,
+    pub(crate) formatting_query: Option<QuerySource>,
     pub(crate) injection_query: Option<QuerySource>,
 }
 
@@ -181,7 +181,17 @@ impl InputFile<'_> {
     /// Convert our `InputFile` into a language definition values with blocking I/O.
     pub fn to_language_sync(&self, repos: &LocalRepos) -> CLIResult<Language> {
         let grammar = self.language().fetch_grammar_with(repos)?;
-        let query_contents = self.formatting_query.get_content_sync()?;
+        let formatting_query = match &self.formatting_query {
+            Some(source) => {
+                let contents = source.get_content_sync()?;
+                Some(
+                    TopiaryQuery::new(&grammar, &contents)
+                        .attach_filepath(source.filepath())
+                        .context(FormatterError::Parsing)?,
+                )
+            }
+            None => None,
+        };
         let injection_query = match &self.injection_query {
             Some(source) => {
                 let contents = source.get_content_sync()?;
@@ -189,9 +199,6 @@ impl InputFile<'_> {
             }
             None => None,
         };
-        let formatting_query = TopiaryQuery::new(&grammar, &query_contents)
-            .attach_filepath(self.formatting_query.filepath())
-            .context(FormatterError::Parsing)?;
 
         Ok(Language {
             name: self.language.name.clone(),
@@ -216,9 +223,9 @@ impl InputFile<'_> {
         self.language
     }
 
-    /// Expose formatting query path for input
-    pub fn formatting_query(&self) -> &QuerySource {
-        &self.formatting_query
+    /// Expose formatting query path for input, if one was resolved
+    pub fn formatting_query(&self) -> Option<&QuerySource> {
+        self.formatting_query.as_ref()
     }
 
     /// Expose optional injection query path for input
@@ -266,12 +273,18 @@ impl<'cfg, 'i> Inputs<'cfg> {
                         .get_language_cfg(&language_name)
                         .preformat_context()
                         .context(TopiaryError::Config)?;
-                    let query_source: QuerySource = match query {
-                        // The user specified a query file
-                        Some(p) => p,
-                        // The user did not specify a file, try the default locations
-                        None => config
-                            .get_query_source(&language_name, topiary_queries::FORMATTING_QUERY)?,
+                    let formatting_query = if config.use_formatting_query() {
+                        Some(match query {
+                            // The user specified a query file
+                            Some(p) => p,
+                            // The user did not specify a file, try the default locations
+                            None => config.get_query_source(
+                                &language_name,
+                                topiary_queries::FORMATTING_QUERY,
+                            )?,
+                        })
+                    } else {
+                        None
                     };
                     let injection_query = config
                         .get_query_source(&language_name, topiary_queries::INJECTIONS_QUERY)
@@ -279,7 +292,7 @@ impl<'cfg, 'i> Inputs<'cfg> {
                     Ok(InputFile {
                         source: InputSource::Stdin,
                         language,
-                        formatting_query: query_source,
+                        formatting_query,
                         injection_query,
                     })
                 })()]
@@ -289,8 +302,15 @@ impl<'cfg, 'i> Inputs<'cfg> {
                 .map(|path| {
                     let language = config.detect(&path).preformat_context()?;
                     let language_name = language.name.clone();
-                    let query: QuerySource = config
-                        .get_query_source(&language_name, topiary_queries::FORMATTING_QUERY)?;
+                    let formatting_query =
+                        if config.use_formatting_query() {
+                            Some(config.get_query_source(
+                                &language_name,
+                                topiary_queries::FORMATTING_QUERY,
+                            )?)
+                        } else {
+                            None
+                        };
                     let injection_query = config
                         .get_query_source(&language_name, topiary_queries::INJECTIONS_QUERY)
                         .ok();
@@ -298,7 +318,7 @@ impl<'cfg, 'i> Inputs<'cfg> {
                     Ok(InputFile {
                         source: InputSource::Disk(path.into(), None),
                         language,
-                        formatting_query: query,
+                        formatting_query,
                         injection_query,
                     })
                 })

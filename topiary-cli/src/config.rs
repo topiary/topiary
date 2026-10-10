@@ -13,6 +13,7 @@ use topiary_core::{
     TopiaryQuery, formatter,
 };
 
+use crate::cli::SkipStage;
 use crate::error::{CLIResult, ResultPreformat, TopiaryError};
 use crate::io::QuerySource;
 use crate::language::LanguageDefinitionCache;
@@ -34,6 +35,8 @@ pub struct Configuration {
     ncl_id: u32,
     path: Option<PathBuf>,
     cache: Arc<LanguageDefinitionCache>,
+    /// Stage of the formatting pipeline to skip if formatting is called.
+    skip_stage: Option<SkipStage>,
 }
 
 // expand tilde paths: "~/.config/topiary/foo.ncl"
@@ -43,7 +46,12 @@ fn expand_tilde(path: &Path) -> PathBuf {
 
 impl Configuration {
     /// Create a new Configuration by fetching from the given path
-    pub fn new(merge: bool, path: Option<&Path>, skip_languages: Vec<String>) -> CLIResult<Self> {
+    pub fn new(
+        merge: bool,
+        path: Option<&Path>,
+        skip_languages: Vec<String>,
+        skip_stage: Option<SkipStage>,
+    ) -> CLIResult<Self> {
         // expand tilde paths: "~/.config/topiary/foo.ncl"
         let path = path.map(expand_tilde);
         let (inner, ncl) =
@@ -67,7 +75,16 @@ impl Configuration {
             ncl_id,
             path,
             cache: Arc::new(LanguageDefinitionCache::new(skip_languages)),
+            skip_stage,
         })
+    }
+
+    pub fn skip_stage(&self) -> Option<SkipStage> {
+        self.skip_stage
+    }
+
+    pub fn use_formatting_query(&self) -> bool {
+        !matches!(self.skip_stage, Some(SkipStage::HostLanguage))
     }
 
     /// Get the [`Program`] that this configuration was evaluated from.
@@ -162,7 +179,7 @@ impl Configuration {
         };
         Ok(topiary_core::Language {
             name: name_ref.to_string(),
-            formatting_query,
+            formatting_query: Some(formatting_query),
             injection_query,
             grammar,
             indent: config_language.indent(),

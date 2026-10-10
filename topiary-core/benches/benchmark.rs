@@ -17,7 +17,7 @@ fn setup() -> (String, Language) {
 
     let language: Language = Language {
         name: "nickel".to_owned(),
-        formatting_query: TopiaryQuery::new(&grammar, topiary_queries::nickel()).unwrap(),
+        formatting_query: Some(TopiaryQuery::new(&grammar, topiary_queries::nickel()).unwrap()),
         grammar,
         indent: None,
         injection_query: None,

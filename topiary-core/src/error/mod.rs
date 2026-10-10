@@ -31,6 +31,10 @@ pub enum FormatterError {
         language: String,
     },
 
+    /// Host formatting was requested, but no formatting query is available for
+    /// the language (e.g. a language configured with only an injection query).
+    MissingFormattingQuery,
+
     // Tree-sitter could not parse the input without errors.
     Parsing,
 
@@ -82,6 +86,13 @@ impl fmt::Display for FormatterError {
 
             Self::InjectionLanguageResolution { language, .. } => {
                 write!(f, "Could not resolve injected language \"{language}\"")
+            }
+
+            Self::MissingFormattingQuery => {
+                write!(
+                    f,
+                    "No formatting query is available for the host language.\nThis can happen when a language is configured with only an injection query;\neither provide a formatting query or format with `--skip-stage host`."
+                )
             }
         }
     }

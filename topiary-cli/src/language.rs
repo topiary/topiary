@@ -74,7 +74,7 @@ impl LanguageDefinitionCache {
         // in the key, so we use its hash directly. This side-steps any awkward lifetime issues.
         let key = Self::key_for_parts(
             &input.language().name,
-            input.formatting_query(),
+            &input.formatting_query(),
             input.injection_query(),
         );
 
@@ -89,7 +89,7 @@ impl LanguageDefinitionCache {
             // Return the language definition from the cache, if it exists...
             Entry::Occupied(lang_def) => {
                 log::debug!(
-                    "Cache {:p}: Hit at {:#016x} ({}, {})",
+                    "Cache {:p}: Hit at {:#016x} ({}, {:?})",
                     self,
                     key,
                     input.language().name,
@@ -102,7 +102,7 @@ impl LanguageDefinitionCache {
             // ...otherwise, fetch the language definition, to populate the cache
             Entry::Vacant(slot) => {
                 log::debug!(
-                    "Cache {:p}: Insert at {:#016x} ({}, {})",
+                    "Cache {:p}: Insert at {:#016x} ({}, {:?})",
                     self,
                     key,
                     input.language().name,

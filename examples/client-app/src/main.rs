@@ -25,7 +25,7 @@ async fn main() {
     // Create Language struct
     let language: Language = Language {
         name: "json".to_owned(),
-        formatting_query: TopiaryQuery::new(&grammar, query).unwrap(),
+        formatting_query: Some(TopiaryQuery::new(&grammar, query).unwrap()),
         grammar,
         indent: None,
         injection_query: None,

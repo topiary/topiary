@@ -23,7 +23,7 @@ fn language_from_config(
 
     Language {
         name: name.to_owned(),
-        formatting_query: TopiaryQuery::new(&grammar, formatting_query_content).unwrap(),
+        formatting_query: Some(TopiaryQuery::new(&grammar, formatting_query_content).unwrap()),
         injection_query: injection_query_content
             .map(|query_content| InjectionQuery::new(&grammar, query_content).unwrap()),
         grammar,

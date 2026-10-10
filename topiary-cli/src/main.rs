@@ -14,8 +14,9 @@ use std::{
 };
 
 use error::Benign;
+use rootcause::{option_ext::OptionExt, report};
 use tabled::{Table, settings::Style};
-use topiary_core::{Operation, SpanAttachment, check_query_coverage, formatter};
+use topiary_core::{FormatterError, Operation, SpanAttachment, check_query_coverage, formatter};
 
 use crate::{
     cli::Commands,
@@ -45,6 +46,7 @@ async fn run() -> CLIResult<()> {
         args.global.merge_configuration,
         args.global.configuration.as_deref(),
         args.global.skip_language.clone(),
+        args.skip_stage(),
     )?);
 
     // Delegate by subcommand
@@ -53,18 +55,18 @@ async fn run() -> CLIResult<()> {
             check: true,
             tolerate_parsing_errors,
             skip_idempotence,
-            skip_stage,
             inputs,
+            ..
         } => {
             let inputs = Inputs::new(&config, &inputs);
             process_inputs(
                 inputs,
                 move |input, language, config| {
                     log::info!(
-                        "Checking {}, as {} using {}",
+                        "Checking {}, as {} using {:?}",
                         input.source(),
                         input.language().name,
-                        input.formatting_query(),
+                        input.formatting_query()
                     );
                     let filepath = input.filepath().map(|p| p.to_owned());
 
@@ -73,7 +75,7 @@ async fn run() -> CLIResult<()> {
                         &language,
                         skip_idempotence,
                         tolerate_parsing_errors,
-                        skip_stage,
+                        config.skip_stage(),
                         Some(&|name| config.resolve_injected_language(name)),
                     )
                     .attach_filepath(filepath.as_deref())
@@ -85,7 +87,6 @@ async fn run() -> CLIResult<()> {
         Commands::Format {
             tolerate_parsing_errors,
             skip_idempotence,
-            skip_stage,
             inputs,
             ..
         } => {
@@ -97,7 +98,7 @@ async fn run() -> CLIResult<()> {
                     let output = OutputFile::try_from(&input)?;
 
                     log::info!(
-                        "Formatting {}, as {} using {}, to {}",
+                        "Formatting {}, as {} using {:?}, to {}",
                         input.source(),
                         input.language().name,
                         input.formatting_query(),
@@ -121,7 +122,7 @@ async fn run() -> CLIResult<()> {
                             Operation::Format {
                                 skip_idempotence,
                                 tolerate_parsing_errors,
-                                skip_stage: skip_stage.map(|s| s.into()),
+                                skip_stage: config.skip_stage().map(Into::into),
                             },
                             Some(&|name| config.resolve_injected_language(name)),
                         )?;
@@ -249,6 +250,11 @@ async fn run() -> CLIResult<()> {
 
             let language = tokio::task::block_in_place(|| config.cache().fetch_input(&input))?;
 
+            // Formatting query is always resolved for `Coverage`.
+            let Some(formatting_query) = language.formatting_query.as_ref() else {
+                return Err(report!(FormatterError::MissingFormattingQuery).into_dynamic());
+            };
+
             log::info!(
                 "Checking query coverage of {}, as {}",
                 input.source(),
@@ -260,18 +266,19 @@ async fn run() -> CLIResult<()> {
 
             let input_content = read_input(&mut buf_input)?;
 
-            let coverage_data = check_query_coverage(
-                &input_content,
-                &language.formatting_query,
-                &language.grammar,
-            )
-            .attach_source(Some(input_content.as_str()))
-            .attach_filepath(buf_input.get_ref().filepath())?;
+            let coverage_data =
+                check_query_coverage(&input_content, formatting_query, &language.grammar)
+                    .attach_source(Some(input_content.as_str()))
+                    .attach_filepath(buf_input.get_ref().filepath())?;
             let coverage_res = coverage_data.get_result();
 
             let query_source = NamedSource::new(
-                buf_input.get_ref().formatting_query.to_string(),
-                language.formatting_query.query_content.clone(),
+                buf_input
+                    .get_ref()
+                    .formatting_query()
+                    .ok_or_report()?
+                    .to_string(),
+                formatting_query.query_content.clone(),
             )
             .with_language(&language.name);
             write!(

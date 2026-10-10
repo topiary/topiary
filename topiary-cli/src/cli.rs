@@ -23,6 +23,15 @@ pub struct Cli {
     pub command: Commands,
 }
 
+impl Cli {
+    pub fn skip_stage(&self) -> Option<SkipStage> {
+        match &self.command {
+            Commands::Format { skip_stage, .. } => *skip_stage,
+            _ => None,
+        }
+    }
+}
+
 // These are "true" global arguments that are relevant to all subcommands
 // NOTE Global arguments must be optional, even when defaults are specified
 #[derive(Args, Debug)]
