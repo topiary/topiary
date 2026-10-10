@@ -290,6 +290,7 @@ fn render_multi_line_string(
     }
 
     // very simple non exhaustive check for mixing of spaces and tabs
+    #[cfg(feature = "log")]
     if log::log_enabled!(log::Level::Info) {
         match content
             .clone()

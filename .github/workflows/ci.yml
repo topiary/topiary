@@ -76,6 +76,9 @@ jobs:
       - name: Build the topiary-cli and test those tests that cannot be performed in Nix
         run: nix develop --command bash -c "cargo test -p topiary-cli --features experimental"
 
+      - name: Test topiary-core compiles without default features
+        run: nix develop --command bash -c "cargo test -p topiary-core --no-default-features"
+
   test-windows:
     # Note: GitHub's Windows runners have a Rust toolchain installed
     runs-on: windows-latest
