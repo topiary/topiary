@@ -20,6 +20,16 @@ Resolves #XXX
 References #YYY
 Depends on #ZZZ
 
+<!----------------------------------------------------------------------
+AI policy: If this PR was assisted by an AI model, you MUST include the
+following section, naming the model used. AI usage is permitted, but by
+making a PR, you assert that you have both reviewed and verified the
+output and can fully explain and justify the changes made.
+
+Remove this section if no AI assistance was used.
+----------------------------------------------------------------------->
+Assisted by `ai-model`
+
 ## Description
 
 [PR Description]
@@ -29,16 +39,15 @@ Depends on #ZZZ
 <!----------------------------------------------------------------------
 See MAINTAINERS.md for more details.
 This is particularly important if this PR is preparing a release.
+
+If the PR solves a formatting issue for a supported language, or
+generally improves formatting, please make sure to include a regression
+test showcasing the fix/improvement to:
+`topiary-cli/tests/samples/{input,expected}/mylanguage.lang`
 ----------------------------------------------------------------------->
 
 Checklist before merging, wherever relevant:
 
-- [ ] `CHANGELOG.md` updated
+- [ ] `CHANGELOG.md` up-to-date
 - [ ] Documentation (The Topiary Book, `README.md`, etc.) up-to-date
-<!----------------------------------------------------------------------
-If the PR solves a formatting issue for a supported language,
-or generally improves formatting, please make sure to include a
-regression test showcasing the fix/improvement to:
-`topiary-cli/tests/samples/{input,expected}/mylanguage.lang`
------------------------------------------------------------------------>
-- [ ] Updated regression tests
+- [ ] Regression tests up-to-date
