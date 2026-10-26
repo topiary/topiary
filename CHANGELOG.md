@@ -54,6 +54,7 @@ example: `bin/changelog.nu --no-cc-header --save --section Added`
 - [#1351](https://github.com/topiary/topiary/pull/1351) Use file extension as language alias
 - [#1348](https://github.com/topiary/topiary/pull/1348) Added `topiary format --skip-language <LANGUAGE>` flag
 - [#1358](https://github.com/topiary/topiary/pull/1358) Expose setting cache directory
+- [#1348](https://github.com/topiary/topiary/pull/1348) Injection queries accept `@keep_whitespace` and `@multi_line_indent_all` on `@injection.content`
 
 ### Fixed
 - [#1348](https://github.com/topiary/topiary/pull/1348) injections now preserve trailing newlines

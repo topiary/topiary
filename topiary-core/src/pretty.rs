@@ -9,8 +9,8 @@ use std::fmt::Write;
 use rootcause::prelude::ResultExt;
 
 use crate::{
-    Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent, multi_line_indent,
-    tree_sitter::Position,
+    Atom, Capitalisation, FormatterError, FormatterResult, LeafDirectives, MultiLineIndent,
+    multi_line_indent, tree_sitter::Position,
 };
 
 /// Renders a slice of [`Atom`]s into formatted source code.
@@ -58,8 +58,11 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                 content,
                 original_position,
                 single_line_no_indent,
-                multi_line_indent,
-                keep_whitespace,
+                directives:
+                    LeafDirectives {
+                        multi_line_indent,
+                        keep_whitespace,
+                    },
                 capitalisation,
                 ..
             } => {
@@ -141,7 +144,7 @@ fn add_spaces_after_newlines(s: &str, n: i32) -> String {
     while let Some(c) = chars.next() {
         result.push(c);
 
-        if c == '\n' && !matches!(chars.peek(), Some('\n') | None) {
+        if c == '\n' && !matches!(chars.peek(), Some('\n')) {
             for _ in 0..n {
                 result.push(' ');
             }

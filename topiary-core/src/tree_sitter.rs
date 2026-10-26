@@ -16,7 +16,7 @@ use topiary_tree_sitter_facade::{
 use streaming_iterator::StreamingIterator;
 
 use crate::{
-    FormatterResult,
+    FormatterResult, LeafDirectives,
     atom_collection::{AtomCollection, QueryPredicates},
     error::{FormatterError, SpanAttachment, query_error_report},
 };
@@ -162,6 +162,11 @@ pub struct InjectionSpan<'a> {
     /// touching root language content.
     /// See [`crate::splice_formatted_injections`] for more details.
     pub byte_range: std::ops::Range<usize>,
+    /// Leaf directives captured on `@injection.content` (`@keep_whitespace`,
+    /// `@multi_line_indent_all`).
+    pub directives: LeafDirectives,
+    /// Start position of the captured content node.
+    pub position: Position,
 }
 
 /// Run an [`InjectionQuery`] against a parsed `tree`, returning every
@@ -242,6 +247,15 @@ pub fn collect_injections<'a>(
             if node.start_byte() == node.end_byte() {
                 continue;
             }
+
+            let mut directives = LeafDirectives::default();
+            for capture in query_match
+                .captures()
+                .filter(|c| c.node().id() == node.id())
+            {
+                directives.apply_capture(&capture.name(&capture_names));
+            }
+
             spans.push(InjectionSpan {
                 content: input_content
                     .get(byte_range.clone())
@@ -249,6 +263,8 @@ pub fn collect_injections<'a>(
                 language: language_name.clone(),
                 node_id: node.id(),
                 byte_range,
+                directives,
+                position: node.start_position().into(),
             });
         }
     }

@@ -426,6 +426,8 @@ has to [`@append_spaced_softline` / `@prepend_spaced_softline`](#append_spaced_s
 
 To be used on leaf nodes. The matched node will keep its trailing `\n` characters.
 
+Can also be used on `@injection.content`, see [language injections](../language-injections.md#leaf-directives) for details.
+
 ### Example
 
 ```scheme

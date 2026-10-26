@@ -52,6 +52,33 @@ Dynamic language selection is also supported. For example, taking the language n
 
 Topiary will check for `#set! injection.language` first, and if absent, it will fall back to using the text of the `@injection.language` captured node.
 
+### Leaf directives
+
+[Leaf directives](../capture-names/index.md) may also be
+placed on `@injection.content`, where they apply to the injected content rather
+than to a host leaf:
+
+- `@keep_whitespace` preserves the injected content's trailing whitespace (at
+  most one newline, plus the following line's indentation). Without it, the
+  inner formatter's output is trimmed and the closing delimiter is left glued to
+  the last line of code.
+- `@multi_line_indent_all` re-indents every line of the injected content to
+  match the indentation of the host line it is placed on. This is what keeps
+  fenced code blocks nested in, say, Markdown list items indented correctly.
+
+```scheme
+(fenced_code_block
+  (info_string
+    (language) @injection.language
+  )
+  (code_fence_content) @injection.content @keep_whitespace @multi_line_indent_all
+)
+```
+
+Both are opt-in. Because tree-sitter content nodes can begin or end partway
+through the leading indentation, Topiary aligns the injected region to its
+line's indentation before formatting it.
+
 ## Formatting model
 
 Topiary parses the host input once. If the host language has an
