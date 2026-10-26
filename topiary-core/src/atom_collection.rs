@@ -135,8 +135,24 @@ impl AtomCollection {
         directives: &LeafDirectives,
     ) -> FormatterResult<bool> {
         self.mutate_leaf_flags(node_id, |flags| {
-            *flags.content = mem::take(&mut new_content);
+            let mut content = mem::take(&mut new_content);
             flags.directives.merge(directives);
+            // `@multi_line_indent_all` on the injected content must re-anchor the
+            // inner formatter's column-zero output to the host indentation. The
+            // renderer's `MaintainOffset` normally derives that from the current
+            // output column, but the host atom stream routinely resets that
+            // column to zero (ex: `@append_hardline` after a fenced delimiter),
+            // which would drop the indentation entirely.
+            // Instead, capture the original host indentation of the leaf and apply it directly,
+            // then mark the content as already-indented.
+            if directives.multi_line_indent == MultiLineIndent::MaintainOffset {
+                let indent = leading_whitespace(flags.content).to_owned();
+                if !indent.is_empty() {
+                    content = indent_each_line(&content, &indent);
+                }
+                flags.directives.multi_line_indent = MultiLineIndent::None;
+            }
+            *flags.content = content;
             // Injected formatters emit column-zero text; render from column 1.
             flags.original_position.column = 1;
             Ok(())
@@ -1192,6 +1208,30 @@ impl AtomCollection {
         }
         node
     }
+}
+
+// get leading whitespace for a string
+fn leading_whitespace(content: &str) -> &str {
+    let end = content
+        .find(|c| c != ' ' && c != '\t')
+        .unwrap_or(content.len());
+    &content[..end]
+}
+
+// Prefix every non-empty line of `content` with `indent`, leaving empty lines
+// untouched.
+fn indent_each_line(content: &str, indent: &str) -> String {
+    let mut result = String::with_capacity(content.len() + indent.len());
+    for (index, line) in content.split('\n').enumerate() {
+        if index > 0 {
+            result.push('\n');
+        }
+        if !line.is_empty() {
+            result.push_str(indent);
+        }
+        result.push_str(line);
+    }
+    result
 }
 
 #[derive(Clone, Debug, Default)]
