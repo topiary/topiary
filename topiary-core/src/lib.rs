@@ -85,10 +85,9 @@ pub struct LeafDirectives {
 }
 
 impl LeafDirectives {
-    /// Apply the capture `name` (without `@`). Returns whether it is a leaf
-    /// directive.
-    pub fn apply_capture(&mut self, name: &str) -> bool {
-        match name {
+    /// Matches and applies `capture_name` to a leaf directive, returns `true` if successful.
+    pub fn apply_capture(&mut self, capture_name: &str) -> bool {
+        match capture_name {
             "multi_line_indent_all" => self.multi_line_indent = MultiLineIndent::MaintainOffset,
             "keep_whitespace" => self.keep_whitespace = true,
             _ => return false,
@@ -96,7 +95,6 @@ impl LeafDirectives {
         true
     }
 
-    /// Overlay `other` onto `self`; unset fields leave `self` unchanged.
     pub fn merge(&mut self, other: &Self) {
         if other.multi_line_indent != MultiLineIndent::None {
             self.multi_line_indent = other.multi_line_indent.clone();
@@ -524,8 +522,6 @@ fn splice_formatted_injections(
     resolve: Option<&LanguageResolver<'_>>,
     tolerate_parsing_errors: bool,
 ) -> FormatterResult<String> {
-    // Host text becomes `Literal`s and each injection a `Leaf`, so
-    // `pretty::render` applies the leaf directives exactly as in full formatting.
     let mut atoms = Vec::new();
     let mut cursor = 0;
 
@@ -569,7 +565,6 @@ fn splice_formatted_injections(
         atoms.push(Atom::Leaf {
             content: String::from_utf8(formatted_inner).context_to()?,
             id: span.node_id,
-            // Injected formatters emit column-zero text; render from column 1.
             original_position: Position {
                 column: 1,
                 ..span.position
@@ -586,40 +581,37 @@ fn splice_formatted_injections(
     pretty::render(&atoms, "")
 }
 
-/// Widen `span`'s byte range to its line's indentation, so
-/// `@multi_line_indent_all` sees the full column. Content nodes (e.g. a Markdown
-/// fence nested in a list item) can begin partway through the leading
-/// indentation and end on a whitespace-only line; the start is skipped forward
-/// only inside its line's indentation (leaving inline spacing alone), and the
-/// end only over a trailing blank line (so the closing delimiter is re-indented).
+/// Widen `span`'s byte range to its line's indentation, so `@multi_line_indent_all` sees the full column.
 fn anchor_to_line_indentation(
     input_content: &str,
     cursor: usize,
     span: &InjectionSpan,
 ) -> std::ops::Range<usize> {
     let std::ops::Range { mut start, mut end } = span.byte_range.clone();
-    let is_blank = |s: &str| s.trim_start_matches([' ', '\t']).is_empty();
 
+    // nodes can begin partway through the leading indentation
     let line_start = input_content[cursor..start]
         .rfind('\n')
-        .map_or(cursor, |i| cursor + i + 1);
+        .map_or(cursor, |i| cursor + i + 1); // step past the newline byte
+
+    // byte length of the leading spaces/tabs
+    let indentation_len = |s: &str| s.len() - s.trim_start_matches([' ', '\t']).len();
+    let is_blank = |s: &str| s.trim_start_matches([' ', '\t']).is_empty();
+
+    // is everything from the beginning of this line up to the span start only spaces/tabs?
     if is_blank(&input_content[line_start..start]) {
         start += indentation_len(&input_content[start..end]);
     }
+    // if span.content ends with a line that is blank
     if span
         .content
         .rsplit_once('\n')
-        .is_some_and(|(_, last)| is_blank(last))
+        .is_some_and(|(_before, last_line)| is_blank(last_line))
     {
         end += indentation_len(&input_content[end..]);
     }
 
     start..end
-}
-
-/// Byte length of the leading spaces/tabs in `s`.
-fn indentation_len(s: &str) -> usize {
-    s.len() - s.trim_start_matches([' ', '\t']).len()
 }
 
 /// Resolves a language string from an injection (e.g. "rust" in ```rust) into a `Language`

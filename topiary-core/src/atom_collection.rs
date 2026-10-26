@@ -143,8 +143,8 @@ impl AtomCollection {
         })
     }
 
-    /// Apply `f` to every [`Atom::Leaf`] whose tree-sitter `id` equals
-    /// `node_id`, returning whether any such leaf was found.
+    /// Apply `f` to every [`Atom::Leaf`] whose tree-sitter `id` equals `node_id`.
+    /// Returns whether a matching leaf was found.
     fn mutate_leaf_flags(
         &mut self,
         node_id: usize,
