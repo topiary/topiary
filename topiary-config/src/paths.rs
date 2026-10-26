@@ -32,6 +32,7 @@ const GRAMMAR: &str = "grammar";
 const QUERIES: &str = "queries";
 const SOURCE: &str = "source";
 const GIT: &str = "git";
+const CACHE: &str = "cache";
 pub(crate) const PATH: &str = "path";
 
 /// Rewrites relative `path` values in an evaluated configuration so that they are
@@ -48,8 +49,10 @@ impl<'a> PathResolver<'a> {
         Self { table, files }
     }
 
-    /// Walk `languages.<lang>` for the records that name a local file, and resolve them.
+    /// Walk cache, query, and grammar `.path` fields and resolve them to absolute paths.
     pub(crate) fn resolve(&self, config: &mut NickelValue) {
+        self.resolve_cache(config);
+
         let Some(languages) = config.field_mut("languages").and_then(as_record_mut) else {
             log::warn!("could not resolve relative paths: 'languages' field missing or invalid");
             return;
@@ -80,6 +83,17 @@ impl<'a> PathResolver<'a> {
         }
     }
 
+    // Resolve the top-level `cache.path`
+    fn resolve_cache(&self, config: &mut NickelValue) {
+        let Some(path) = config
+            .field_mut(CACHE)
+            .and_then(|cache| cache.field_mut(PATH))
+        else {
+            return;
+        };
+        self.resolve_path(path);
+    }
+
     /// A `source` is either `{ path }` or `{ git, path }`. Only the former names a path on
     /// the local filesystem: when `git` is present, `path` names a file *inside* the
     /// checkout Topiary fetches, and must be left exactly as written.
@@ -94,6 +108,11 @@ impl<'a> PathResolver<'a> {
         let Some(path) = source.field_mut(PATH) else {
             return;
         };
+        self.resolve_path(path);
+    }
+
+    // Rewrite a single `path` value so that it is resolved relative to the originating `.ncl` file
+    fn resolve_path(&self, path: &mut NickelValue) {
         let Some(relative): Option<PathBuf> = path.as_string().map(|s| s.as_str().into()) else {
             return;
         };
@@ -288,6 +307,44 @@ mod tests {
             grammar.source,
             GrammarSource::Path(tmp.path().join("tree-sitter-markdown.so"))
         );
+    }
+
+    #[test]
+    fn relative_cache_path_is_anchored_at_the_config_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config_file = tmp.path().join("languages.ncl");
+        write(&config_file, r#"{ cache.path = "./cache" }"#);
+
+        let config = fetch(&config_file);
+
+        let expected = tmp.path().join("cache");
+        assert_eq!(config.cache_dir().map(Path::to_path_buf), Some(expected));
+    }
+
+    /// A `cache.path` that is already rooted is left as written, mirroring the grammar
+    /// and query path handling.
+    #[test]
+    fn rooted_cache_path_is_left_alone() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config_file = tmp.path().join("languages.ncl");
+        write(&config_file, r#"{ cache.path = "/somewhere/cache" }"#);
+
+        let config = fetch(&config_file);
+
+        assert_eq!(
+            config.cache_dir().map(Path::to_path_buf),
+            Some(Path::new("/somewhere/cache").to_path_buf())
+        );
+    }
+
+    #[test]
+    fn absent_cache_path_is_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config_file = tmp.path().join("languages.ncl");
+        write(&config_file, "{ }");
+
+        let config = fetch(&config_file);
+        assert_eq!(config.cache_dir(), None);
     }
 
     /// Each path is anchored at the file it was written in, not at the entry point: the

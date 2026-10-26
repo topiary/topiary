@@ -164,7 +164,8 @@ impl Configuration {
     {
         let name_ref = name.as_ref();
         let config_language = self.get_language_cfg(name_ref).preformat_context()?;
-        let grammar = config_language.fetch_grammar_with(self.cache.repos())?;
+        let grammar =
+            config_language.fetch_grammar_with(self.cache.repos(), self.inner.cache_dir())?;
         let query_source = self.get_query_source(name_ref, topiary_queries::FORMATTING_QUERY)?;
         let query_content = query_source.get_content_sync()?;
         let formatting_query = TopiaryQuery::new(&grammar, &query_content)
@@ -198,7 +199,7 @@ impl Configuration {
         let cache = self.cache();
         let repos = cache.repos();
         let find = config_language
-            .find_query_file_with(query_name, repos)
+            .find_query_file_with(query_name, repos, self.inner.cache_dir())
             .preformat_context();
         let query: QuerySource = match find {
             Ok(p) => p.into(),

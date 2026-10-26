@@ -175,12 +175,13 @@ pub struct InputFile<'cfg> {
     language: &'cfg topiary_config::language::Language,
     pub(crate) formatting_query: Option<QuerySource>,
     pub(crate) injection_query: Option<QuerySource>,
+    cache_dir: Option<&'cfg Path>,
 }
 
 impl InputFile<'_> {
     /// Convert our `InputFile` into a language definition values with blocking I/O.
     pub fn to_language_sync(&self, repos: &LocalRepos) -> CLIResult<Language> {
-        let grammar = self.language().fetch_grammar_with(repos)?;
+        let grammar = self.language().fetch_grammar_with(repos, self.cache_dir)?;
         let formatting_query = match &self.formatting_query {
             Some(source) => {
                 let contents = source.get_content_sync()?;
@@ -294,6 +295,7 @@ impl<'cfg, 'i> Inputs<'cfg> {
                         language,
                         formatting_query,
                         injection_query,
+                        cache_dir: config.cache_dir(),
                     })
                 })()]
             }
@@ -320,6 +322,7 @@ impl<'cfg, 'i> Inputs<'cfg> {
                         language,
                         formatting_query,
                         injection_query,
+                        cache_dir: config.cache_dir(),
                     })
                 })
                 .collect(),

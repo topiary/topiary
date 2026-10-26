@@ -73,6 +73,7 @@ let
     commonArgs
     // {
       inherit cargoArtifacts;
+      CARGO_PROFILE = "dev";
       pname = "topiary-workspace-tests";
       cargoExtraArgs = "--locked";
       cargoNextestExtraArgs = "--workspace --all-features";
@@ -97,7 +98,9 @@ let
     commonArgs
     // {
       inherit cargoArtifacts;
-      cargoClippyExtraArgs = "-- --deny warnings";
+
+      cargoExtraArgs = "--workspace --all-features --locked";
+      cargoClippyExtraArgs = "--all-targets -- --deny warnings";
     }
   );
 

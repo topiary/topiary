@@ -6,7 +6,11 @@ pub mod language;
 mod paths;
 pub mod source;
 
-use std::{collections::HashMap, fmt, path::Path};
+use std::{
+    collections::HashMap,
+    fmt,
+    path::{Path, PathBuf},
+};
 
 use language::{Language, LanguageConfiguration};
 use nickel_lang_core::{
@@ -34,6 +38,21 @@ use crate::error::{TopiaryConfigError, TopiaryConfigResult};
 
 pub use source::Source;
 
+/// Top-level `cache` configuration, controlling where `topiary prefetch` stores the
+/// grammars and queries.
+#[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone, Default)]
+pub struct Cache {
+    /// Absolute path to the cache directory, or one resolved relative to a merged configuration record.
+    pub path: Option<PathBuf>,
+}
+
+impl Cache {
+    /// The configured cache directory, if the platform default was overridden.
+    pub fn path(&self) -> Option<&Path> {
+        self.path.as_deref()
+    }
+}
+
 /// The configuration of the Topiary.
 ///
 /// Contains information on how to format every language the user is interested in, modulo what is
@@ -42,11 +61,14 @@ pub use source::Source;
 #[derive(Debug, Clone)]
 pub struct Configuration {
     languages: Vec<Language>,
+    cache: Cache,
 }
 
 /// Internal struct to help with deserialisation, converted to the actual Configuration in deserialization
 #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize, Clone)]
 struct SerdeConfiguration {
+    #[serde(default)]
+    cache: Cache,
     languages: HashMap<String, LanguageConfiguration>,
 }
 
@@ -101,6 +123,21 @@ impl Configuration {
             .ok_or_else(|| TopiaryConfigError::UnknownLanguage(name.to_string()))
     }
 
+    /// The configured cache directory that overrides the destination for configuration fetching.
+    pub fn cache_dir(&self) -> Option<&Path> {
+        self.cache.path()
+    }
+
+    /// Create the configured cache directory (and any missing parents), if one is set.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn ensure_cache_dir(&self) -> TopiaryConfigResult<()> {
+        if let Some(dir) = self.cache_dir() {
+            log::debug!("Creating cache directory: {}", dir.display());
+            std::fs::create_dir_all(dir)?;
+        }
+        Ok(())
+    }
+
     /// Prefetch a language's grammar and queries per its configuration.
     ///
     /// # Errors
@@ -111,10 +148,11 @@ impl Configuration {
         language: &Language,
         force: bool,
         repos: &LocalRepos,
+        starting_directory: Option<&Path>,
     ) -> Result<(), TopiaryConfigFetchingError> {
         match &language.config.grammar.source {
             language::GrammarSource::Git { git, subdir } => {
-                let library_path = language.grammar_file()?;
+                let library_path = language.grammar_file(starting_directory)?;
 
                 log::debug!(
                     "Fetch \"{}\": Configured via Git ({} ({})); to {}",
@@ -158,7 +196,7 @@ impl Configuration {
         // Ensure `topiary prefetch` covers both grammars and queries.
         if let Some(queries) = language.config.queries.as_ref() {
             for (_, query) in queries.iter().filter(|(_, q)| q.source.git.is_some()) {
-                language.resolve_query_path_with(&query.source, repos)?;
+                language.resolve_query_path_with(&query.source, repos, starting_directory)?;
             }
         }
 
@@ -177,8 +215,9 @@ impl Configuration {
         T: AsRef<str> + fmt::Display,
     {
         let repos = LocalRepos::new();
+        self.ensure_cache_dir()?;
         let l = self.get_language_cfg(language)?;
-        Configuration::fetch_language(l, force, &repos)?;
+        Configuration::fetch_language(l, force, &repos, self.cache_dir())?;
         Ok(())
     }
 
@@ -190,7 +229,9 @@ impl Configuration {
     /// If any Grammar could not be build, a `TopiaryConfigError` is returned.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn prefetch_languages(&self, force: bool) -> TopiaryConfigResult<()> {
+        self.ensure_cache_dir()?;
         let repos = LocalRepos::new();
+        let starting_directory = self.cache_dir();
 
         // When the `parallel` feature is enabled (which it is by default), we use Rayon to fetch
         // and compile all found grammars concurrently.
@@ -201,7 +242,7 @@ impl Configuration {
             use rayon::prelude::*;
             self.languages
                 .par_iter()
-                .map(|l| Configuration::fetch_language(l, force, &repos))
+                .map(|l| Configuration::fetch_language(l, force, &repos, starting_directory))
                 .collect::<Result<Vec<_>, TopiaryConfigFetchingError>>()?;
         }
 
@@ -209,7 +250,7 @@ impl Configuration {
         {
             self.languages
                 .iter()
-                .map(|l| Configuration::fetch_language(l, force, &repos))
+                .map(|l| Configuration::fetch_language(l, force, &repos, starting_directory))
                 .collect::<Result<Vec<_>, TopiaryConfigFetchingError>>()?;
         }
 
@@ -283,7 +324,7 @@ impl PartialEq for Configuration {
         let lhs: HashMap<String, Language> = self.into();
         let rhs: HashMap<String, Language> = other.into();
 
-        lhs == rhs
+        lhs == rhs && self.cache == other.cache
     }
 }
 
@@ -295,7 +336,10 @@ impl From<SerdeConfiguration> for Configuration {
             .map(|(name, config)| Language::new(name, config))
             .collect();
 
-        Self { languages }
+        Self {
+            languages,
+            cache: value.cache,
+        }
     }
 }
 
@@ -451,5 +495,20 @@ mod tests {
             config.get_language_cfg("definitely-not-a-language"),
             Err(TopiaryConfigError::UnknownLanguage(_))
         ));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn ensure_cache_dir_creates_configured_directory() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config_file = tmp.path().join("languages.ncl");
+        std::fs::write(&config_file, r#"{ cache.path = "./cache" }"#).unwrap();
+
+        let (config, _) = Configuration::fetch(false, Some(config_file.as_path())).unwrap();
+        let cache = tmp.path().join("cache");
+        assert!(!cache.exists());
+
+        config.ensure_cache_dir().unwrap();
+        assert!(cache.is_dir());
     }
 }

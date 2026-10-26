@@ -159,7 +159,7 @@ impl Language {
         &self,
         source: &QuerySource,
     ) -> Result<PathBuf, TopiaryConfigFetchingError> {
-        self.resolve_query_path_with(source, &LocalRepos::new())
+        self.resolve_query_path_with(source, &LocalRepos::new(), None)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -167,12 +167,15 @@ impl Language {
         &self,
         source: &QuerySource,
         repos: &LocalRepos,
+        starting_directory: Option<&Path>,
     ) -> Result<PathBuf, TopiaryConfigFetchingError> {
         let Some(git) = source.git.as_ref() else {
             return Ok(source.path.clone());
         };
 
-        let query_path = git.cache_dir(None, &self.name).join(&source.path);
+        let query_path = git
+            .cache_dir(starting_directory, &self.name)
+            .join(&source.path);
         if query_path.is_file() {
             log::debug!(
                 "{}: query file already exists; returning cached path",
@@ -205,7 +208,7 @@ impl Language {
     /// Prefer `languages.<language>.<query_name>` config entries over implicit query paths.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn find_query_file(&self, query_name: &str) -> TopiaryConfigResult<PathBuf> {
-        self.find_query_file_with(query_name, &LocalRepos::new())
+        self.find_query_file_with(query_name, &LocalRepos::new(), None)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -213,6 +216,7 @@ impl Language {
         &self,
         query_name: &str,
         repos: &LocalRepos,
+        starting_directory: Option<&Path>,
     ) -> TopiaryConfigResult<PathBuf> {
         use crate::source::Source;
 
@@ -220,7 +224,7 @@ impl Language {
 
         if let Some(query) = self.config_query(query_name) {
             let path = self
-                .resolve_query_path_with(&query.source, repos)
+                .resolve_query_path_with(&query.source, repos, starting_directory)
                 .map_err(TopiaryConfigError::Fetching)?;
             log::debug!(
                 "detected path for languages.{language_name}.{query_name}: {}",
@@ -277,13 +281,13 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
 
     #[cfg(not(target_arch = "wasm32"))]
     // Returns the library path, and ensures the parent directories exist.
-    pub fn grammar_file(&self) -> std::io::Result<PathBuf> {
+    pub fn grammar_file(&self, starting_directory: Option<&Path>) -> std::io::Result<PathBuf> {
         match &self.config.grammar.source {
             GrammarSource::Git { git, .. } => {
-                let cache_dir = git.cache_dir(None, &self.name);
-                std::fs::create_dir_all(&cache_dir)?;
+                let dir = git.cache_dir(starting_directory, &self.name);
+                std::fs::create_dir_all(&dir)?;
 
-                Ok(GitSource::grammar_file(&cache_dir))
+                Ok(GitSource::grammar_file(&dir))
             }
 
             GrammarSource::Path(path) => Ok(path.to_path_buf()),
@@ -296,15 +300,16 @@ formatting queries with '<language_name>.scm' filenames deprecated and will not 
     pub fn fetch_grammar(
         &self,
     ) -> Result<topiary_tree_sitter_facade::Language, TopiaryConfigFetchingError> {
-        self.fetch_grammar_with(&LocalRepos::new())
+        self.fetch_grammar_with(&LocalRepos::new(), None)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn fetch_grammar_with(
         &self,
         repos: &LocalRepos,
+        starting_directory: Option<&Path>,
     ) -> Result<topiary_tree_sitter_facade::Language, TopiaryConfigFetchingError> {
-        let grammar_file = self.grammar_file()?;
+        let grammar_file = self.grammar_file(starting_directory)?;
 
         // Ensure the compile exists
         if !grammar_file.is_file() {
@@ -691,6 +696,38 @@ mod tests {
             GitSource::grammar_file(cache_dir).file_stem().unwrap(),
             "grammar"
         );
+    }
+
+    #[test]
+    fn grammar_file_respects_starting_directory() {
+        let language = Language::new(
+            "markdown".to_string(),
+            LanguageConfiguration {
+                extensions: HashSet::new(),
+                indent: None,
+                grammar: Grammar {
+                    source: GrammarSource::Git {
+                        git: GitSource {
+                            git: "https://example.invalid/repo.git".to_string(),
+                            rev: "deadbeef".to_string(),
+                        },
+                        subdir: None,
+                    },
+                    symbol: None,
+                },
+                queries: None,
+            },
+        );
+
+        let base = tempfile::tempdir().unwrap();
+        let expected = base
+            .path()
+            .join("markdown")
+            .join("deadbeef")
+            .join("grammar")
+            .with_extension(std::env::consts::DLL_EXTENSION);
+
+        assert_eq!(language.grammar_file(Some(base.path())).unwrap(), expected);
     }
 
     #[test]

@@ -53,6 +53,7 @@ example: `bin/changelog.nu --no-cc-header --save --section Added`
 - [#1344](https://github.com/topiary/topiary/pull/1344) Automatic publishing of releases to crates.io
 - [#1351](https://github.com/topiary/topiary/pull/1351) Use file extension as language alias
 - [#1348](https://github.com/topiary/topiary/pull/1348) Added `topiary format --skip-language <LANGUAGE>` flag
+- [#1358](https://github.com/topiary/topiary/pull/1358) Expose setting cache directory
 - [#1348](https://github.com/topiary/topiary/pull/1348) Injection queries accept `@keep_whitespace` and `@multi_line_indent_all` on `@injection.content`
 
 ### Fixed
@@ -60,6 +61,8 @@ example: `bin/changelog.nu --no-cc-header --save --section Added`
 - [#1343](https://github.com/topiary/topiary/pull/1343) Add callout when failing to copy queries during fetch
 - [#1344](https://github.com/topiary/topiary/pull/1344) Automatic publishing of releases to crates.io
 - [#1355](https://github.com/topiary/topiary/pull/1355) Fix compilation issue when using `topiary-core` without its default features.
+- [#1359](https://github.com/topiary/topiary/pull/1359) Check all targets for `nix build .#debug-checks`
+- [#1360](https://github.com/topiary/topiary/pull/1360) Run nextest in debug mode
 
 ### Changed
 - [#1356](https://github.com/topiary/topiary/pull/1356) Run ci tests with debug profile and skip benchmarks
