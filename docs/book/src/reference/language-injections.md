@@ -54,7 +54,7 @@ Topiary will check for `#set! injection.language` first, and if absent, it will 
 
 ### Leaf directives
 
-Two of the standard [leaf directives](../capture-names/index.md) may also be
+[Leaf directives](../capture-names/index.md) may also be
 placed on `@injection.content`, where they apply to the injected content rather
 than to a host leaf:
 

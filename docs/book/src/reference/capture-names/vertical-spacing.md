@@ -426,10 +426,7 @@ has to [`@append_spaced_softline` / `@prepend_spaced_softline`](#append_spaced_s
 
 To be used on leaf nodes. The matched node will keep its trailing `\n` characters.
 
-It may also be placed on `@injection.content` in an injection query, where it
-preserves the injected content's trailing whitespace (the closing delimiter's
-line break and indentation); see
-[language injections](../language-injections.md#leaf-directives).
+Can also be used on `@injection.content`, see [language injections](../language-injections.md#leaf-directives) for details.
 
 ### Example
 
