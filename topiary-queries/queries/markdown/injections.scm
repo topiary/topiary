@@ -2,7 +2,7 @@
   (info_string
     (language) @injection.language
   )
-  (code_fence_content) @injection.content @keep_whitespace @multi_line_indent_all
+  (code_fence_content) @injection.content @injection.preserve_indent
   ; mdBook inline macro
   (#not-match? @injection.content "\\{\\{\\#include")
 )

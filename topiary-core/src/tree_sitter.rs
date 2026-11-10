@@ -16,7 +16,7 @@ use topiary_tree_sitter_facade::{
 use streaming_iterator::StreamingIterator;
 
 use crate::{
-    FormatterResult, LeafDirectives,
+    FormatterResult,
     atom_collection::{AtomCollection, QueryPredicates},
     error::{FormatterError, SpanAttachment, query_error_report},
 };
@@ -162,9 +162,10 @@ pub struct InjectionSpan<'a> {
     /// touching root language content.
     /// See [`crate::splice_formatted_injections`] for more details.
     pub byte_range: std::ops::Range<usize>,
-    /// Leaf directives captured on `@injection.content` (`@keep_whitespace`,
-    /// `@multi_line_indent_all`).
-    pub directives: LeafDirectives,
+    /// Set by the `@injection.preserve_indent` capture on `@injection.content`:
+    /// re-anchor the injected content to the host line's indentation and keep
+    /// its trailing whitespace.
+    pub preserve_indent: bool,
     /// Start position of the captured content node.
     pub position: Position,
 }
@@ -188,14 +189,35 @@ pub fn collect_injections<'a>(
 
     let mut cursor = QueryCursor::new();
     let mut spans = Vec::new();
+    // Warn at most once per unknown capture name, per document.
+    let mut warned_captures: HashSet<String> = HashSet::new();
 
     let mut matches = query.query.matches(&root, source, &mut cursor);
     #[allow(clippy::while_let_on_iterator)] // Not a normal iterator
     while let Some(query_match) = matches.next() {
-        let content_captures = query_match
-            .captures()
-            .filter(|c| c.name(&capture_names) == "injection.content")
-            .collect::<Vec<_>>();
+        let mut content_captures = Vec::new();
+        let mut language_capture = None;
+        let mut preserve_indent_nodes = HashSet::new();
+
+        for capture in query_match.captures() {
+            let name = capture.name(&capture_names);
+            match name.as_ref() {
+                "injection.content" => content_captures.push(capture),
+                "injection.language" => language_capture = Some(capture),
+                "injection.preserve_indent" => {
+                    preserve_indent_nodes.insert(capture.node().id());
+                }
+                // Captures prefixed with `_` are predicate helpers (e.g.
+                // `@_macro_name` used in `#eq?`), not injection directives, so
+                // they are not warned about. Warn at most once per name.
+                unknown
+                    if !unknown.starts_with('_') && warned_captures.insert(unknown.to_owned()) =>
+                {
+                    crate::warn!("@{unknown} is not a valid injection capture name; ignoring");
+                }
+                _ => {}
+            }
+        }
 
         if content_captures.is_empty() {
             crate::warn!(
@@ -218,9 +240,7 @@ pub fn collect_injections<'a>(
             })
             .map(|s| s.to_string())
             .or_else(|| {
-                query_match
-                    .captures()
-                    .find(|c| c.name(&capture_names) == "injection.language")
+                language_capture
                     .and_then(|c| c.node().utf8_text(source).ok())
                     .map(|s| s.to_string())
             });
@@ -248,14 +268,6 @@ pub fn collect_injections<'a>(
                 continue;
             }
 
-            let mut directives = LeafDirectives::default();
-            for capture in query_match
-                .captures()
-                .filter(|c| c.node().id() == node.id())
-            {
-                directives.apply_capture(&capture.name(&capture_names));
-            }
-
             spans.push(InjectionSpan {
                 content: input_content
                     .get(byte_range.clone())
@@ -263,7 +275,7 @@ pub fn collect_injections<'a>(
                 language: language_name.clone(),
                 node_id: node.id(),
                 byte_range,
-                directives,
+                preserve_indent: preserve_indent_nodes.contains(&node.id()),
                 position: node.start_position().into(),
             });
         }

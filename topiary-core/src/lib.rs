@@ -74,35 +74,6 @@ pub mod multi_line_indent {
 
 use multi_line_indent::MultiLineIndent;
 
-/// Render directives a query can set on a leaf, either via the formatting query
-/// or via the injection query's `@injection.content` capture.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct LeafDirectives {
-    /// indent every line, not just the first
-    pub multi_line_indent: MultiLineIndent,
-    /// keep trailing newline characters
-    pub keep_whitespace: bool,
-}
-
-impl LeafDirectives {
-    /// Matches and applies `capture_name` to a leaf directive, returns `true` if successful.
-    pub fn apply_capture(&mut self, capture_name: &str) -> bool {
-        match capture_name {
-            "multi_line_indent_all" => self.multi_line_indent = MultiLineIndent::MaintainOffset,
-            "keep_whitespace" => self.keep_whitespace = true,
-            _ => return false,
-        }
-        true
-    }
-
-    pub fn merge(&mut self, other: &Self) {
-        if other.multi_line_indent != MultiLineIndent::None {
-            self.multi_line_indent = other.multi_line_indent.clone();
-        }
-        self.keep_whitespace |= other.keep_whitespace;
-    }
-}
-
 /// An atom represents a small piece of the output. We turn Tree-sitter nodes
 /// into atoms, and we add white-space atoms where appropriate. The final list
 /// of atoms is rendered to the output.
@@ -131,7 +102,10 @@ pub enum Atom {
         original_position: Position,
         // marks the leaf to be printed on a single line, with no indentation
         single_line_no_indent: bool,
-        directives: LeafDirectives,
+        // If the leaf is multi-line, each line will be indented, not just the first.
+        multi_line_indent: MultiLineIndent,
+        // Don't trim trailing newline characters if set to true.
+        keep_whitespace: bool,
         capitalisation: Capitalisation,
     },
     /// Represents a literal string, such as a semicolon.
@@ -502,7 +476,11 @@ fn rewrite_injected_leaves(
             .trim_end_matches('\n')
             .to_owned();
 
-        if !atoms.rewrite_injected_leaf_content(span.node_id, formatted_inner, &span.directives)? {
+        if !atoms.rewrite_injected_leaf_content(
+            span.node_id,
+            formatted_inner,
+            span.preserve_indent,
+        )? {
             return Err(report!(FormatterError::Internal(format!(
                 "Could not find leaf for injected {} span",
                 span.language
@@ -545,7 +523,11 @@ fn splice_formatted_injections(
             continue;
         };
 
-        let range = anchor_to_line_indentation(input_content, cursor, &span);
+        let range = if span.preserve_indent {
+            anchor_to_line_indentation(input_content, cursor, &span)
+        } else {
+            span.byte_range.clone()
+        };
 
         atoms.push(Atom::Literal(input_content[cursor..range.start].to_owned()));
 
@@ -562,6 +544,16 @@ fn splice_formatted_injections(
             resolve,
         )?;
 
+        // `@injection.preserve_indent` re-anchors the injected content to the
+        // host line's indentation (`@multi_line_indent_all`) and keeps its
+        // trailing whitespace (`@keep_whitespace`). Without it the content is
+        // left flush against the closing delimiter.
+        let (multi_line_indent, keep_whitespace) = if span.preserve_indent {
+            (MultiLineIndent::MaintainOffset, true)
+        } else {
+            (MultiLineIndent::None, false)
+        };
+
         atoms.push(Atom::Leaf {
             content: String::from_utf8(formatted_inner).context_to()?,
             id: span.node_id,
@@ -570,7 +562,8 @@ fn splice_formatted_injections(
                 ..span.position
             },
             single_line_no_indent: false,
-            directives: span.directives,
+            multi_line_indent,
+            keep_whitespace,
             capitalisation: Capitalisation::Pass,
         });
 
@@ -581,7 +574,7 @@ fn splice_formatted_injections(
     pretty::render(&atoms, "")
 }
 
-/// Widen `span`'s byte range to its line's indentation, so `@multi_line_indent_all` sees the full column.
+/// Widen `span`'s byte range to its line's indentation, so `@injection.preserve_indent` sees the full column.
 fn anchor_to_line_indentation(
     input_content: &str,
     cursor: usize,
@@ -717,9 +710,9 @@ mod tests {
     use test_log::test;
 
     use crate::{
-        FormatterError, InjectionQuery, Language, LanguageResolver, LeafDirectives,
-        MultiLineIndent, Operation, SpanAttachment, TopiaryQuery, formatter, formatter_str, parse,
-        splice_formatted_injections, test_utils::pretty_assert_eq,
+        FormatterError, InjectionQuery, Language, LanguageResolver, Operation, SpanAttachment,
+        TopiaryQuery, formatter, formatter_str, parse, splice_formatted_injections,
+        test_utils::pretty_assert_eq,
     };
 
     fn language(name: &str, formatting_query: &str, injection_query: Option<&str>) -> Language {
@@ -844,6 +837,39 @@ mod tests {
     }
 
     #[test]
+    fn keep_whitespace_preserves_host_leaf_trailing_newline() {
+        // `@keep_whitespace` on a host leaf disables the renderer's default
+        // trailing-newline trim. `code_fence_content`'s node text ends in the
+        // line break that precedes the closing fence.
+        let input = "```json\n[1,2]\n```\n";
+        let run = |query: &str| {
+            let language = language("markdown", query, None);
+            let mut output = Vec::new();
+            formatter_str(
+                input,
+                &mut output,
+                &language,
+                Operation::Format {
+                    skip_idempotence: true,
+                    tolerate_parsing_errors: false,
+                    skip_stage: None,
+                },
+                None,
+            )
+            .unwrap();
+            String::from_utf8(output).unwrap()
+        };
+
+        // Default: the leaf's trailing newline is trimmed.
+        pretty_assert_eq("```json[1,2]```\n", &run("(code_fence_content) @leaf"));
+        // `@keep_whitespace` keeps it.
+        pretty_assert_eq(
+            "```json[1,2]\n```\n",
+            &run("(code_fence_content) @leaf @keep_whitespace"),
+        );
+    }
+
+    #[test]
     fn collect_injections_returns_content_span() {
         let input = r#"rule token = parse
   | "x" { let values=[1;2;3] in List.map (fun x->x+1) values }
@@ -891,7 +917,7 @@ mod tests {
             splice_formatted_injections(input, spans, json_injection_resolver(), false).unwrap()
         };
 
-        // `@keep_whitespace` keeps one trailing newline: the closing fence gets
+        // `@injection.preserve_indent` keeps one trailing newline: the closing fence gets
         // its own line regardless of input layout.
         pretty_assert_eq(
             &splice_fn("```json\n[true, false]```\n"),
@@ -915,20 +941,37 @@ mod tests {
     }
 
     #[test]
-    fn collect_injections_captures_leaf_directives() {
+    fn collect_injections_captures_preserve_indent() {
         let language = markdown_language();
         let input = "```json\n[true, false]\n```\n";
         let tree = parse(input, &language.grammar, false).unwrap();
         let spans = language.collect_injections(&tree, input);
 
         assert_eq!(spans.len(), 1);
-        assert_eq!(
-            spans[0].directives,
-            LeafDirectives {
-                multi_line_indent: MultiLineIndent::MaintainOffset,
-                keep_whitespace: true,
-            }
+        assert!(spans[0].preserve_indent);
+    }
+
+    #[test]
+    fn unknown_injection_capture_is_ignored() {
+        // A retired/unknown directive must neither fail the query nor activate
+        // `preserve_indent`; the content span is still collected.
+        let mut language = ocamllex_language();
+        language.injection_query = Some(
+            InjectionQuery::new(
+                &language.grammar,
+                r#"
+((ocaml) @injection.content @keep_whitespace
+ (#set! injection.language "ocaml"))
+"#,
+            )
+            .unwrap(),
         );
+        let input = "rule token = parse\n  | \"x\" { value }\n";
+        let tree = parse(input, &language.grammar, false).unwrap();
+        let spans = language.collect_injections(&tree, input);
+
+        assert_eq!(spans.len(), 1);
+        assert!(!spans[0].preserve_indent);
     }
 
     #[test]
@@ -1015,6 +1058,39 @@ mod tests {
             r#"rule token = parse
   | "x" { let values = [1; 2; 3] in List.map (fun x -> x + 1) values }"#,
             formatted.trim_end(),
+        );
+    }
+
+    #[test]
+    fn host_multi_line_indent_applies_to_injection_content() {
+        // `(ocaml) @injection.content` is also marked `@multi_line_indent_all`
+        // in the ocamllex formatting query. An injection that does not opt into
+        // `@injection.preserve_indent` must leave that host directive in place,
+        // so the injected action is indented to its host column.
+        let input = "rule token = parse\n\n  | \":\" {\n      match List.assoc_opt id keywords with\n      | Some kw -> kw\n      | _ -> NULLARY_PREDICATE id\n    }\n";
+        let language = ocamllex_language();
+        let inner_language: Arc<Language> = Arc::new(ocaml_language());
+        let mut output = Vec::new();
+
+        formatter_str(
+            input,
+            &mut output,
+            &language,
+            Operation::Format {
+                skip_idempotence: true,
+                tolerate_parsing_errors: false,
+                skip_stage: None,
+            },
+            Some(&|name| Ok((name == "ocaml").then_some(inner_language.clone()))),
+        )
+        .unwrap();
+
+        let formatted = String::from_utf8(output).unwrap();
+        assert!(
+            formatted.contains(
+                "\n      match List.assoc_opt id keywords with\n      | Some kw -> kw\n      | _ -> NULLARY_PREDICATE id\n    }"
+            ),
+            "injected OCaml action lost its host indentation:\n{formatted}"
         );
     }
 

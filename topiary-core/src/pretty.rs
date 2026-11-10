@@ -9,8 +9,8 @@ use std::fmt::Write;
 use rootcause::prelude::ResultExt;
 
 use crate::{
-    Atom, Capitalisation, FormatterError, FormatterResult, LeafDirectives, MultiLineIndent,
-    multi_line_indent, tree_sitter::Position,
+    Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent, multi_line_indent,
+    tree_sitter::Position,
 };
 
 /// Renders a slice of [`Atom`]s into formatted source code.
@@ -58,11 +58,8 @@ pub fn render(atoms: &[Atom], indent: &str) -> FormatterResult<String> {
                 content,
                 original_position,
                 single_line_no_indent,
-                directives:
-                    LeafDirectives {
-                        multi_line_indent,
-                        keep_whitespace,
-                    },
+                multi_line_indent,
+                keep_whitespace,
                 capitalisation,
                 ..
             } => {

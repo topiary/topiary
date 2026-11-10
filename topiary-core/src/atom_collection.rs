@@ -9,8 +9,8 @@ use rootcause::prelude::ResultExt;
 use topiary_tree_sitter_facade::Node;
 
 use crate::{
-    Atom, Capitalisation, FormatterError, FormatterResult, LeafDirectives, MultiLineIndent,
-    ScopeCondition, ScopeInformation, multi_line_indent,
+    Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent, ScopeCondition,
+    ScopeInformation, multi_line_indent,
     tree_sitter::{NodeExt, Position},
 };
 
@@ -31,7 +31,8 @@ struct LeafFlagsMut<'a> {
     content: &'a mut String,
     original_position: &'a mut Position,
     single_line_no_indent: &'a mut bool,
-    directives: &'a mut LeafDirectives,
+    multi_line_indent: &'a mut MultiLineIndent,
+    keep_whitespace: &'a mut bool,
 }
 
 /// Contains Topiary's internal representation parsed document.
@@ -126,31 +127,32 @@ impl AtomCollection {
     }
 
     /// Splice formatted inner-language text into the [`Atom::Leaf`] with
-    /// tree-sitter `id` `node_id`, merging `directives` onto the leaf's own.
+    /// tree-sitter `id` `node_id`. When `preserve_indent` is set, the host
+    /// leaf's indentation is re-anchored (see `@injection.preserve_indent`).
     /// Returns whether a matching leaf was found.
     pub fn rewrite_injected_leaf_content(
         &mut self,
         node_id: usize,
         mut new_content: String,
-        directives: &LeafDirectives,
+        preserve_indent: bool,
     ) -> FormatterResult<bool> {
         self.mutate_leaf_flags(node_id, |flags| {
             let mut content = mem::take(&mut new_content);
-            flags.directives.merge(directives);
-            // `@multi_line_indent_all` on the injected content must re-anchor the
-            // inner formatter's column-zero output to the host indentation. The
-            // renderer's `MaintainOffset` normally derives that from the current
-            // output column, but the host atom stream routinely resets that
-            // column to zero (ex: `@append_hardline` after a fenced delimiter),
-            // which would drop the indentation entirely.
-            // Instead, capture the original host indentation of the leaf and apply it directly,
-            // then mark the content as already-indented.
-            if directives.multi_line_indent == MultiLineIndent::MaintainOffset {
+            // `@injection.preserve_indent` re-anchors the inner formatter's
+            // column-zero output to the host indentation. The renderer's
+            // `MaintainOffset` normally derives that from the current output
+            // column, but the host atom stream routinely resets that column to
+            // zero (ex: `@append_hardline` after a fenced delimiter), which
+            // would drop the indentation entirely. Instead, capture the original
+            // host indentation of the leaf and apply it directly, then mark the
+            // content as already-indented. When absent, the host leaf's own
+            // directives are left untouched.
+            if preserve_indent {
                 let indent = leading_whitespace(flags.content).to_owned();
                 if !indent.is_empty() {
                     content = indent_each_line(&content, &indent);
                 }
-                flags.directives.multi_line_indent = MultiLineIndent::None;
+                *flags.multi_line_indent = MultiLineIndent::None;
             }
             *flags.content = content;
             // Injected formatters emit column-zero text; render from column 1.
@@ -173,7 +175,8 @@ impl AtomCollection {
                 id,
                 original_position,
                 single_line_no_indent,
-                directives,
+                multi_line_indent,
+                keep_whitespace,
                 ..
             } = atom
                 && *id == node_id
@@ -182,7 +185,8 @@ impl AtomCollection {
                     content,
                     original_position,
                     single_line_no_indent,
-                    directives,
+                    multi_line_indent,
+                    keep_whitespace,
                 })?;
                 found = true;
             }
@@ -541,7 +545,7 @@ impl AtomCollection {
                             ))
                         })?
                         .to_owned();
-                    flags.directives.multi_line_indent = MultiLineIndent::EnforceIndentation(
+                    *flags.multi_line_indent = MultiLineIndent::EnforceIndentation(
                         multi_line_indent::EnforceIndentation {
                             start: start.clone(),
                             end: end.clone(),
@@ -556,9 +560,15 @@ impl AtomCollection {
                 })?;
             }
             // Leaf directives: indent all lines, or disable trailing trim
-            directive if LeafDirectives::default().apply_capture(directive) => {
+            "multi_line_indent_all" => {
                 self.mutate_leaf_flags(node.id(), |flags| {
-                    flags.directives.apply_capture(directive);
+                    *flags.multi_line_indent = MultiLineIndent::MaintainOffset;
+                    Ok(())
+                })?;
+            }
+            "keep_whitespace" => {
+                self.mutate_leaf_flags(node.id(), |flags| {
+                    *flags.keep_whitespace = true;
                     Ok(())
                 })?;
             }
@@ -679,7 +689,8 @@ impl AtomCollection {
                 id,
                 original_position: node.start_position().into(),
                 single_line_no_indent: false,
-                directives: LeafDirectives::default(),
+                multi_line_indent: MultiLineIndent::None,
+                keep_whitespace: false,
                 capitalisation: Capitalisation::Pass,
             });
             // Mark all sub-nodes as having this node as a "leaf parent"
