@@ -29,6 +29,7 @@ const TOML_EXPECTED: &str = r#"test = 123
 // to fetch and build it, thus creating an empty .so file while g++ is running. If another instance
 // of topiary starts at this moment, it will mistake the empty .so file for an already built grammar,
 // and try to run with it, resulting in an error. See https://github.com/topiary/topiary/issues/767
+// NOTE(mkatychev): verify this is fixed with tree-sitter loader 0.27
 static INIT: Once = Once::new();
 pub fn initialize() {
     INIT.call_once(|| {

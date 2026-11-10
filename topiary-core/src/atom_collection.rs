@@ -10,7 +10,8 @@ use topiary_tree_sitter_facade::Node;
 
 use crate::{
     Atom, Capitalisation, FormatterError, FormatterResult, MultiLineIndent, ScopeCondition,
-    ScopeInformation, multi_line_indent, tree_sitter::NodeExt,
+    ScopeInformation, multi_line_indent,
+    tree_sitter::{NodeExt, Position},
 };
 
 /// A struct that holds sets of node IDs that have line breaks before or after them.
@@ -25,11 +26,10 @@ struct NodesWithLinebreaks {
     after: HashSet<usize>,
 }
 
-/// Mutable references to the three boolean "flag" fields of an [`Atom::Leaf`],
-/// exposed together so leaf-flag directives can flip a single flag without
-/// repeating the leaf-id search loop.
+/// Mutable fields of an [`Atom::Leaf`], handed to a leaf-mutating closure.
 struct LeafFlagsMut<'a> {
     content: &'a mut String,
+    original_position: &'a mut Position,
     single_line_no_indent: &'a mut bool,
     multi_line_indent: &'a mut MultiLineIndent,
     keep_whitespace: &'a mut bool,
@@ -126,45 +126,54 @@ impl AtomCollection {
         Ok(atoms)
     }
 
-    /// Replace the `content` of the [`Atom::Leaf`] whose tree-sitter `id`
-    /// matches `node_id`. Returns whether a matching leaf was found.
-    ///
-    /// Used by the injection flow to splice formatted inner-language text
-    /// into a host leaf atom after the host's atom collection has been
-    /// built but before rendering.
-    pub fn rewrite_injected_leaf_content(&mut self, node_id: usize, new_content: String) -> bool {
-        for atom in &mut self.atoms {
-            if let Atom::Leaf {
-                id,
-                content,
-                original_position,
-                ..
-            } = atom
-                && *id == node_id
-            {
-                *content = new_content;
-                // Injected formatters return column-zero text; let the host
-                // leaf indentation account for the current render column.
-                original_position.column = 1;
-                return true;
+    /// Splice formatted inner-language text into the [`Atom::Leaf`] with
+    /// tree-sitter `id` `node_id`. When `preserve_indent` is set, the host
+    /// leaf's indentation is re-anchored (see `@injection.preserve_indent`).
+    /// Returns whether a matching leaf was found.
+    pub fn rewrite_injected_leaf_content(
+        &mut self,
+        node_id: usize,
+        mut new_content: String,
+        preserve_indent: bool,
+    ) -> FormatterResult<bool> {
+        self.mutate_leaf_flags(node_id, |flags| {
+            let mut content = mem::take(&mut new_content);
+            // `@injection.preserve_indent` re-anchors the inner formatter's
+            // column-zero output to the host indentation. The renderer's
+            // `MaintainOffset` normally derives that from the current output
+            // column, but the host atom stream routinely resets that column to
+            // zero (ex: `@append_hardline` after a fenced delimiter), which
+            // would drop the indentation entirely. Instead, capture the original
+            // host indentation of the leaf and apply it directly, then mark the
+            // content as already-indented. When absent, the host leaf's own
+            // directives are left untouched.
+            if preserve_indent {
+                let indent = leading_whitespace(flags.content).to_owned();
+                if !indent.is_empty() {
+                    content = indent_each_line(&content, &indent);
+                }
+                *flags.multi_line_indent = MultiLineIndent::None;
             }
-        }
-        false
+            *flags.content = content;
+            // Injected formatters emit column-zero text; render from column 1.
+            flags.original_position.column = 1;
+            Ok(())
+        })
     }
 
-    /// Apply `f` to the three boolean flags of every [`Atom::Leaf`] in
-    /// `self.atoms` whose tree-sitter `id` equals `node_id`. Used by the
-    /// leaf-flag directives (`@single_line_no_indent`,
-    /// `@multi_line_indent_all`, `@keep_whitespace`).
+    /// Apply `f` to every [`Atom::Leaf`] whose tree-sitter `id` equals `node_id`.
+    /// Returns whether a matching leaf was found.
     fn mutate_leaf_flags(
         &mut self,
         node_id: usize,
         mut f: impl FnMut(LeafFlagsMut<'_>) -> FormatterResult<()>,
-    ) -> FormatterResult<()> {
+    ) -> FormatterResult<bool> {
+        let mut found = false;
         for atom in &mut self.atoms {
             if let Atom::Leaf {
                 content,
                 id,
+                original_position,
                 single_line_no_indent,
                 multi_line_indent,
                 keep_whitespace,
@@ -174,13 +183,15 @@ impl AtomCollection {
             {
                 f(LeafFlagsMut {
                     content,
+                    original_position,
                     single_line_no_indent,
                     multi_line_indent,
                     keep_whitespace,
                 })?;
+                found = true;
             }
         }
-        Ok(())
+        Ok(found)
     }
     // wrap inside a conditional atom if #single/multi_line_scope_only! is set
     fn wrap(&mut self, atom: Atom, predicates: &QueryPredicates) -> Atom {
@@ -548,14 +559,13 @@ impl AtomCollection {
                 Ok(())
                 })?;
             }
-            // Mark a leaf to have all its lines be indented
+            // Leaf directives: indent all lines, or disable trailing trim
             "multi_line_indent_all" => {
                 self.mutate_leaf_flags(node.id(), |flags| {
                     *flags.multi_line_indent = MultiLineIndent::MaintainOffset;
                     Ok(())
                 })?;
             }
-            // Mark a leaf to disable trimming
             "keep_whitespace" => {
                 self.mutate_leaf_flags(node.id(), |flags| {
                     *flags.keep_whitespace = true;
@@ -1209,6 +1219,30 @@ impl AtomCollection {
         }
         node
     }
+}
+
+// get leading whitespace for a string
+fn leading_whitespace(content: &str) -> &str {
+    let end = content
+        .find(|c| c != ' ' && c != '\t')
+        .unwrap_or(content.len());
+    &content[..end]
+}
+
+// Prefix every non-empty line of `content` with `indent`, leaving empty lines
+// untouched.
+fn indent_each_line(content: &str, indent: &str) -> String {
+    let mut result = String::with_capacity(content.len() + indent.len());
+    for (index, line) in content.split('\n').enumerate() {
+        if index > 0 {
+            result.push('\n');
+        }
+        if !line.is_empty() {
+            result.push_str(indent);
+        }
+        result.push_str(line);
+    }
+    result
 }
 
 #[derive(Clone, Debug, Default)]

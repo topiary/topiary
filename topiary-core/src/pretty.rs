@@ -141,7 +141,7 @@ fn add_spaces_after_newlines(s: &str, n: i32) -> String {
     while let Some(c) = chars.next() {
         result.push(c);
 
-        if c == '\n' && !matches!(chars.peek(), Some('\n') | None) {
+        if c == '\n' && !matches!(chars.peek(), Some('\n')) {
             for _ in 0..n {
                 result.push(' ');
             }
