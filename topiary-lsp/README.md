@@ -1,6 +1,6 @@
 # topiary-lsp
 
-Language Server Protocol (LSP) frontend for [Topiary](https://github.com/tweag/topiary), the universal code formatter.
+Language Server Protocol (LSP) frontend for [Topiary](https://github.com/topiary/topiary), the universal code formatter.
 
 ## Installation
 
@@ -17,9 +17,9 @@ topiary lsp
 
 ## Editor Configuration
 
-### Helix
+### Helix/Mitos
 
-To use `topiary-lsp` with [Helix](https://helix-editor.com/), add it to your `languages.toml`.
+To use `topiary-lsp` with [Helix](https://helix-editor.com/) or [Mitos](https://mitos.computer/), add it to your `languages.toml`.
 
 For example, to configure it as the formatter for OCaml:
 
