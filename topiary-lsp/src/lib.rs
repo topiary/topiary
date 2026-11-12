@@ -16,9 +16,8 @@ use tower_lsp_server::{
     jsonrpc::Result,
     lsp_types::{
         DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-        DocumentFormattingParams, InitializeParams, InitializeResult, MessageType, OneOf,
-        Position, Range, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind,
-        TextEdit,
+        DocumentFormattingParams, InitializeParams, InitializeResult, MessageType, OneOf, Position,
+        Range, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, TextEdit,
     },
 };
 
@@ -170,7 +169,10 @@ impl LanguageServer for TopiaryLsp {
     async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
         let uri = params.text_document.uri;
 
-        let Some(source) = self.documents.get(&uri.to_string()).map(|d| d.value().clone())
+        let Some(source) = self
+            .documents
+            .get(&uri.to_string())
+            .map(|d| d.value().clone())
         else {
             return Ok(None);
         };

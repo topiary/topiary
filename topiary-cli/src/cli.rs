@@ -201,7 +201,7 @@ pub enum Commands {
     /// Generate shell completion script
     #[command(display_order = 100)]
     Completion {
-        /// Shell (based on `$SHELL` environment variable, if omitted)
+        /// Shell (omit to detect from the environment)
         shell: Option<Shell>,
     },
 
