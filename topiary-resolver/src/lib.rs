@@ -236,13 +236,6 @@ pub fn injection_query_for_language(
     .ok()
 }
 
-pub async fn resolve_language_by_name<T: AsRef<str>>(
-    config: &Configuration,
-    name: T,
-) -> ResolverResult<Language> {
-    resolve_language_by_name_sync(config, name.as_ref())
-}
-
 pub fn resolve_language_by_name_sync<T: AsRef<str> + fmt::Display>(
     config: &Configuration,
     name: T,
