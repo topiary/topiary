@@ -1,6 +1,6 @@
 use std::{
     ffi::OsString,
-    fmt::{self, Display},
+    fmt,
     fs::File,
     io::{self, Read, Seek, Write},
     path::{Path, PathBuf},
@@ -24,55 +24,7 @@ use crate::cli::{AtLeastOneInput, ExactlyOneInput, FromStdin};
 use crate::config::Configuration;
 use crate::error::{CLIResult, ResultPreformat, TopiaryError};
 
-#[derive(Debug, Clone, Hash)]
-pub enum QuerySource {
-    Path(PathBuf),
-    BuiltIn(String),
-}
-
-impl From<PathBuf> for QuerySource {
-    fn from(path: PathBuf) -> Self {
-        QuerySource::Path(path)
-    }
-}
-
-impl From<&PathBuf> for QuerySource {
-    fn from(path: &PathBuf) -> Self {
-        QuerySource::Path(path.clone())
-    }
-}
-
-impl From<&str> for QuerySource {
-    fn from(string: &str) -> Self {
-        QuerySource::BuiltIn(String::from(string))
-    }
-}
-
-impl Display for QuerySource {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            QuerySource::Path(p) => write!(f, "{}", p.display()),
-            QuerySource::BuiltIn(_) => write!(f, "built-in query"),
-        }
-    }
-}
-
-impl QuerySource {
-    pub(crate) fn filepath(&self) -> Option<&Path> {
-        match self {
-            QuerySource::Path(p) => Some(p.as_path()),
-            QuerySource::BuiltIn(_) => None,
-        }
-    }
-
-    pub(crate) fn get_content_sync(&self) -> CLIResult<String> {
-        let contents = match self {
-            Self::Path(query) => std::fs::read_to_string(query)?,
-            Self::BuiltIn(contents) => contents.to_owned(),
-        };
-        Ok(contents)
-    }
-}
+pub use topiary_resolver::QuerySource;
 
 /// Unified interface for input sources. We either have input from:
 /// * Standard input, in which case we need to specify the language and, optionally, query override

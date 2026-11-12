@@ -40,6 +40,7 @@ See the respective chapter for usage documentation on each subcommand:
 - [`prefetch`](prefetch.md)
 - [`coverage`](coverage.md)
 - [`check-grammar`](check-grammar.md)
+- [`lsp`](lsp.md) (only in builds with the `lsp` feature)
 
 ## Example
 
