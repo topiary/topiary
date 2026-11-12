@@ -4,10 +4,10 @@ Language Server Protocol (LSP) frontend for [Topiary](https://github.com/topiary
 
 ## Installation
 
-`topiary-lsp` is integrated into the main `topiary` CLI.
+`topiary-lsp` is integrated into the main `topiary` CLI, but disabled by default.
 
 ```sh
-cargo install topiary-cli
+cargo install topiary-cli --features lsp
 ```
 
 You can then run the LSP server using:
