@@ -14,10 +14,11 @@ use topiary_core::{FormatterError, FormatterResult, Language, Operation, formatt
 use tower_lsp_server::{
     Client, LanguageServer, LspService, Server,
     jsonrpc::Result,
-    lsp_types::{
+    ls_types::{
         DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-        DocumentFormattingParams, InitializeParams, InitializeResult, MessageType, OneOf, Position,
-        Range, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, TextEdit,
+        DocumentFormattingParams, InitializeParams, InitializeResult, InitializedParams,
+        MessageType, OneOf, Position, Range, ServerCapabilities, TextDocumentSyncCapability,
+        TextDocumentSyncKind, TextEdit,
     },
 };
 
@@ -121,7 +122,6 @@ pub struct TopiaryLsp {
     documents: DashMap<String, String>,
 }
 
-#[tower_lsp_server::async_trait]
 impl LanguageServer for TopiaryLsp {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         info!("Initializing topiary-lsp");
@@ -133,11 +133,11 @@ impl LanguageServer for TopiaryLsp {
                 document_formatting_provider: Some(OneOf::Left(true)),
                 ..ServerCapabilities::default()
             },
-            server_info: None,
+            ..InitializeResult::default()
         })
     }
 
-    async fn initialized(&self, _: tower_lsp_server::lsp_types::InitializedParams) {
+    async fn initialized(&self, _: InitializedParams) {
         self.client
             .log_message(MessageType::INFO, "topiary-lsp initialized")
             .await;
@@ -177,7 +177,8 @@ impl LanguageServer for TopiaryLsp {
             return Ok(None);
         };
 
-        let Ok(path) = uri.to_file_path() else {
+        // Owned, as it moves into the blocking task below.
+        let Some(path) = uri.to_file_path().map(|path| path.into_owned()) else {
             return Ok(None);
         };
 
