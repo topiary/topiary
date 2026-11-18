@@ -115,4 +115,21 @@ format with `vim.lsp.buf.format()`. If another attached server also
 provides formatting, Neovim will ask which one to use; pass
 `{ name = "topiary" }` to `vim.lsp.buf.format` to pick Topiary directly.
 
+### Emacs (Eglot)
+
+To use Topiary for TOML files, add this to your Emacs init file. Make
+sure Emacs can find `topiary` on its `exec-path`.
+
+```emacs-lisp
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs
+               '((conf-toml-mode toml-ts-mode) . ("topiary" "lsp"))))
+```
+
+Open a `.toml` file, run `M-x eglot` to start Topiary, and use
+`M-x eglot-format-buffer` to format the whole buffer. This entry makes
+Topiary the default Eglot server for those two modes. See the
+[Eglot manual][eglot] for more on configuring server associations.
+
+[eglot]: https://www.gnu.org/software/emacs/manual/html_node/eglot/Setting-Up-LSP-Servers.html
 [lsp]: https://microsoft.github.io/language-server-protocol/
