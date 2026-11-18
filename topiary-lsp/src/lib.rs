@@ -17,7 +17,7 @@ use tower_lsp_server::{
         DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
         DocumentFormattingParams, InitializeParams, InitializeResult, InitializedParams,
         MessageType, OneOf, Position, Range, ServerCapabilities, TextDocumentSyncCapability,
-        TextDocumentSyncKind, TextEdit,
+        TextDocumentSyncKind, TextEdit, Uri,
     },
 };
 
@@ -121,7 +121,7 @@ pub struct TopiaryLsp {
     // Poisoning would indicate an earlier panic while holding this lock.
     // That is unexpected because the lock only guards map operations and
     // cloning a shared text snapshot. Formatting runs after it is released.
-    documents: Mutex<HashMap<String, Arc<str>>>,
+    documents: Mutex<HashMap<Uri, Arc<str>>>,
 }
 
 impl LanguageServer for TopiaryLsp {
@@ -150,7 +150,7 @@ impl LanguageServer for TopiaryLsp {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        let uri = params.text_document.uri.to_string();
+        let uri = params.text_document.uri;
         let text = Arc::from(params.text_document.text);
         self.documents
             .lock()
@@ -161,7 +161,7 @@ impl LanguageServer for TopiaryLsp {
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
         // With full sync, the last change holds the whole document.
         if let Some(change) = params.content_changes.pop() {
-            let uri = params.text_document.uri.to_string();
+            let uri = params.text_document.uri;
             let text = Arc::from(change.text);
             self.documents
                 .lock()
@@ -171,20 +171,18 @@ impl LanguageServer for TopiaryLsp {
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
-        let uri = params.text_document.uri.to_string();
         self.documents
             .lock()
             .expect("document map mutex poisoned")
-            .remove(&uri);
+            .remove(&params.text_document.uri);
     }
 
     async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
         let uri = params.text_document.uri;
 
-        let key = uri.to_string();
         let source = {
             let documents = self.documents.lock().expect("document map mutex poisoned");
-            documents.get(&key).cloned()
+            documents.get(&uri).cloned()
         };
         let Some(source) = source else {
             return Ok(None);
