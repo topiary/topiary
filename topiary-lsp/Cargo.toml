@@ -15,7 +15,6 @@ license.workspace = true
 [dependencies]
 log.workspace = true
 tokio = { workspace = true, features = ["full"] }
-dashmap.workspace = true
 tower-lsp-server.workspace = true
 rootcause.workspace = true
 topiary-core.workspace = true

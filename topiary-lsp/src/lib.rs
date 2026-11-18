@@ -3,7 +3,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use dashmap::DashMap;
 use log::info;
 use rootcause::{
     Report,
@@ -119,7 +118,10 @@ impl Languages {
 pub struct TopiaryLsp {
     client: Client,
     languages: Arc<Languages>,
-    documents: DashMap<String, String>,
+    // Poisoning would indicate an earlier panic while holding this lock.
+    // That is unexpected because the lock only guards map operations and
+    // cloning a shared text snapshot. Formatting runs after it is released.
+    documents: Mutex<HashMap<String, Arc<str>>>,
 }
 
 impl LanguageServer for TopiaryLsp {
@@ -148,32 +150,43 @@ impl LanguageServer for TopiaryLsp {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.documents.insert(
-            params.text_document.uri.to_string(),
-            params.text_document.text,
-        );
+        let uri = params.text_document.uri.to_string();
+        let text = Arc::from(params.text_document.text);
+        self.documents
+            .lock()
+            .expect("document map mutex poisoned")
+            .insert(uri, text);
     }
 
     async fn did_change(&self, mut params: DidChangeTextDocumentParams) {
         // With full sync, the last change holds the whole document.
         if let Some(change) = params.content_changes.pop() {
+            let uri = params.text_document.uri.to_string();
+            let text = Arc::from(change.text);
             self.documents
-                .insert(params.text_document.uri.to_string(), change.text);
+                .lock()
+                .expect("document map mutex poisoned")
+                .insert(uri, text);
         }
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
-        self.documents.remove(&params.text_document.uri.to_string());
+        let uri = params.text_document.uri.to_string();
+        self.documents
+            .lock()
+            .expect("document map mutex poisoned")
+            .remove(&uri);
     }
 
     async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
         let uri = params.text_document.uri;
 
-        let Some(source) = self
-            .documents
-            .get(&uri.to_string())
-            .map(|d| d.value().clone())
-        else {
+        let key = uri.to_string();
+        let source = {
+            let documents = self.documents.lock().expect("document map mutex poisoned");
+            documents.get(&key).cloned()
+        };
+        let Some(source) = source else {
             return Ok(None);
         };
 
@@ -266,7 +279,7 @@ pub async fn run(
     let (service, socket) = LspService::new(|client| TopiaryLsp {
         client,
         languages,
-        documents: DashMap::new(),
+        documents: Mutex::default(),
     });
 
     Server::new(stdin, stdout, socket).serve(service).await;
