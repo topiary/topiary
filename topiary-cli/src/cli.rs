@@ -205,6 +205,11 @@ pub enum Commands {
         shell: Option<Shell>,
     },
 
+    /// Run Topiary Language Server
+    #[cfg(feature = "lsp")]
+    #[command(display_order = 7)]
+    Lsp,
+
     /// Check if an input parses to the respective Tree-sitter grammar
     #[command(display_order = 6)]
     CheckGrammar {

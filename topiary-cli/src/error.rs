@@ -26,7 +26,6 @@ pub type CLIResult<T, E = SendSync> = result::Result<T, Report<Dynamic, Mutable,
 pub enum TopiaryError {
     Io,
     Config,
-    UnsupportedLanguage(String),
     /// A host language was excluded via `--skip-language`
     SkippedHostLanguage(String),
     /// Formatting check failed: input is not already formatted
@@ -41,9 +40,6 @@ impl fmt::Display for TopiaryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Config => write!(f, "Configuration error"),
-            Self::UnsupportedLanguage(name) => {
-                write!(f, "The specified language is unsupported: {name}")
-            }
             Self::SkippedHostLanguage(name) => {
                 write!(
                     f,

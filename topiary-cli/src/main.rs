@@ -294,6 +294,15 @@ async fn run() -> CLIResult<()> {
             // The CLI parser fails if no shell is provided/detected, so it's safe to unwrap here
             cli::completion(shell.unwrap());
         }
+
+        #[cfg(feature = "lsp")]
+        Commands::Lsp => {
+            topiary_lsp::run(
+                config.as_ref().as_ref().clone(),
+                args.global.skip_language.clone(),
+            )
+            .await?;
+        }
     }
 
     Ok(())

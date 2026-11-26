@@ -54,6 +54,7 @@ example: `bin/changelog.nu --no-cc-header --save --section Added`
 - [#1351](https://github.com/topiary/topiary/pull/1351) Use file extension as language alias
 - [#1348](https://github.com/topiary/topiary/pull/1348) Added `topiary format --skip-language <LANGUAGE>` flag
 - [#1358](https://github.com/topiary/topiary/pull/1358) Expose setting cache directory
+- [#1293](https://github.com/topiary/topiary/pull/1293) Language server (`topiary-lsp` crate), available as `topiary lsp` when `topiary-cli` is built with the `lsp` feature. Supports document formatting, including injected languages, and respects `--skip-language`.
 
 ### Fixed
 - [#1348](https://github.com/topiary/topiary/pull/1348) injections now preserve trailing newlines
@@ -65,6 +66,7 @@ example: `bin/changelog.nu --no-cc-header --save --section Added`
 
 ### Changed
 - [#1356](https://github.com/topiary/topiary/pull/1356) Run ci tests with debug profile and skip benchmarks
+- [#1293](https://github.com/topiary/topiary/pull/1293) Extracted language and query resolution from `topiary-cli` into the new `topiary-resolver` crate, shared by the CLI and the language server.
 
 ## v0.8.0 - Irresistible Ironwood - 2026-10-01
 
