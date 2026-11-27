@@ -36,7 +36,7 @@ let rec
 
         This can be generated with:
         ```
-        nix run nixpkgs@nix-prefetch-git -- <URL> <REV>
+        nix-shell -p nix-prefetch-git --run "nix-prefetch-git <URL> <REV>"
         ```
       "%,
   },
